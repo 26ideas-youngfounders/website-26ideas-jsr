@@ -42,9 +42,9 @@ import {
  * @returns {JSX.Element} The complete home page layout
  */
 const Index = () => {
-  // Initialize autoplay plugin for the mentor carousel
+  // Initialize autoplay plugin for the mentor carousel with 30s full cycle
   const autoplayPlugin = React.useRef(
-    Autoplay({ delay: 3000, stopOnInteraction: true })
+    Autoplay({ delay: 4285, stopOnInteraction: true }) // ~30s for 7 cards
   );
 
   /**
@@ -257,17 +257,17 @@ const Index = () => {
         </section>
 
         {/* Mentors Section - Auto-scrolling carousel of mentor cards */}
-        <section className="bg-white py-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {/* Section heading - centered and prominent with consistent 60px spacing */}
+        <section className="bg-white py-15">
+          <div className="max-w-[1200px] mx-auto">
+            {/* Section heading - centered with 60px spacing below */}
             <div className="text-center mb-15">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
                 Mentors at Young Founders
               </h2>
             </div>
 
-            {/* Mentor carousel with auto-scroll functionality and responsive sizing */}
-            <div className="relative w-full overflow-hidden">
+            {/* Mentor carousel container with 32px horizontal padding */}
+            <div className="relative px-8">
               <Carousel
                 plugins={[autoplayPlugin.current]}
                 className="w-full"
@@ -279,21 +279,21 @@ const Index = () => {
                   containScroll: "trimSnaps",
                 }}
               >
-                <CarouselContent className="-ml-1 sm:-ml-2 md:-ml-4">
+                <CarouselContent className="-ml-6">
                   {mentors.map((mentor) => (
                     <CarouselItem 
                       key={mentor.id} 
-                      className="pl-1 sm:pl-2 md:pl-4 basis-full sm:basis-1/2 lg:basis-1/4 min-w-0"
+                      className="pl-6 basis-full md:basis-1/2 xl:basis-1/4"
                     >
-                      {/* Individual mentor card with proper aspect ratio and responsive sizing */}
-                      <div className="group cursor-pointer transform transition-all duration-300 hover:scale-105 w-full">
-                        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-shadow duration-300 w-full">
-                          {/* Mentor profile image with proper aspect ratio */}
-                          <div className="aspect-square overflow-hidden w-full">
+                      {/* Individual mentor card - clean design with no shadows */}
+                      <div className="w-full">
+                        <div className="bg-white overflow-hidden w-full">
+                          {/* Mentor profile image maintaining aspect ratio */}
+                          <div className="w-full">
                             <img
                               src={mentor.image}
                               alt={mentor.alt}
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                              className="w-full h-auto object-contain"
                               loading="lazy"
                             />
                           </div>
@@ -303,9 +303,9 @@ const Index = () => {
                   ))}
                 </CarouselContent>
                 
-                {/* Navigation arrows positioned responsively */}
-                <CarouselPrevious className="absolute -left-4 sm:-left-8 md:-left-12 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white border border-gray-200 text-gray-600 hover:text-gray-900 shadow-lg" />
-                <CarouselNext className="absolute -right-4 sm:-right-8 md:-right-12 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white border border-gray-200 text-gray-600 hover:text-gray-900 shadow-lg" />
+                {/* Navigation arrows with exact specifications */}
+                <CarouselPrevious className="absolute -left-6 top-1/2 -translate-y-1/2 w-8 h-8 p-3 bg-white/80 hover:bg-white text-gray-800 border-0 hover:shadow-md transition-shadow duration-200" />
+                <CarouselNext className="absolute -right-6 top-1/2 -translate-y-1/2 w-8 h-8 p-3 bg-white/80 hover:bg-white text-gray-800 border-0 hover:shadow-md transition-shadow duration-200" />
               </Carousel>
             </div>
           </div>

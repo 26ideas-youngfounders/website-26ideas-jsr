@@ -99,7 +99,11 @@ const Navigation = () => {
                         {item.dropdownItems.map((dropdownItem) => (
                           <Link
                             key={dropdownItem}
-                            to={dropdownItem === "Webinars" ? "/webinars" : "#"}
+                            to={
+                              dropdownItem === "Webinars" ? "/webinars" :
+                              dropdownItem === "Young Founders Floor" ? "/events/youngfoundersfloor" :
+                              "#"
+                            }
                             className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150 cursor-pointer"
                             onClick={(e) => {
                               console.log("Link clicked:", dropdownItem);

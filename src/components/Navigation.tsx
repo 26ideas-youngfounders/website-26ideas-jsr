@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 
 const Navigation = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const navItems = [
@@ -19,7 +20,16 @@ const Navigation = () => {
       ]
     },
     { label: "Programmes", hasDropdown: false },
-    { label: "Events", hasDropdown: true },
+    { 
+      label: "Events", 
+      hasDropdown: true,
+      dropdownItems: [
+        "Young Founders Floor",
+        "Annual Retreat",
+        "Webinars",
+        "Women Founders Meetup"
+      ]
+    },
     { label: "Insights", hasDropdown: true },
   ];
 
@@ -27,7 +37,7 @@ const Navigation = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
+        setActiveDropdown(null);
       }
     };
 
@@ -55,28 +65,28 @@ const Navigation = () => {
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-8">
               {navItems.map((item, index) => (
-                <div key={item.label} className="relative group" ref={index === 0 ? dropdownRef : null}>
+                <div key={item.label} className="relative group" ref={item.hasDropdown ? dropdownRef : null}>
                   <button 
                     className="flex items-center text-nav-text hover:text-nav-text-hover transition-colors duration-200 text-sm font-medium py-2"
                     onClick={() => {
-                      if (item.label === "Our Community") {
-                        setIsDropdownOpen(!isDropdownOpen);
+                      if (item.hasDropdown) {
+                        setActiveDropdown(activeDropdown === item.label ? null : item.label);
                       }
                     }}
                   >
                     {item.label}
                     {item.hasDropdown && (
                       <ChevronDown className={`ml-1 h-4 w-4 transition-transform duration-200 ${
-                        item.label === "Our Community" && isDropdownOpen ? 'rotate-180' : ''
+                        activeDropdown === item.label ? 'rotate-180' : ''
                       }`} />
                     )}
                   </button>
                   
-                  {/* Dropdown Menu for Our Community */}
-                  {item.label === "Our Community" && isDropdownOpen && (
+                  {/* Dropdown Menu */}
+                  {item.hasDropdown && activeDropdown === item.label && item.dropdownItems && (
                     <div className="absolute top-full left-0 mt-1 w-56 bg-dropdown-bg border border-dropdown-border rounded-lg shadow-lg z-50">
                       <div className="py-2">
-                        {item.dropdownItems?.map((dropdownItem) => (
+                        {item.dropdownItems.map((dropdownItem) => (
                           <a
                             key={dropdownItem}
                             href="#"

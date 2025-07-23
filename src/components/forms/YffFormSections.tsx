@@ -1,10 +1,11 @@
+
 /**
  * @fileoverview YFF Form Section Components
  * 
  * Extracted form sections for better maintainability and reusability.
  * Each section handles specific parts of the YFF application form.
  * 
- * @version 1.1.0 - Simplified to avoid circular dependencies
+ * @version 1.1.1 - Simplified types to avoid circular dependencies
  * @author 26ideas Development Team
  */
 
@@ -15,8 +16,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-// Simple interface to avoid circular dependencies
-interface FormData {
+/**
+ * Simple form data interface to avoid deep type instantiation
+ */
+interface SimpleFormData {
   firstName: string;
   lastName: string;
   email: string;
@@ -32,8 +35,8 @@ interface FormData {
 }
 
 interface FormSectionProps {
-  formData: FormData;
-  onFieldChange: (field: keyof FormData, value: string) => void;
+  formData: SimpleFormData;
+  onFieldChange: (field: keyof SimpleFormData, value: string) => void;
 }
 
 /**
@@ -206,8 +209,8 @@ const GoalsCommitmentSection: React.FC<FormSectionProps> = ({ formData, onFieldC
  */
 interface YffFormSectionsProps {
   currentStep: number;
-  formData: FormData;
-  onFieldChange: (field: keyof FormData, value: string) => void;
+  formData: SimpleFormData;
+  onFieldChange: (field: keyof SimpleFormData, value: string) => void;
 }
 
 export const YffFormSections: React.FC<YffFormSectionsProps> = ({

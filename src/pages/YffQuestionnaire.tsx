@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Young Founders Floor Questionnaire Page
  * 
@@ -5,7 +6,7 @@
  * Features comprehensive form validation, auto-save functionality,
  * and robust error handling with the fixed authentication system.
  * 
- * @version 2.1.5 - Fixed TypeScript deep instantiation error completely
+ * @version 2.1.6 - Fixed TypeScript deep instantiation error by simplifying types
  * @author 26ideas Development Team
  */
 
@@ -18,8 +19,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { YffFormSections } from '@/components/forms/YffFormSections';
 
-// Simple interface to avoid circular dependencies
-interface FormData {
+/**
+ * Simple form data type to avoid deep instantiation
+ */
+type SimpleFormData = {
   firstName: string;
   lastName: string;
   email: string;
@@ -32,12 +35,12 @@ interface FormData {
   challenges: string;
   goals: string;
   commitment: string;
-}
+};
 
 /**
- * Initial form data with simple typing
+ * Initial form data factory function
  */
-const getInitialFormData = (): FormData => ({
+const createInitialFormData = (): SimpleFormData => ({
   firstName: '',
   lastName: '',
   email: '',
@@ -60,13 +63,13 @@ const YffQuestionnaire: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // State management with simple types
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  // State management with explicit simple types
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [individualId, setIndividualId] = useState<string | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
-  const [formData, setFormData] = useState(getInitialFormData);
+  const [formData, setFormData] = useState<SimpleFormData>(createInitialFormData);
 
   /**
    * Load existing application data on component mount
@@ -94,16 +97,17 @@ const YffQuestionnaire: React.FC = () => {
           setIndividualId(individualData.individual_id);
           console.log('Individual ID found:', individualData.individual_id);
 
-          // Pre-populate form with individual data
-          setFormData(prev => ({
-            ...prev,
+          // Pre-populate form with individual data using type assertion
+          const updatedFormData: SimpleFormData = {
+            ...createInitialFormData(),
             firstName: individualData.first_name || '',
             lastName: individualData.last_name || '',
             email: individualData.email || '',
             phone: individualData.mobile || '',
             dateOfBirth: individualData.dob || '',
             nationality: individualData.nationality || '',
-          }));
+          };
+          setFormData(updatedFormData);
 
           // Check for existing application
           const { data: applicationData, error: applicationError } = await supabase
@@ -123,11 +127,12 @@ const YffQuestionnaire: React.FC = () => {
 
             // Load saved answers if they exist
             if (applicationData.answers) {
-              const savedAnswers = applicationData.answers as Record<string, any>;
-              setFormData(prev => ({
-                ...prev,
+              const savedAnswers = applicationData.answers as Record<string, string>;
+              const mergedFormData: SimpleFormData = {
+                ...updatedFormData,
                 ...savedAnswers,
-              }));
+              };
+              setFormData(mergedFormData);
             }
 
             // If application is already submitted, show success message
@@ -157,10 +162,8 @@ const YffQuestionnaire: React.FC = () => {
     try {
       console.log('Auto-saving application...');
       
-      // Convert form data to JSON format
-      const answersJson = Object.fromEntries(
-        Object.entries(formData).map(([key, value]) => [key, value])
-      );
+      // Convert form data to simple object
+      const answersJson: Record<string, string> = { ...formData };
 
       if (applicationId) {
         // Update existing application
@@ -258,21 +261,8 @@ const YffQuestionnaire: React.FC = () => {
         return;
       }
 
-      // Convert form data to Json format
-      const answersJson = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        dateOfBirth: formData.dateOfBirth,
-        nationality: formData.nationality,
-        whyApplying: formData.whyApplying,
-        businessIdea: formData.businessIdea,
-        experience: formData.experience,
-        challenges: formData.challenges,
-        goals: formData.goals,
-        commitment: formData.commitment,
-      };
+      // Convert form data to simple object
+      const answersJson: Record<string, string> = { ...formData };
 
       // Submit or update application
       if (applicationId) {
@@ -327,7 +317,7 @@ const YffQuestionnaire: React.FC = () => {
   /**
    * Handle form field changes with auto-save trigger
    */
-  const handleFieldChange = (field: keyof FormData, value: string) => {
+  const handleFieldChange = (field: keyof SimpleFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setHasUnsavedChanges(true);
   };

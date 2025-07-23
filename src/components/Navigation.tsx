@@ -30,7 +30,15 @@ const Navigation = () => {
         "Women Founders Meetup"
       ]
     },
-    { label: "Insights", hasDropdown: true },
+    { 
+      label: "Insights", 
+      hasDropdown: true,
+      dropdownItems: [
+        "Blogs",
+        "Newsletters",
+        "Articles"
+      ]
+    },
   ];
 
   // Close dropdown when clicking outside

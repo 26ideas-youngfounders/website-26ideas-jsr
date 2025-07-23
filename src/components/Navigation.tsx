@@ -11,36 +11,33 @@ const Navigation = () => {
     { 
       label: "Our Community", 
       hasDropdown: true,
-      link: "/community",
       dropdownItems: [
-        { name: "Young Founders League", link: "/community/young-founders-league" },
-        { name: "Chapters", link: "/community/chapters" },
-        { name: "Campus Ambassadors", link: "/community/campus-ambassadors" },
-        { name: "Alumni", link: "/community/alumni" },
-        { name: "Mentors", link: "/community/mentors" },
-        { name: "Partners", link: "/community/partners" }
+        "Young Founders League",
+        "Chapters", 
+        "Campus Ambassadors",
+        "Alumni",
+        "Mentors", 
+        "Partners"
       ]
     },
-    { label: "Programmes", hasDropdown: false, link: "/programmes" },
+    { label: "Programmes", hasDropdown: false },
     { 
       label: "Events", 
       hasDropdown: true,
-      link: "/events",
       dropdownItems: [
-        { name: "Young Founders Floor", link: "/events/youngfoundersfloor" },
-        { name: "Annual Retreat", link: "/events/annual-retreat" },
-        { name: "Webinars", link: "/webinars" },
-        { name: "Women Founders Meetup", link: "/events/women-founders-meetup" }
+        "Young Founders Floor",
+        "Annual Retreat",
+        "Webinars",
+        "Women Founders Meetup"
       ]
     },
     { 
       label: "Insights", 
       hasDropdown: true,
-      link: "/insights",
       dropdownItems: [
-        { name: "Blogs", link: "/insights/blogs" },
-        { name: "Newsletters", link: "/insights/newsletters" },
-        { name: "Articles", link: "/insights/articles" }
+        "Blogs",
+        "Newsletters",
+        "Articles"
       ]
     },
   ];
@@ -60,8 +57,8 @@ const Navigation = () => {
   }, []);
 
   return (
-    <nav className="w-full bg-background border-b border-nav-border relative z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+    <nav className="w-full bg-background border-b border-nav-border">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
@@ -79,26 +76,21 @@ const Navigation = () => {
             <div className="ml-10 flex items-baseline space-x-8">
               {navItems.map((item, index) => (
                 <div key={item.label} className="relative group" ref={item.hasDropdown ? dropdownRef : null}>
-                  {item.hasDropdown ? (
-                    <button 
-                      className="flex items-center text-nav-text hover:text-nav-text-hover transition-colors duration-200 text-sm font-medium py-2"
-                      onClick={() => {
+                  <button 
+                    className="flex items-center text-nav-text hover:text-nav-text-hover transition-colors duration-200 text-sm font-medium py-2"
+                    onClick={() => {
+                      if (item.hasDropdown) {
                         setActiveDropdown(activeDropdown === item.label ? null : item.label);
-                      }}
-                    >
-                      {item.label}
+                      }
+                    }}
+                  >
+                    {item.label}
+                    {item.hasDropdown && (
                       <ChevronDown className={`ml-1 h-4 w-4 transition-transform duration-200 ${
                         activeDropdown === item.label ? 'rotate-180' : ''
                       }`} />
-                    </button>
-                  ) : (
-                    <Link
-                      to={item.link || "#"}
-                      className="flex items-center text-nav-text hover:text-nav-text-hover transition-colors duration-200 text-sm font-medium py-2"
-                    >
-                      {item.label}
-                    </Link>
-                  )}
+                    )}
+                  </button>
                   
                   {/* Dropdown Menu */}
                   {item.hasDropdown && activeDropdown === item.label && item.dropdownItems && (
@@ -106,14 +98,12 @@ const Navigation = () => {
                       <div className="py-2">
                         {item.dropdownItems.map((dropdownItem) => (
                           <Link
-                            key={dropdownItem.name}
-                            to={dropdownItem.link}
-                            className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150 cursor-pointer"
-                            onClick={() => {
-                              setActiveDropdown(null);
-                            }}
+                            key={dropdownItem}
+                            to={dropdownItem === "Webinars" ? "/webinars" : "#"}
+                            className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
+                            onClick={() => setActiveDropdown(null)}
                           >
-                            {dropdownItem.name}
+                            {dropdownItem}
                           </Link>
                         ))}
                       </div>

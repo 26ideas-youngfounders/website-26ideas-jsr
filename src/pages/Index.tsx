@@ -214,7 +214,7 @@ const Index = () => {
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 my-[60px]">
             {/* Section heading - centered with 32px spacing below */}
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 md:text-4xl py-[20px]">
+              <h2 className="text-3xl font-bold text-gray-900 py-[20px] text-center md:text-5xl">
                 On the Horizon for Young Founders
               </h2>
             </div>

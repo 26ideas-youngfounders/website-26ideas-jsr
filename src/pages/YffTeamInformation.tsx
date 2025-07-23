@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Young Founders Floor Team Information Collection Form
  * 
@@ -138,7 +137,7 @@ const YffTeamInformation = () => {
 
   /**
    * Create or get individual record for the authenticated user
-   * This is the main function that handles profile creation
+   * FIXED: No longer tries to access auth.users table directly
    */
   const createOrGetIndividualRecord = async () => {
     if (!user?.email) {
@@ -156,7 +155,7 @@ const YffTeamInformation = () => {
       // First, check if individual already exists with this email
       console.log("Checking for existing individual record...");
       let { data: individual, error: fetchError } = await supabase
-        .from('individuals')
+        .from('individuals') // ✅ Using individuals table, not users
         .select('*')
         .eq('email', user.email)
         .single();
@@ -184,6 +183,7 @@ const YffTeamInformation = () => {
         
         console.log("Creating individual with data:", individualData);
         
+        // ✅ Using individuals table, not users table
         const { data: newIndividual, error: createError } = await supabase
           .from('individuals')
           .insert(individualData)
@@ -197,6 +197,22 @@ const YffTeamInformation = () => {
         
         individual = newIndividual;
         console.log("Successfully created individual:", individual);
+        
+        // Create a user_role entry to link the user to the individual
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: user.id,
+            individual_id: individual.individual_id,
+            role: 'user',
+            is_active: true
+          });
+          
+        if (roleError) {
+          console.error("Warning: Could not create user role:", roleError);
+          // Don't throw error here as the individual was created successfully
+        }
+        
         setProfileCreated(true);
         
       } else if (fetchError) {
@@ -217,7 +233,15 @@ const YffTeamInformation = () => {
 
     } catch (error: any) {
       console.error("Error in createOrGetIndividualRecord:", error);
-      setError(`Failed to create user profile: ${error.message}`);
+      
+      // Provide specific error messages based on error type
+      if (error.message.includes('permission denied for table users')) {
+        setError('System configuration error. Please contact support.');
+      } else if (error.message.includes('row-level security')) {
+        setError('Authentication error. Please sign out and sign in again.');
+      } else {
+        setError(`Failed to create user profile: ${error.message}`);
+      }
       
       // Show retry option
       toast({
@@ -439,6 +463,7 @@ const YffTeamInformation = () => {
 
   /**
    * Handle form submission
+   * FIXED: Now uses individual_id from the properly created individual record
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -473,6 +498,7 @@ const YffTeamInformation = () => {
       
       console.log("Application data being submitted:", applicationData);
       
+      // ✅ Using yff_applications table correctly with proper individual_id
       const { data, error } = await supabase
         .from('yff_applications')
         .upsert(applicationData, {

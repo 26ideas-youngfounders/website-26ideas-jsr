@@ -12,6 +12,8 @@
 // React and UI Components
 import React from "react";
 import Autoplay from "embla-carousel-autoplay";
+import { Link } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
 
 // Internal Components
 import Navigation from "@/components/Navigation";
@@ -307,6 +309,81 @@ const Index = () => {
                 <CarouselPrevious className="absolute -left-6 top-1/2 -translate-y-1/2 w-8 h-8 p-3 bg-white/80 hover:bg-white text-gray-800 border-0 hover:shadow-md transition-shadow duration-200" />
                 <CarouselNext className="absolute -right-6 top-1/2 -translate-y-1/2 w-8 h-8 p-3 bg-white/80 hover:bg-white text-gray-800 border-0 hover:shadow-md transition-shadow duration-200" />
               </Carousel>
+            </div>
+          </div>
+        </section>
+
+        {/* On the Horizon Section - White background with upcoming events */}
+        <section className="bg-white pb-15">
+          <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Section heading - centered with 32px spacing below */}
+            <div className="text-center mb-8">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+                On the Horizon for Young Founders
+              </h2>
+            </div>
+
+            {/* Card container - responsive flex layout */}
+            <div className="flex flex-col md:flex-row justify-center gap-10 md:gap-10 items-center">
+              {/* Young Founders Floor Card */}
+              <Link 
+                to="/young-founders-floor"
+                className="block w-full max-w-[380px] group cursor-pointer"
+              >
+                <div className="w-full">
+                  {/* Card image with 20px border radius */}
+                  <div className="w-full rounded-[20px] overflow-hidden">
+                    <img
+                      src="/lovable-uploads/52330f2f-cf07-4357-a50f-971b371ae48d.png"
+                      alt="Young Founders Floor 2025 - India's First Entrepreneurship Competition Where EVERYONE Wins"
+                      className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  </div>
+                  
+                  {/* Card label below image */}
+                  <div className="mt-4">
+                    <h3 className="text-xl font-bold text-gray-900 mb-3">
+                      Young Founders Floor 2025
+                    </h3>
+                    <div className="flex items-center text-gray-600 text-base">
+                      <span>Learn More</span>
+                      <ChevronRight className="ml-1 w-4 h-4" />
+                      <ChevronRight className="ml-0 w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+              </Link>
+
+              {/* Young Founders Annual Retreat Card */}
+              <Link 
+                to="/young-founders-retreat"
+                className="block w-full max-w-[380px] group cursor-pointer"
+              >
+                <div className="w-full">
+                  {/* Card image with 20px border radius */}
+                  <div className="w-full rounded-[20px] overflow-hidden">
+                    <img
+                      src="/lovable-uploads/4b33b5ad-0890-478a-828f-9f27f3067df4.png"
+                      alt="Young Founders Annual Retreat 2026"
+                      className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  </div>
+                  
+                  {/* Card label below image */}
+                  <div className="mt-4">
+                    <h3 className="text-xl font-bold text-gray-900 mb-3">
+                      Young Founders Annual Retreat 2026
+                    </h3>
+                    <div className="flex items-center text-gray-600 text-base">
+                      <span>Learn More</span>
+                      <ChevronRight className="ml-1 w-4 h-4" />
+                      <ChevronRight className="ml-0 w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+              </Link>
             </div>
           </div>
         </section>

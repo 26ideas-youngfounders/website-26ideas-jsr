@@ -13,6 +13,7 @@
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 
+
 /**
  * Index Page Component
  * 
@@ -61,6 +62,43 @@ const Index = () => {
               <button className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-black px-8 py-3 rounded-md text-lg font-medium transition-all duration-300">
                 Explore
               </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Advisors Section - Full width with scrolling logos */}
+        <section className="bg-blue-900 py-12 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col lg:flex-row items-center gap-8">
+              {/* Left side - Heading */}
+              <div className="lg:w-1/3 text-center lg:text-left">
+                <h2 className="text-2xl md:text-3xl font-bold text-white leading-tight">
+                  Our advisors come from leading companies and institutions
+                </h2>
+              </div>
+              
+              {/* Right side - Scrolling logos ticker */}
+              <div className="lg:w-2/3 relative">
+                <div className="flex animate-scroll">
+                  {/* First set of logos */}
+                  <div className="flex items-center space-x-12 min-w-max">
+                    <img 
+                      src="/lovable-uploads/6d503697-5e4a-4472-b4a1-b3e8cce6c4e7.png" 
+                      alt="Advisor Companies Logos" 
+                      className="h-12 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                  </div>
+                  
+                  {/* Duplicate set for seamless scrolling */}
+                  <div className="flex items-center space-x-12 min-w-max ml-12">
+                    <img 
+                      src="/lovable-uploads/6d503697-5e4a-4472-b4a1-b3e8cce6c4e7.png" 
+                      alt="Advisor Companies Logos" 
+                      className="h-12 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>

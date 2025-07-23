@@ -304,7 +304,7 @@ const Index = () => {
 
         {/* Membership Call-to-Action Section - Blue background */}
         <section className="bg-blue-600 py-15">
-          <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 text-center py-[60px]">
             {/* Main heading */}
             <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight pt-15 my-15">
               Join the world's leading private community for Young Founders

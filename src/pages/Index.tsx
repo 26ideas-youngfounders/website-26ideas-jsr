@@ -314,7 +314,7 @@ const Index = () => {
         </section>
 
         {/* On the Horizon Section - White background with upcoming events */}
-        <section className="bg-white pb-15">
+        <section className="bg-white py-15">
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
             {/* Section heading - centered with 32px spacing below */}
             <div className="text-center mb-8">
@@ -328,7 +328,7 @@ const Index = () => {
               {/* Young Founders Floor Card */}
               <Link 
                 to="/young-founders-floor"
-                className="block w-full max-w-[380px] group cursor-pointer"
+                className="block w-full max-w-[360px] group cursor-pointer"
               >
                 <div className="w-full">
                   {/* Card image with 20px border radius */}
@@ -343,7 +343,7 @@ const Index = () => {
                   
                   {/* Card label below image */}
                   <div className="mt-4">
-                    <h3 className="text-xl font-bold text-gray-900 mb-3">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
                       Young Founders Floor 2025
                     </h3>
                     <div className="flex items-center text-gray-600 text-base">
@@ -358,7 +358,7 @@ const Index = () => {
               {/* Young Founders Annual Retreat Card */}
               <Link 
                 to="/young-founders-retreat"
-                className="block w-full max-w-[380px] group cursor-pointer"
+                className="block w-full max-w-[360px] group cursor-pointer"
               >
                 <div className="w-full">
                   {/* Card image with 20px border radius */}
@@ -373,7 +373,7 @@ const Index = () => {
                   
                   {/* Card label below image */}
                   <div className="mt-4">
-                    <h3 className="text-xl font-bold text-gray-900 mb-3">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
                       Young Founders Annual Retreat 2026
                     </h3>
                     <div className="flex items-center text-gray-600 text-base">

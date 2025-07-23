@@ -101,7 +101,13 @@ const Navigation = () => {
                             key={dropdownItem}
                             to={dropdownItem === "Webinars" ? "/webinars" : "#"}
                             className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
-                            onClick={() => setActiveDropdown(null)}
+                            onClick={(e) => {
+                              console.log("Link clicked:", dropdownItem);
+                              if (dropdownItem === "Webinars") {
+                                console.log("Navigating to /webinars");
+                              }
+                              setActiveDropdown(null);
+                            }}
                           >
                             {dropdownItem}
                           </Link>

@@ -100,13 +100,20 @@ const Navigation = () => {
                           <Link
                             key={dropdownItem}
                             to={dropdownItem === "Webinars" ? "/webinars" : "#"}
-                            className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
+                            className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150 cursor-pointer"
                             onClick={(e) => {
                               console.log("Link clicked:", dropdownItem);
-                              if (dropdownItem === "Webinars") {
-                                console.log("Navigating to /webinars");
-                              }
+                              console.log("Current URL:", window.location.href);
+                              console.log("Link target:", dropdownItem === "Webinars" ? "/webinars" : "#");
+                              
+                              // Ensure dropdown closes
                               setActiveDropdown(null);
+                              
+                              // For debugging - force navigation for Webinars
+                              if (dropdownItem === "Webinars") {
+                                console.log("Forcing navigation to /webinars");
+                                // Don't prevent default, let React Router handle it
+                              }
                             }}
                           >
                             {dropdownItem}

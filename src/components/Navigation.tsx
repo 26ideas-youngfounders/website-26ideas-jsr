@@ -57,8 +57,8 @@ const Navigation = () => {
   }, []);
 
   return (
-    <nav className="w-full bg-background border-b border-nav-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="w-full bg-background border-b border-nav-border relative z-40">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">

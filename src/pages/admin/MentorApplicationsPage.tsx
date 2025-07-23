@@ -32,24 +32,20 @@ interface MentorApplication {
   topics_of_interest: string[];
   availability_days: string[];
   availability_time: string;
-  availability_notes?: string;
-  linkedin_url?: string;
-  instagram_handle?: string;
-  reviewer_notes?: string;
+  availability_notes: string;
+  linkedin_url: string;
+  instagram_handle: string;
+  reviewer_notes: string;
   submitted_at: string;
-  reviewed_at?: string;
-  country_code: string;
-  country_iso_code: string;
-  created_at: string;
-  updated_at: string;
-  individuals?: {
+  reviewed_at: string;
+  individuals: {
     first_name: string;
     last_name: string;
     email: string;
-    mobile?: string;
-    city?: string;
-    country?: string;
-  } | null;
+    mobile: string;
+    city: string;
+    country: string;
+  };
 }
 
 const MentorApplicationsPage: React.FC = () => {
@@ -60,31 +56,14 @@ const MentorApplicationsPage: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch mentor applications with individual details using left join
-  const { data: applications, isLoading, error } = useQuery({
+  // Fetch mentor applications with individual details
+  const { data: applications, isLoading } = useQuery({
     queryKey: ['mentor-applications'],
     queryFn: async () => {
-      console.log('Fetching mentor applications with left join...');
-      
       const { data, error } = await supabase
         .from('mentor_applications')
         .select(`
-          application_id,
-          individual_id,
-          application_status,
-          topics_of_interest,
-          availability_days,
-          availability_time,
-          availability_notes,
-          linkedin_url,
-          instagram_handle,
-          reviewer_notes,
-          submitted_at,
-          reviewed_at,
-          country_code,
-          country_iso_code,
-          created_at,
-          updated_at,
+          *,
           individuals (
             first_name,
             last_name,
@@ -96,20 +75,8 @@ const MentorApplicationsPage: React.FC = () => {
         `)
         .order('submitted_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching mentor applications:', error);
-        throw error;
-      }
-
-      console.log('Fetched mentor applications:', data);
-      
-      // Transform the data to ensure proper typing
-      const transformedData = (data || []).map((app: any) => ({
-        ...app,
-        individuals: app.individuals || null
-      }));
-
-      return transformedData as MentorApplication[];
+      if (error) throw error;
+      return data as MentorApplication[];
     },
   });
 
@@ -146,7 +113,6 @@ const MentorApplicationsPage: React.FC = () => {
       setReviewerNotes('');
     },
     onError: (error) => {
-      console.error('Error updating application:', error);
       toast({
         title: "Error",
         description: "Failed to update application",
@@ -157,13 +123,9 @@ const MentorApplicationsPage: React.FC = () => {
 
   // Filter applications
   const filteredApplications = applications?.filter((app) => {
-    const individual = app.individuals;
     const searchMatch = !searchTerm || 
-      (individual ? 
-        `${individual.first_name} ${individual.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        individual.email.toLowerCase().includes(searchTerm.toLowerCase()) :
-        false
-      ) ||
+      `${app.individuals.first_name} ${app.individuals.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.individuals.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       app.topics_of_interest.some(topic => topic.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const statusMatch = statusFilter === 'all' || app.application_status === statusFilter;
@@ -193,36 +155,6 @@ const MentorApplicationsPage: React.FC = () => {
       notes: reviewerNotes 
     });
   };
-
-  // Show error state if there's an error
-  if (error) {
-    return (
-      <AdminLayout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold">Mentor Applications</h1>
-            <p className="text-muted-foreground">
-              Review and manage mentor applications for the 26ideas platform
-            </p>
-          </div>
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-center text-red-600">
-                <p className="text-lg font-semibold">Error loading applications</p>
-                <p className="text-sm mt-2">{error.message}</p>
-                <Button 
-                  onClick={() => queryClient.invalidateQueries({ queryKey: ['mentor-applications'] })}
-                  className="mt-4"
-                >
-                  Retry
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </AdminLayout>
-    );
-  }
 
   return (
     <AdminLayout>
@@ -355,21 +287,15 @@ const MentorApplicationsPage: React.FC = () => {
                       <TableCell>
                         <div>
                           <div className="font-medium">
-                            {application.individuals ? 
-                              `${application.individuals.first_name} ${application.individuals.last_name}` :
-                              'Unknown User'
-                            }
+                            {application.individuals.first_name} {application.individuals.last_name}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {application.individuals?.email || 'No email'}
+                            {application.individuals.email}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {application.individuals ? 
-                          `${application.individuals.city || 'Unknown City'}, ${application.individuals.country || 'Unknown Country'}` :
-                          'Unknown Location'
-                        }
+                        {application.individuals.city}, {application.individuals.country}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1 max-w-[200px]">
@@ -418,10 +344,7 @@ const MentorApplicationsPage: React.FC = () => {
                             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle>
-                                  Mentor Application Review - {application.individuals ? 
-                                    `${application.individuals.first_name} ${application.individuals.last_name}` :
-                                    'Unknown User'
-                                  }
+                                  Mentor Application Review - {application.individuals.first_name} {application.individuals.last_name}
                                 </DialogTitle>
                               </DialogHeader>
                               {selectedApplication && (
@@ -431,17 +354,10 @@ const MentorApplicationsPage: React.FC = () => {
                                     <div>
                                       <h4 className="font-semibold mb-2">Personal Information</h4>
                                       <div className="space-y-2 text-sm">
-                                        <div><strong>Name:</strong> {selectedApplication.individuals ? 
-                                          `${selectedApplication.individuals.first_name} ${selectedApplication.individuals.last_name}` :
-                                          'Unknown User'
-                                        }</div>
-                                        <div><strong>Email:</strong> {selectedApplication.individuals?.email || 'No email'}</div>
-                                        <div><strong>Phone:</strong> {selectedApplication.individuals?.mobile || 'No phone'}</div>
-                                        <div><strong>Location:</strong> {selectedApplication.individuals ? 
-                                          `${selectedApplication.individuals.city || 'Unknown City'}, ${selectedApplication.individuals.country || 'Unknown Country'}` :
-                                          'Unknown Location'
-                                        }</div>
-                                        <div><strong>Country Code:</strong> {selectedApplication.country_code} ({selectedApplication.country_iso_code})</div>
+                                        <div><strong>Name:</strong> {selectedApplication.individuals.first_name} {selectedApplication.individuals.last_name}</div>
+                                        <div><strong>Email:</strong> {selectedApplication.individuals.email}</div>
+                                        <div><strong>Phone:</strong> {selectedApplication.individuals.mobile}</div>
+                                        <div><strong>Location:</strong> {selectedApplication.individuals.city}, {selectedApplication.individuals.country}</div>
                                       </div>
                                     </div>
                                     <div>

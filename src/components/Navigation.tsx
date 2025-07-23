@@ -1,11 +1,16 @@
 import { ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import SignInModal from "@/components/SignInModal";
 
 const Navigation = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { user, signOut } = useAuth();
 
   const navItems = [
     { 
@@ -113,11 +118,29 @@ const Navigation = () => {
             </div>
           </div>
 
-          {/* Sign In Button */}
+          {/* Sign In/Out Button */}
           <div className="hidden md:block">
-            <button className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200">
-              Sign In
-            </button>
+            {user ? (
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-muted-foreground">
+                  Welcome, {user.email}
+                </span>
+                <Button 
+                  onClick={signOut}
+                  variant="outline"
+                  className="px-4 py-2 text-sm font-medium"
+                >
+                  Sign Out
+                </Button>
+              </div>
+            ) : (
+              <Button 
+                onClick={() => setIsSignInModalOpen(true)}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+              >
+                Sign In
+              </Button>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -140,6 +163,12 @@ const Navigation = () => {
           </div>
         </div>
       </div>
+      
+      {/* Sign In Modal */}
+      <SignInModal 
+        isOpen={isSignInModalOpen}
+        onClose={() => setIsSignInModalOpen(false)}
+      />
     </nav>
   );
 };

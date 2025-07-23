@@ -110,6 +110,23 @@ const Navigation = () => {
     };
   }, []);
 
+  /**
+   * Route mapping function for dropdown items
+   * Maps specific dropdown items to their corresponding routes
+   * @param {string} itemName - The name of the dropdown item
+   * @returns {string} The route path for the item
+   */
+  const getItemRoute = (itemName: string) => {
+    switch (itemName) {
+      case "Mentors":
+        return "/community/mentors"; // Mentor signup page
+      case "Young Founders Floor":
+        return "/young-founders-floor"; // YFF landing page
+      default:
+        return "#"; // Placeholder for future routes
+    }
+  };
+
   return (
     <nav className="w-full bg-background border-b border-nav-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -150,35 +167,16 @@ const Navigation = () => {
                   {item.hasDropdown && activeDropdown === item.label && item.dropdownItems && (
                     <div className="absolute top-full left-0 mt-1 w-56 bg-dropdown-bg border border-dropdown-border rounded-lg shadow-lg z-50">
                       <div className="py-2">
-                         {item.dropdownItems.map((dropdownItem) => {
-                           /**
-                            * Route mapping function for dropdown items
-                            * Maps specific dropdown items to their corresponding routes
-                            * @param {string} itemName - The name of the dropdown item
-                            * @returns {string} The route path for the item
-                            */
-                           const getItemRoute = (itemName: string) => {
-                             switch (itemName) {
-                               case "Mentors":
-                                 return "/community/mentors"; // Mentor signup page
-                               case "Young Founders Floor":
-                                 return "/young-founders-floor"; // YFF landing page
-                               default:
-                                 return "#"; // Placeholder for future routes
-                             }
-                           };
-
-                          return (
-                            <Link
-                              key={dropdownItem}
-                              to={getItemRoute(dropdownItem)}
-                              className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
-                              onClick={() => setActiveDropdown(null)}
-                            >
-                              {dropdownItem}
-                            </Link>
-                          );
-                        })}
+                        {item.dropdownItems.map((dropdownItem) => (
+                          <Link
+                            key={dropdownItem}
+                            to={getItemRoute(dropdownItem)}
+                            className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
+                            onClick={() => setActiveDropdown(null)}
+                          >
+                            {dropdownItem}
+                          </Link>
+                        ))}
                       </div>
                     </div>
                   )}

@@ -40,6 +40,8 @@ interface MentorApplication {
   reviewed_at: string;
   country_code: string;
   country_iso_code: string;
+  created_at: string;
+  updated_at: string;
   individuals: {
     first_name: string;
     last_name: string;
@@ -66,7 +68,7 @@ const MentorApplicationsPage: React.FC = () => {
         .from('mentor_applications')
         .select(`
           *,
-          individuals (
+          individuals:individual_id (
             first_name,
             last_name,
             email,
@@ -77,7 +79,10 @@ const MentorApplicationsPage: React.FC = () => {
         `)
         .order('submitted_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching mentor applications:', error);
+        throw error;
+      }
       return data || [];
     },
   });
@@ -115,6 +120,7 @@ const MentorApplicationsPage: React.FC = () => {
       setReviewerNotes('');
     },
     onError: (error) => {
+      console.error('Error updating application:', error);
       toast({
         title: "Error",
         description: "Failed to update application",
@@ -125,10 +131,11 @@ const MentorApplicationsPage: React.FC = () => {
 
   // Filter applications
   const filteredApplications = applications?.filter((app) => {
+    const individual = app.individuals;
     const searchMatch = !searchTerm || 
-      (app.individuals ? 
-        `${app.individuals.first_name} ${app.individuals.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        app.individuals.email.toLowerCase().includes(searchTerm.toLowerCase()) :
+      (individual ? 
+        `${individual.first_name} ${individual.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        individual.email.toLowerCase().includes(searchTerm.toLowerCase()) :
         false
       ) ||
       app.topics_of_interest.some(topic => topic.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -378,6 +385,7 @@ const MentorApplicationsPage: React.FC = () => {
                                           `${selectedApplication.individuals.city}, ${selectedApplication.individuals.country}` :
                                           'Unknown Location'
                                         }</div>
+                                        <div><strong>Country Code:</strong> {selectedApplication.country_code} ({selectedApplication.country_iso_code})</div>
                                       </div>
                                     </div>
                                     <div>

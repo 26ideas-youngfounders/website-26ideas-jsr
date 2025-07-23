@@ -67,7 +67,10 @@ const YffApplicationsPage: React.FC = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching YFF applications:', error);
+        throw error;
+      }
       return data || [];
     },
   });
@@ -90,6 +93,7 @@ const YffApplicationsPage: React.FC = () => {
       });
     },
     onError: (error) => {
+      console.error('Error updating application status:', error);
       toast({
         title: "Error",
         description: "Failed to update application status",
@@ -340,7 +344,17 @@ const YffApplicationsPage: React.FC = () => {
                             </DialogContent>
                           </Dialog>
                           
-                          <ApplicationScoringDialog application={application} />
+                          <ApplicationScoringDialog 
+                            application={{
+                              application_id: application.application_id,
+                              answers: application.answers,
+                              cumulative_score: application.cumulative_score,
+                              individuals: {
+                                first_name: application.individuals.first_name,
+                                last_name: application.individuals.last_name
+                              }
+                            }}
+                          />
                           
                           <Select 
                             value={application.status} 

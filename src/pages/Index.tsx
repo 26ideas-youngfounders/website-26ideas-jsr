@@ -311,7 +311,7 @@ const Index = () => {
             </h3>
             
             {/* Subtitle */}
-            <p className="text-xl text-white/90 mb-12 leading-relaxed">
+            <p className="text-xl text-white/90 mb-12 leading-relaxed py-[20px] px-[20px]">
               Learn, share and build their ideas to impact.
             </p>
             

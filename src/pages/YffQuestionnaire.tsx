@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Young Founders Floor Questionnaire Page
  * 
@@ -6,7 +5,7 @@
  * Features comprehensive form validation, auto-save functionality,
  * and robust error handling with the fixed authentication system.
  * 
- * @version 2.1.3 - Fixed circular type dependencies
+ * @version 2.1.4 - Fixed TypeScript deep instantiation error
  * @author 26ideas Development Team
  */
 
@@ -18,7 +17,25 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { YffFormSections } from '@/components/forms/YffFormSections';
-import { YffFormData } from '@/types/yff-form';
+import type { YffFormData } from '@/types/yff-form';
+
+/**
+ * Initial form data with proper typing
+ */
+const initialFormData: YffFormData = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  dateOfBirth: '',
+  nationality: '',
+  whyApplying: '',
+  businessIdea: '',
+  experience: '',
+  challenges: '',
+  goals: '',
+  commitment: '',
+};
 
 /**
  * YffQuestionnaire Component
@@ -29,27 +46,14 @@ const YffQuestionnaire: React.FC = () => {
   const navigate = useNavigate();
 
   // State management
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [individualId, setIndividualId] = useState<string | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
 
-  // Form data state with proper typing
-  const [formData, setFormData] = useState<YffFormData>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    dateOfBirth: '',
-    nationality: '',
-    whyApplying: '',
-    businessIdea: '',
-    experience: '',
-    challenges: '',
-    goals: '',
-    commitment: '',
-  });
+  // Form data state with explicit typing to avoid deep instantiation
+  const [formData, setFormData] = useState<YffFormData>(initialFormData);
 
   /**
    * Load existing application data on component mount
@@ -205,7 +209,7 @@ const YffQuestionnaire: React.FC = () => {
    * Form Submission Handler
    * Validates and submits the complete application
    */
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     // Validation check
     if (!validateCurrentStep()) {
       toast.error('Please fill in all required fields before submitting.');
@@ -242,9 +246,20 @@ const YffQuestionnaire: React.FC = () => {
       }
 
       // Convert form data to Json format
-      const answersJson = Object.fromEntries(
-        Object.entries(formData).map(([key, value]) => [key, value])
-      );
+      const answersJson: Record<string, string> = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        dateOfBirth: formData.dateOfBirth,
+        nationality: formData.nationality,
+        whyApplying: formData.whyApplying,
+        businessIdea: formData.businessIdea,
+        experience: formData.experience,
+        challenges: formData.challenges,
+        goals: formData.goals,
+        commitment: formData.commitment,
+      };
 
       // Submit or update application
       if (applicationId) {
@@ -299,7 +314,7 @@ const YffQuestionnaire: React.FC = () => {
   /**
    * Handle form field changes with auto-save trigger
    */
-  const handleFieldChange = (field: keyof YffFormData, value: string) => {
+  const handleFieldChange = (field: keyof YffFormData, value: string): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setHasUnsavedChanges(true);
   };
@@ -307,7 +322,7 @@ const YffQuestionnaire: React.FC = () => {
   /**
    * Navigate to next step with validation
    */
-  const nextStep = () => {
+  const nextStep = (): void => {
     if (validateCurrentStep()) {
       setCurrentStep(prev => Math.min(prev + 1, 3));
     } else {
@@ -318,7 +333,7 @@ const YffQuestionnaire: React.FC = () => {
   /**
    * Navigate to previous step
    */
-  const prevStep = () => {
+  const prevStep = (): void => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 

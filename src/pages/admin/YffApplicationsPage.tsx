@@ -34,6 +34,7 @@ interface YffApplication {
   cumulative_score: number;
   submitted_at: string;
   created_at: string;
+  updated_at: string;
   individuals: {
     first_name: string;
     last_name: string;
@@ -67,7 +68,7 @@ const YffApplicationsPage: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as YffApplication[];
+      return data || [];
     },
   });
 

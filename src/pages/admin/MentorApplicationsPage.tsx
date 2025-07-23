@@ -38,6 +38,8 @@ interface MentorApplication {
   reviewer_notes: string;
   submitted_at: string;
   reviewed_at: string;
+  country_code: string;
+  country_iso_code: string;
   individuals: {
     first_name: string;
     last_name: string;
@@ -45,7 +47,7 @@ interface MentorApplication {
     mobile: string;
     city: string;
     country: string;
-  };
+  } | null;
 }
 
 const MentorApplicationsPage: React.FC = () => {
@@ -76,7 +78,7 @@ const MentorApplicationsPage: React.FC = () => {
         .order('submitted_at', { ascending: false });
 
       if (error) throw error;
-      return data as MentorApplication[];
+      return data || [];
     },
   });
 
@@ -124,8 +126,11 @@ const MentorApplicationsPage: React.FC = () => {
   // Filter applications
   const filteredApplications = applications?.filter((app) => {
     const searchMatch = !searchTerm || 
-      `${app.individuals.first_name} ${app.individuals.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.individuals.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (app.individuals ? 
+        `${app.individuals.first_name} ${app.individuals.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        app.individuals.email.toLowerCase().includes(searchTerm.toLowerCase()) :
+        false
+      ) ||
       app.topics_of_interest.some(topic => topic.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const statusMatch = statusFilter === 'all' || app.application_status === statusFilter;
@@ -287,15 +292,21 @@ const MentorApplicationsPage: React.FC = () => {
                       <TableCell>
                         <div>
                           <div className="font-medium">
-                            {application.individuals.first_name} {application.individuals.last_name}
+                            {application.individuals ? 
+                              `${application.individuals.first_name} ${application.individuals.last_name}` :
+                              'Unknown User'
+                            }
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {application.individuals.email}
+                            {application.individuals?.email || 'No email'}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {application.individuals.city}, {application.individuals.country}
+                        {application.individuals ? 
+                          `${application.individuals.city}, ${application.individuals.country}` :
+                          'Unknown Location'
+                        }
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1 max-w-[200px]">
@@ -344,7 +355,10 @@ const MentorApplicationsPage: React.FC = () => {
                             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle>
-                                  Mentor Application Review - {application.individuals.first_name} {application.individuals.last_name}
+                                  Mentor Application Review - {application.individuals ? 
+                                    `${application.individuals.first_name} ${application.individuals.last_name}` :
+                                    'Unknown User'
+                                  }
                                 </DialogTitle>
                               </DialogHeader>
                               {selectedApplication && (
@@ -354,10 +368,16 @@ const MentorApplicationsPage: React.FC = () => {
                                     <div>
                                       <h4 className="font-semibold mb-2">Personal Information</h4>
                                       <div className="space-y-2 text-sm">
-                                        <div><strong>Name:</strong> {selectedApplication.individuals.first_name} {selectedApplication.individuals.last_name}</div>
-                                        <div><strong>Email:</strong> {selectedApplication.individuals.email}</div>
-                                        <div><strong>Phone:</strong> {selectedApplication.individuals.mobile}</div>
-                                        <div><strong>Location:</strong> {selectedApplication.individuals.city}, {selectedApplication.individuals.country}</div>
+                                        <div><strong>Name:</strong> {selectedApplication.individuals ? 
+                                          `${selectedApplication.individuals.first_name} ${selectedApplication.individuals.last_name}` :
+                                          'Unknown User'
+                                        }</div>
+                                        <div><strong>Email:</strong> {selectedApplication.individuals?.email || 'No email'}</div>
+                                        <div><strong>Phone:</strong> {selectedApplication.individuals?.mobile || 'No phone'}</div>
+                                        <div><strong>Location:</strong> {selectedApplication.individuals ? 
+                                          `${selectedApplication.individuals.city}, ${selectedApplication.individuals.country}` :
+                                          'Unknown Location'
+                                        }</div>
                                       </div>
                                     </div>
                                     <div>

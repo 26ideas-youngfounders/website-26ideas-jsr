@@ -9,9 +9,20 @@
  * @author 26ideas Development Team
  */
 
+// React and UI Components
+import React from "react";
+import Autoplay from "embla-carousel-autoplay";
+
 // Internal Components
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 
 
 /**
@@ -24,11 +35,73 @@ import Footer from "@/components/Footer";
  * Layout Structure:
  * - Navigation header with community links and sign-in
  * - Hero section with main value proposition
+ * - Advisors section with scrolling company logos
+ * - Mentors section with auto-scrolling mentor cards
  * - Footer with community links and social media
  * 
  * @returns {JSX.Element} The complete home page layout
  */
 const Index = () => {
+  // Initialize autoplay plugin for the mentor carousel
+  const autoplayPlugin = React.useRef(
+    Autoplay({ delay: 3000, stopOnInteraction: true })
+  );
+
+  /**
+   * Mentor data array containing profile information and image paths
+   * Each mentor object includes their name, specialization, and image path
+   */
+  const mentors = [
+    {
+      id: 1,
+      name: "Anand Madhavan",
+      specialty: "AI + Product",
+      image: "/lovable-uploads/ef884e0a-d2b0-4142-bf8c-f2fc9dd6f818.png",
+      alt: "Anand Madhavan - AI and Product Expert"
+    },
+    {
+      id: 2,
+      name: "Jeet Agrawal",
+      specialty: "Engineering",
+      image: "/lovable-uploads/d5213e8c-32d8-4299-bf86-2890ffc5dfe2.png",
+      alt: "Jeet Agrawal - Engineering Expert"
+    },
+    {
+      id: 3,
+      name: "Nitika Gupta",
+      specialty: "Education",
+      image: "/lovable-uploads/96f06bdf-e752-4d82-89d4-e481c36665af.png",
+      alt: "Nitika Gupta - Education Expert"
+    },
+    {
+      id: 4,
+      name: "Ramesh Gopal Krishna",
+      specialty: "Partnership + Sales",
+      image: "/lovable-uploads/671c88aa-4985-41da-9941-a9b265e13cc4.png",
+      alt: "Ramesh Gopal Krishna - Partnership and Sales Expert"
+    },
+    {
+      id: 5,
+      name: "Sanjay Thakur",
+      specialty: "BFSI",
+      image: "/lovable-uploads/1cafaeac-d479-4538-8927-1ec34b3ad0b4.png",
+      alt: "Sanjay Thakur - BFSI Expert"
+    },
+    {
+      id: 6,
+      name: "Soumya Pandey",
+      specialty: "AI + Product",
+      image: "/lovable-uploads/c5833fd2-af8d-4cd5-9647-7da7a6982aaa.png",
+      alt: "Soumya Pandey - AI and Product Expert"
+    },
+    {
+      id: 7,
+      name: "Vinay Bhartia",
+      specialty: "Sales + Marketing",
+      image: "/lovable-uploads/87fb696a-f01d-4561-82f9-3c6599212a99.png",
+      alt: "Vinay Bhartia - Sales and Marketing Expert"
+    }
+  ];
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Main navigation header */}
@@ -179,6 +252,60 @@ const Index = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Mentors Section - Auto-scrolling carousel of mentor cards */}
+        <section className="bg-white py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Section heading - centered and prominent */}
+            <div className="text-center mb-15">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                Mentors at Young Founders
+              </h2>
+            </div>
+
+            {/* Mentor carousel with auto-scroll functionality */}
+            <div className="relative">
+              <Carousel
+                plugins={[autoplayPlugin.current]}
+                className="w-full max-w-6xl mx-auto"
+                onMouseEnter={autoplayPlugin.current.stop}
+                onMouseLeave={autoplayPlugin.current.reset}
+                opts={{
+                  align: "start",
+                  loop: true,
+                }}
+              >
+                <CarouselContent className="-ml-2 md:-ml-4">
+                  {mentors.map((mentor) => (
+                    <CarouselItem 
+                      key={mentor.id} 
+                      className="pl-2 md:pl-4 basis-full sm:basis-1/2 lg:basis-1/4"
+                    >
+                      {/* Individual mentor card with hover effects */}
+                      <div className="group cursor-pointer transform transition-all duration-300 hover:scale-105">
+                        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                          {/* Mentor profile image */}
+                          <div className="aspect-square overflow-hidden">
+                            <img
+                              src={mentor.image}
+                              alt={mentor.alt}
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                              loading="lazy"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                
+                {/* Navigation arrows for manual control */}
+                <CarouselPrevious className="absolute -left-12 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white border border-gray-200 text-gray-600 hover:text-gray-900 shadow-lg" />
+                <CarouselNext className="absolute -right-12 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white border border-gray-200 text-gray-600 hover:text-gray-900 shadow-lg" />
+              </Carousel>
             </div>
           </div>
         </section>

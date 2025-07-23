@@ -108,16 +108,17 @@ const Navigation = () => {
                             onClick={(e) => {
                               console.log("Link clicked:", dropdownItem);
                               console.log("Current URL:", window.location.href);
-                              console.log("Link target:", dropdownItem === "Webinars" ? "/webinars" : "#");
+                              
+                              if (dropdownItem === "Webinars") {
+                                console.log("Link target: /webinars");
+                              } else if (dropdownItem === "Young Founders Floor") {
+                                console.log("Link target: /events/youngfoundersfloor");
+                              } else {
+                                console.log("Link target: #");
+                              }
                               
                               // Ensure dropdown closes
                               setActiveDropdown(null);
-                              
-                              // For debugging - force navigation for Webinars
-                              if (dropdownItem === "Webinars") {
-                                console.log("Forcing navigation to /webinars");
-                                // Don't prevent default, let React Router handle it
-                              }
                             }}
                           >
                             {dropdownItem}

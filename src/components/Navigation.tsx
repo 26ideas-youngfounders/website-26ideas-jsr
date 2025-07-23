@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Main navigation component for the 26ideas Young Founders platform.
  * 
@@ -42,8 +43,10 @@ const Navigation = () => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
   
-  // Reference for click-outside detection
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  // Individual references for each dropdown to prevent conflicts
+  const communityDropdownRef = useRef<HTMLDivElement>(null);
+  const eventsDropdownRef = useRef<HTMLDivElement>(null);
+  const insightsDropdownRef = useRef<HTMLDivElement>(null);
   
   // Authentication state and functions
   const { user, signOut } = useAuth();
@@ -66,7 +69,8 @@ const Navigation = () => {
         "Alumni",
         "Mentors", // Links to /community/mentors route
         "Partners"
-      ]
+      ],
+      ref: communityDropdownRef
     },
     { 
       label: "Programmes", 
@@ -79,7 +83,8 @@ const Navigation = () => {
         "Young Founders Floor",
         "Annual Retreat",
         "Women Founders Meetup"
-      ]
+      ],
+      ref: eventsDropdownRef
     },
     { 
       label: "Insights", 
@@ -88,7 +93,8 @@ const Navigation = () => {
         "Blogs",
         "Newsletters",
         "Articles"
-      ]
+      ],
+      ref: insightsDropdownRef
     },
   ];
 
@@ -98,7 +104,16 @@ const Navigation = () => {
    */
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      
+      // Check if click is outside all dropdown refs
+      const isOutsideAllDropdowns = [
+        communityDropdownRef,
+        eventsDropdownRef,
+        insightsDropdownRef
+      ].every(ref => !ref.current?.contains(target));
+      
+      if (isOutsideAllDropdowns) {
         setActiveDropdown(null);
       }
     };
@@ -116,28 +131,41 @@ const Navigation = () => {
    * Closes the active dropdown menu
    */
   const closeDropdown = () => {
+    console.log('🔄 Closing dropdown');
     setActiveDropdown(null);
   };
 
   /**
-   * Handles navigation for special dropdown items
+   * Handles navigation for special dropdown items with debugging
    * @param {string} itemName - The name of the dropdown item
    */
   const handleSpecialNavigation = (itemName: string) => {
-    // Close dropdown first
-    setActiveDropdown(null);
+    console.log('🚀 handleSpecialNavigation called with:', itemName);
     
-    // Use setTimeout to ensure the dropdown state update has processed
-    // before navigation occurs, preventing any interference
-    setTimeout(() => {
+    try {
+      // Close dropdown immediately
+      console.log('🔄 Closing dropdown before navigation');
+      setActiveDropdown(null);
+      
+      // Navigate immediately without setTimeout to avoid any timing issues
       switch (itemName) {
         case "Young Founders Floor":
+          console.log('📍 Navigating to /young-founders-floor');
           navigate("/young-founders-floor");
+          console.log('✅ Navigation call completed');
           break;
         default:
+          console.log('⚠️ No navigation defined for:', itemName);
           break;
       }
-    }, 0);
+    } catch (error) {
+      console.error('❌ Navigation error:', error);
+      // Fallback: try using window.location as backup
+      if (itemName === "Young Founders Floor") {
+        console.log('🔄 Fallback: Using window.location');
+        window.location.href = "/young-founders-floor";
+      }
+    }
   };
 
   /**
@@ -183,11 +211,12 @@ const Navigation = () => {
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-8">
               {navItems.map((item, index) => (
-                <div key={item.label} className="relative group" ref={item.hasDropdown ? dropdownRef : null}>
+                <div key={item.label} className="relative group" ref={item.ref || null}>
                   <button 
-                    className="flex items-center text-nav-text hover:text-nav-text-hover transition-colors duration-200 text-sm font-medium py-2"
+                    className="flex items-center text-gray-700 hover:text-gray-900 transition-colors duration-200 text-sm font-medium py-2"
                     onClick={() => {
                       if (item.hasDropdown) {
+                        console.log('📋 Dropdown clicked:', item.label);
                         setActiveDropdown(activeDropdown === item.label ? null : item.label);
                       }
                     }}
@@ -202,7 +231,7 @@ const Navigation = () => {
                   
                   {/* Dropdown Menu */}
                   {item.hasDropdown && activeDropdown === item.label && item.dropdownItems && (
-                    <div className="absolute top-full left-0 mt-1 w-56 bg-dropdown-bg border border-dropdown-border rounded-lg shadow-lg z-50">
+                    <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                       <div className="py-2">
                         {item.dropdownItems.map((dropdownItem) => {
                           if (needsSpecialNavigation(dropdownItem)) {
@@ -210,14 +239,16 @@ const Navigation = () => {
                               <button
                                 key={dropdownItem}
                                 type="button"
-                                className="w-full text-left block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150 focus:outline-none focus:bg-dropdown-item-hover"
+                                className="w-full text-left block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150 focus:outline-none focus:bg-gray-100"
                                 onClick={(e) => {
+                                  console.log('🖱️ Special navigation button clicked:', dropdownItem);
                                   e.preventDefault();
                                   e.stopPropagation();
                                   handleSpecialNavigation(dropdownItem);
                                 }}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter' || e.key === ' ') {
+                                    console.log('⌨️ Special navigation key pressed:', e.key, dropdownItem);
                                     e.preventDefault();
                                     e.stopPropagation();
                                     handleSpecialNavigation(dropdownItem);
@@ -233,8 +264,11 @@ const Navigation = () => {
                             <Link
                               key={dropdownItem}
                               to={getItemRoute(dropdownItem)}
-                              className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
-                              onClick={() => setActiveDropdown(null)}
+                              className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150"
+                              onClick={() => {
+                                console.log('🔗 Regular link clicked:', dropdownItem);
+                                setActiveDropdown(null);
+                              }}
                             >
                               {dropdownItem}
                             </Link>
@@ -275,7 +309,7 @@ const Navigation = () => {
 
           {/* Mobile menu button */}
           <div className="md:hidden">
-            <button className="text-nav-text hover:text-nav-text-hover p-2">
+            <button className="text-gray-700 hover:text-gray-900 p-2">
               <svg
                 className="h-6 w-6"
                 fill="none"

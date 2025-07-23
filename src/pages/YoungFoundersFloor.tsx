@@ -10,6 +10,9 @@ const YoungFoundersFloor = () => {
         <h1 className="text-4xl md:text-6xl font-bold text-foreground text-center">
           Young Founders Floor Page
         </h1>
+        <h2 className="text-2xl md:text-4xl font-semibold text-foreground text-center mt-8">
+          Young Founders Floor Page 2
+        </h2>
       </div>
 
       <Footer />

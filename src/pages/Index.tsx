@@ -256,7 +256,7 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Mentors Section - Auto-scrolling carousel of mentor cards */}
+        {/* Mentors Section - Auto-scrolling carousel with 60px top/bottom padding */}
         <section className="bg-white py-15">
           <div className="max-w-[1200px] mx-auto">
             {/* Section heading - centered with 60px spacing below */}

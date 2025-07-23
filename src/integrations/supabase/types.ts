@@ -759,8 +759,12 @@ export type Database = {
       individuals: {
         Row: {
           achievements: Json | null
+          active_programs: string[] | null
           alumni_status: boolean | null
+          ambassador_performance_score: number | null
+          ambassador_region: string | null
           ambassador_status: boolean | null
+          ambassador_university: string | null
           availability_for_mentoring: number | null
           background_check_status: string | null
           bio: string | null
@@ -822,6 +826,7 @@ export type Database = {
           professional_experience: Json | null
           profile_completion: number | null
           profile_photo_url: string | null
+          program_completion_rate: number | null
           pronouns: string | null
           public_profile: boolean | null
           referral_source: string | null
@@ -844,8 +849,12 @@ export type Database = {
         }
         Insert: {
           achievements?: Json | null
+          active_programs?: string[] | null
           alumni_status?: boolean | null
+          ambassador_performance_score?: number | null
+          ambassador_region?: string | null
           ambassador_status?: boolean | null
+          ambassador_university?: string | null
           availability_for_mentoring?: number | null
           background_check_status?: string | null
           bio?: string | null
@@ -907,6 +916,7 @@ export type Database = {
           professional_experience?: Json | null
           profile_completion?: number | null
           profile_photo_url?: string | null
+          program_completion_rate?: number | null
           pronouns?: string | null
           public_profile?: boolean | null
           referral_source?: string | null
@@ -929,8 +939,12 @@ export type Database = {
         }
         Update: {
           achievements?: Json | null
+          active_programs?: string[] | null
           alumni_status?: boolean | null
+          ambassador_performance_score?: number | null
+          ambassador_region?: string | null
           ambassador_status?: boolean | null
+          ambassador_university?: string | null
           availability_for_mentoring?: number | null
           background_check_status?: string | null
           bio?: string | null
@@ -992,6 +1006,7 @@ export type Database = {
           professional_experience?: Json | null
           profile_completion?: number | null
           profile_photo_url?: string | null
+          program_completion_rate?: number | null
           pronouns?: string | null
           public_profile?: boolean | null
           referral_source?: string | null

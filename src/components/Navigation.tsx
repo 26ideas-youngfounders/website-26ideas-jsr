@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 
 // React Hooks and Router
 import { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 // Internal Components and Hooks
 import { useAuth } from "@/hooks/useAuth";
@@ -48,6 +48,9 @@ const Navigation = () => {
   
   // Authentication state and functions
   const { user, signOut } = useAuth();
+  
+  // Navigation hook for programmatic routing
+  const navigate = useNavigate();
 
   /**
    * Navigation menu structure configuration
@@ -111,6 +114,29 @@ const Navigation = () => {
   }, []);
 
   /**
+   * Closes the active dropdown menu
+   */
+  const closeDropdown = () => {
+    setActiveDropdown(null);
+  };
+
+  /**
+   * Handles navigation for special dropdown items
+   * @param {string} itemName - The name of the dropdown item
+   */
+  const handleSpecialNavigation = (itemName: string) => {
+    closeDropdown(); // Close dropdown first
+    
+    switch (itemName) {
+      case "Young Founders Floor":
+        navigate("/young-founders-floor");
+        break;
+      default:
+        break;
+    }
+  };
+
+  /**
    * Route mapping function for dropdown items
    * Maps specific dropdown items to their corresponding routes
    * @param {string} itemName - The name of the dropdown item
@@ -120,11 +146,18 @@ const Navigation = () => {
     switch (itemName) {
       case "Mentors":
         return "/community/mentors"; // Mentor signup page
-      case "Young Founders Floor":
-        return "/young-founders-floor"; // YFF landing page
       default:
         return "#"; // Placeholder for future routes
     }
+  };
+
+  /**
+   * Checks if an item needs special navigation handling
+   * @param {string} itemName - The name of the dropdown item
+   * @returns {boolean} True if item needs special handling
+   */
+  const needsSpecialNavigation = (itemName: string) => {
+    return itemName === "Young Founders Floor";
   };
 
   return (
@@ -167,16 +200,37 @@ const Navigation = () => {
                   {item.hasDropdown && activeDropdown === item.label && item.dropdownItems && (
                     <div className="absolute top-full left-0 mt-1 w-56 bg-dropdown-bg border border-dropdown-border rounded-lg shadow-lg z-50">
                       <div className="py-2">
-                        {item.dropdownItems.map((dropdownItem) => (
-                          <Link
-                            key={dropdownItem}
-                            to={getItemRoute(dropdownItem)}
-                            className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
-                            onClick={() => setActiveDropdown(null)}
-                          >
-                            {dropdownItem}
-                          </Link>
-                        ))}
+                        {item.dropdownItems.map((dropdownItem) => {
+                          if (needsSpecialNavigation(dropdownItem)) {
+                            return (
+                              <button
+                                key={dropdownItem}
+                                type="button"
+                                className="w-full text-left block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
+                                onClick={() => handleSpecialNavigation(dropdownItem)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleSpecialNavigation(dropdownItem);
+                                  }
+                                }}
+                              >
+                                {dropdownItem}
+                              </button>
+                            );
+                          }
+                          
+                          return (
+                            <Link
+                              key={dropdownItem}
+                              to={getItemRoute(dropdownItem)}
+                              className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
+                              onClick={() => setActiveDropdown(null)}
+                            >
+                              {dropdownItem}
+                            </Link>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

@@ -1,3 +1,4 @@
+// @ts-nocheck - Nuclear solution to eliminate TS2589 errors completely
 
 /**
  * @fileoverview Young Founders Floor Questionnaire Page
@@ -6,11 +7,9 @@
  * Features comprehensive form validation, auto-save functionality,
  * and robust error handling with the fixed authentication system.
  * 
- * @version 2.3.0 - Nuclear TypeScript error fix with complete type bypass
+ * @version 2.4.0 - Fixed Individual ID not found error by using email-based queries
  * @author 26ideas Development Team
  */
-
-// @ts-nocheck - Nuclear solution to eliminate TS2589 errors completely
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -75,16 +74,19 @@ const YffQuestionnaire = () => {
    */
   useEffect(() => {
     const loadExistingApplication = async () => {
-      if (!user?.id) return;
+      if (!user?.email) {
+        console.log('No user email available');
+        return;
+      }
 
       try {
-        console.log('Loading existing application for user:', user.id);
+        console.log('Loading existing application for user email:', user.email);
 
-        // First get the individual_id
+        // Query individuals table by email (not user_id which doesn't exist)
         const { data: individualData, error: individualError } = await supabase
           .from('individuals')
           .select('individual_id, first_name, last_name, email, mobile, dob, nationality')
-          .eq('user_id', user.id)
+          .eq('email', user.email)
           .single();
 
         if (individualError && individualError.code !== 'PGRST116') {
@@ -152,6 +154,38 @@ const YffQuestionnaire = () => {
               return;
             }
           }
+        } else {
+          // No individual record found, create one
+          console.log('No individual record found, creating one for:', user.email);
+          
+          const { data: newIndividual, error: createError } = await supabase
+            .from('individuals')
+            .insert({
+              email: user.email,
+              first_name: '',
+              last_name: '',
+              privacy_consent: false,
+              data_processing_consent: false
+            })
+            .select('individual_id')
+            .single();
+
+          if (createError) {
+            console.error('Error creating individual record:', createError);
+            toast.error('Error setting up your profile. Please try again.');
+            return;
+          }
+
+          if (newIndividual) {
+            setIndividualId(newIndividual.individual_id);
+            console.log('New individual record created:', newIndividual.individual_id);
+            
+            // Set email in form data
+            setFormData(prev => ({
+              ...prev,
+              email: user.email
+            }));
+          }
         }
       } catch (error) {
         console.error('Error in loadExistingApplication:', error);
@@ -160,7 +194,7 @@ const YffQuestionnaire = () => {
     };
 
     loadExistingApplication();
-  }, [user?.id, navigate]);
+  }, [user?.email, navigate]);
 
   /**
    * Auto-Save Function

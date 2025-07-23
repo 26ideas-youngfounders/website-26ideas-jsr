@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Young Founders Floor Questionnaire Page
  * 
@@ -5,7 +6,7 @@
  * Features comprehensive form validation, auto-save functionality,
  * and robust error handling with the fixed authentication system.
  * 
- * @version 2.1.2 - Fixed TypeScript types and imports
+ * @version 2.1.3 - Fixed circular type dependencies
  * @author 26ideas Development Team
  */
 
@@ -16,7 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { YffFormSections, YffFormData } from '@/components/forms/YffFormSections';
+import { YffFormSections } from '@/components/forms/YffFormSections';
+import { YffFormData } from '@/types/yff-form';
 
 /**
  * YffQuestionnaire Component

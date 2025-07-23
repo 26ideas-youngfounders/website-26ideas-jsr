@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview YFF Form Section Components
  * 
@@ -15,24 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-/**
- * Form Data Interface - simplified to avoid circular references
- */
-export interface YffFormData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  dateOfBirth: string;
-  nationality: string;
-  whyApplying: string;
-  businessIdea: string;
-  experience: string;
-  challenges: string;
-  goals: string;
-  commitment: string;
-}
+import { YffFormData } from '@/types/yff-form';
 
 interface FormSectionProps {
   formData: YffFormData;

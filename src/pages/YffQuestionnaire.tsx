@@ -5,25 +5,18 @@
  * Features comprehensive form validation, auto-save functionality,
  * and robust error handling with the fixed authentication system.
  * 
- * @version 2.1.1 - Fixed TypeScript types using extended interfaces
+ * @version 2.1.2 - Fixed TypeScript types and imports
  * @author 26ideas Development Team
  */
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { YffFormSections } from '@/components/forms/YffFormSections';
-import { 
-  YffFormData, 
-  ExtendedYffApplication,
-  convertFormDataToJson 
-} from '@/types/yff-application';
+import { YffFormSections, YffFormData } from '@/components/forms/YffFormSections';
 
 /**
  * YffQuestionnaire Component
@@ -137,7 +130,7 @@ const YffQuestionnaire: React.FC = () => {
 
   /**
    * Auto-Save Function
-   * Saves form progress automatically - removed manual updated_at handling
+   * Saves form progress automatically
    */
   const autoSave = async () => {
     if (!individualId || !hasUnsavedChanges) return;
@@ -146,10 +139,12 @@ const YffQuestionnaire: React.FC = () => {
       console.log('Auto-saving application...');
       
       // Convert form data to JSON format
-      const answersJson = convertFormDataToJson(formData);
+      const answersJson = Object.fromEntries(
+        Object.entries(formData).map(([key, value]) => [key, value])
+      );
 
       if (applicationId) {
-        // Update existing application - let database trigger handle updated_at
+        // Update existing application
         const { error } = await supabase
           .from('yff_applications')
           .update({
@@ -206,7 +201,7 @@ const YffQuestionnaire: React.FC = () => {
 
   /**
    * Form Submission Handler
-   * Validates and submits the complete application - removed manual updated_at handling
+   * Validates and submits the complete application
    */
   const handleSubmit = async () => {
     // Validation check
@@ -245,9 +240,11 @@ const YffQuestionnaire: React.FC = () => {
       }
 
       // Convert form data to Json format
-      const answersJson = convertFormDataToJson(formData);
+      const answersJson = Object.fromEntries(
+        Object.entries(formData).map(([key, value]) => [key, value])
+      );
 
-      // Submit or update application - let database trigger handle updated_at
+      // Submit or update application
       if (applicationId) {
         // Update existing application
         const { error } = await supabase

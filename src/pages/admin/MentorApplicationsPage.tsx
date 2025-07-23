@@ -32,23 +32,23 @@ interface MentorApplication {
   topics_of_interest: string[];
   availability_days: string[];
   availability_time: string;
-  availability_notes: string;
-  linkedin_url: string;
-  instagram_handle: string;
-  reviewer_notes: string;
+  availability_notes?: string;
+  linkedin_url?: string;
+  instagram_handle?: string;
+  reviewer_notes?: string;
   submitted_at: string;
-  reviewed_at: string;
+  reviewed_at?: string;
   country_code: string;
   country_iso_code: string;
   created_at: string;
   updated_at: string;
-  individuals: {
+  individuals?: {
     first_name: string;
     last_name: string;
     email: string;
-    mobile: string;
-    city: string;
-    country: string;
+    mobile?: string;
+    city?: string;
+    country?: string;
   } | null;
 }
 
@@ -64,10 +64,27 @@ const MentorApplicationsPage: React.FC = () => {
   const { data: applications, isLoading } = useQuery({
     queryKey: ['mentor-applications'],
     queryFn: async () => {
+      console.log('Fetching mentor applications...');
+      
       const { data, error } = await supabase
         .from('mentor_applications')
         .select(`
-          *,
+          application_id,
+          individual_id,
+          application_status,
+          topics_of_interest,
+          availability_days,
+          availability_time,
+          availability_notes,
+          linkedin_url,
+          instagram_handle,
+          reviewer_notes,
+          submitted_at,
+          reviewed_at,
+          country_code,
+          country_iso_code,
+          created_at,
+          updated_at,
           individuals!inner (
             first_name,
             last_name,
@@ -83,7 +100,12 @@ const MentorApplicationsPage: React.FC = () => {
         console.error('Error fetching mentor applications:', error);
         throw error;
       }
-      return data as MentorApplication[] || [];
+
+      // Transform data to match interface
+      return (data || []).map((app: any) => ({
+        ...app,
+        individuals: app.individuals || null
+      })) as MentorApplication[];
     },
   });
 
@@ -311,7 +333,7 @@ const MentorApplicationsPage: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         {application.individuals ? 
-                          `${application.individuals.city}, ${application.individuals.country}` :
+                          `${application.individuals.city || 'Unknown City'}, ${application.individuals.country || 'Unknown Country'}` :
                           'Unknown Location'
                         }
                       </TableCell>
@@ -382,7 +404,7 @@ const MentorApplicationsPage: React.FC = () => {
                                         <div><strong>Email:</strong> {selectedApplication.individuals?.email || 'No email'}</div>
                                         <div><strong>Phone:</strong> {selectedApplication.individuals?.mobile || 'No phone'}</div>
                                         <div><strong>Location:</strong> {selectedApplication.individuals ? 
-                                          `${selectedApplication.individuals.city}, ${selectedApplication.individuals.country}` :
+                                          `${selectedApplication.individuals.city || 'Unknown City'}, ${selectedApplication.individuals.country || 'Unknown Country'}` :
                                           'Unknown Location'
                                         }</div>
                                         <div><strong>Country Code:</strong> {selectedApplication.country_code} ({selectedApplication.country_iso_code})</div>

@@ -1,5 +1,6 @@
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   return (
@@ -21,9 +22,12 @@ const Index = () => {
                 impact. Access meaningful insights, programmes, build connections, 
                 participate in competitions that help you take your idea to the next level.
               </p>
-              <button className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-black px-8 py-3 rounded-md text-lg font-medium transition-all duration-300">
+              <Link 
+                to="/events/youngfoundersfloor"
+                className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-black px-8 py-3 rounded-md text-lg font-medium transition-all duration-300 inline-block"
+              >
                 Explore
-              </button>
+              </Link>
             </div>
           </div>
         </section>

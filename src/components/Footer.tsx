@@ -1,4 +1,5 @@
 import { Instagram, Linkedin } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const Footer = () => {
   const footerSections = [
@@ -89,23 +90,28 @@ const Footer = () => {
             </div>
           ))}
 
-          {/* Social Media */}
+          {/* Social Media and N8N Button */}
           <div className="md:col-span-1 flex md:justify-end">
-            <div className="flex space-x-4">
-              <a
-                href="#"
-                className="text-muted-foreground hover:text-foreground transition-colors duration-200"
-                aria-label="Instagram"
-              >
-                <Instagram className="h-5 w-5" />
-              </a>
-              <a
-                href="#"
-                className="text-muted-foreground hover:text-foreground transition-colors duration-200"
-                aria-label="LinkedIn"
-              >
-                <Linkedin className="h-5 w-5" />
-              </a>
+            <div className="flex flex-col space-y-4">
+              <div className="flex space-x-4">
+                <a
+                  href="#"
+                  className="text-muted-foreground hover:text-foreground transition-colors duration-200"
+                  aria-label="Instagram"
+                >
+                  <Instagram className="h-5 w-5" />
+                </a>
+                <a
+                  href="#"
+                  className="text-muted-foreground hover:text-foreground transition-colors duration-200"
+                  aria-label="LinkedIn"
+                >
+                  <Linkedin className="h-5 w-5" />
+                </a>
+              </div>
+              <Button variant="outline" size="sm">
+                N8N
+              </Button>
             </div>
           </div>
         </div>

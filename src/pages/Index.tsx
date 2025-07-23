@@ -334,7 +334,7 @@ const Index = () => {
                   {/* Card image with 20px border radius */}
                   <div className="w-full rounded-[20px] overflow-hidden">
                     <img
-                      src="/lovable-uploads/52330f2f-cf07-4357-a50f-971b371ae48d.png"
+                      src="/lovable-uploads/df2aa975-5574-4291-8791-39fccf9969c6.png"
                       alt="Young Founders Floor 2025 - India's First Entrepreneurship Competition Where EVERYONE Wins"
                       className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-300"
                       loading="lazy"

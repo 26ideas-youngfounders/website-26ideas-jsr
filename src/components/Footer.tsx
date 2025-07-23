@@ -1,7 +1,38 @@
+/**
+ * @fileoverview Footer component for the 26ideas Young Founders platform.
+ * 
+ * Displays comprehensive site navigation, social media links, and additional
+ * resources in a multi-column layout. Provides easy access to all major
+ * sections of the platform and maintains consistent branding.
+ * 
+ * Features:
+ * - Multi-column responsive layout
+ * - Organized navigation by category
+ * - Social media integration
+ * - Company branding and legal links
+ * 
+ * @version 1.0.0
+ * @author 26ideas Development Team
+ */
+
+// Icons and UI Components
 import { Instagram, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+/**
+ * Footer Component
+ * 
+ * Site-wide footer with organized navigation links, social media,
+ * and company information. Uses a responsive grid layout that
+ * adapts from single column on mobile to multi-column on desktop.
+ * 
+ * @returns {JSX.Element} The complete footer component
+ */
 const Footer = () => {
+  /**
+   * Footer navigation sections configuration
+   * Organizes footer links into logical categories for better UX
+   */
   const footerSections = [
     {
       title: "Our Community",
@@ -33,6 +64,10 @@ const Footer = () => {
     }
   ];
 
+  /**
+   * Legal and company links
+   * Important legal pages and primary navigation links
+   */
   const legalLinks = [
     "Home",
     "Terms of Service",

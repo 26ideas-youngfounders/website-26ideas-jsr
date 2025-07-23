@@ -1,17 +1,57 @@
+/**
+ * @fileoverview Main navigation component for the 26ideas Young Founders platform.
+ * 
+ * Provides the primary navigation interface with dropdown menus for different
+ * sections of the platform, user authentication controls, and responsive design
+ * for both desktop and mobile devices.
+ * 
+ * Features:
+ * - Hierarchical dropdown navigation
+ * - User authentication integration
+ * - Mobile-responsive design
+ * - Click-outside-to-close functionality
+ * - Dynamic routing based on user state
+ * 
+ * @version 1.0.0
+ * @author 26ideas Development Team
+ */
+
+// Icons and UI Components
 import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+// React Hooks and Router
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
+
+// Internal Components and Hooks
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
 import SignInModal from "@/components/SignInModal";
 
+/**
+ * Navigation Component
+ * 
+ * Main navigation bar that appears at the top of every page.
+ * Handles user authentication state, dropdown menus, and responsive design.
+ * 
+ * @returns {JSX.Element} The complete navigation bar component
+ */
 const Navigation = () => {
+  // State for dropdown menu management
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
+  
+  // Reference for click-outside detection
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Authentication state and functions
   const { user, signOut } = useAuth();
 
+  /**
+   * Navigation menu structure configuration
+   * Defines the main navigation items and their dropdown contents
+   */
   const navItems = [
     { 
       label: "Our Community", 
@@ -21,11 +61,14 @@ const Navigation = () => {
         "Chapters", 
         "Campus Ambassadors",
         "Alumni",
-        "Mentors", 
+        "Mentors", // Links to /community/mentors route
         "Partners"
       ]
     },
-    { label: "Programmes", hasDropdown: false },
+    { 
+      label: "Programmes", 
+      hasDropdown: false // Simple navigation item without dropdown
+    },
     { 
       label: "Events", 
       hasDropdown: true,
@@ -46,7 +89,10 @@ const Navigation = () => {
     },
   ];
 
-  // Close dropdown when clicking outside
+  /**
+   * Effect hook to handle clicking outside dropdown menus
+   * Closes any open dropdown when user clicks outside the navigation area
+   */
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -54,7 +100,10 @@ const Navigation = () => {
       }
     };
 
+    // Add event listener for mouse clicks
     document.addEventListener('mousedown', handleClickOutside);
+    
+    // Cleanup function to remove event listener
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -100,16 +149,21 @@ const Navigation = () => {
                   {item.hasDropdown && activeDropdown === item.label && item.dropdownItems && (
                     <div className="absolute top-full left-0 mt-1 w-56 bg-dropdown-bg border border-dropdown-border rounded-lg shadow-lg z-50">
                       <div className="py-2">
-                        {item.dropdownItems.map((dropdownItem) => {
-                          // Define specific routes for certain dropdown items
-                          const getItemRoute = (itemName: string) => {
-                            switch (itemName) {
-                              case "Mentors":
-                                return "/community/mentors";
-                              default:
-                                return "#";
-                            }
-                          };
+                         {item.dropdownItems.map((dropdownItem) => {
+                           /**
+                            * Route mapping function for dropdown items
+                            * Maps specific dropdown items to their corresponding routes
+                            * @param {string} itemName - The name of the dropdown item
+                            * @returns {string} The route path for the item
+                            */
+                           const getItemRoute = (itemName: string) => {
+                             switch (itemName) {
+                               case "Mentors":
+                                 return "/community/mentors"; // Mentor signup page
+                               default:
+                                 return "#"; // Placeholder for future routes
+                             }
+                           };
 
                           return (
                             <Link

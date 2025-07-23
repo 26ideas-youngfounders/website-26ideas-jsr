@@ -47,10 +47,11 @@ const Footer = () => {
           {/* Logo and Legal Links */}
           <div className="md:col-span-1">
             <div className="flex items-center mb-6">
-              <span className="text-2xl font-bold text-foreground">26ideas</span>
-              <span className="text-sm text-muted-foreground ml-1 -mt-1 font-light italic">
-                Young Founders
-              </span>
+              <img 
+                src="/lovable-uploads/72856c44-6ead-48de-8838-a00fe8990bad.png" 
+                alt="26ideas Young Founders" 
+                className="h-8 w-auto"
+              />
             </div>
             
             <div className="space-y-3">

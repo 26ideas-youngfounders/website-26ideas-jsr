@@ -62,10 +62,11 @@ const Navigation = () => {
           {/* Logo */}
           <div className="flex-shrink-0">
             <div className="flex items-center">
-              <span className="text-2xl font-bold text-nav-text">26ideas</span>
-              <span className="text-sm text-nav-text ml-1 -mt-1 font-light italic">
-                Young Founders
-              </span>
+              <img 
+                src="/lovable-uploads/72856c44-6ead-48de-8838-a00fe8990bad.png" 
+                alt="26ideas Young Founders" 
+                className="h-8 w-auto"
+              />
             </div>
           </div>
 

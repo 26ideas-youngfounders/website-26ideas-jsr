@@ -22,6 +22,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import MentorSignup from "./pages/MentorSignup";
+import PhoneInputTest from "./pages/PhoneInputTest";
 import NotFound from "./pages/NotFound";
 
 /**
@@ -57,6 +58,9 @@ const App = () => (
             
             {/* Mentor signup page - for users wanting to become mentors */}
             <Route path="/community/mentors" element={<MentorSignup />} />
+            
+            {/* Phone input test page - for testing the new component */}
+            <Route path="/test/phone-input" element={<PhoneInputTest />} />
             
             {/* Catch-all route for 404 errors - MUST be last */}
             <Route path="*" element={<NotFound />} />

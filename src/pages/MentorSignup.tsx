@@ -31,6 +31,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { X, Check, Heart, Users, Lightbulb, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +55,10 @@ const mentorFormSchema = z.object({
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
   phone: z.string().min(10, "Please enter a valid phone number"),
+  
+  // Country information
+  countryCode: z.string().min(2, "Please select a country code"),
+  countryIsoCode: z.string().length(2, "Invalid country ISO code"),
   
   // Social Media & Professional Links
   linkedinUrl: z.string().url("Please enter a valid LinkedIn URL").optional().or(z.literal("")),
@@ -131,6 +136,8 @@ const MentorSignup = () => {
       lastName: "",
       email: "",
       phone: "",
+      countryCode: "+91",
+      countryIsoCode: "IN",
       linkedinUrl: "",
       instagram: "",
       
@@ -206,6 +213,8 @@ const MentorSignup = () => {
         p_last_name: data.lastName,
         p_city: data.city,
         p_country: data.country,
+        p_country_code: data.countryCode,
+        p_country_iso_code: data.countryIsoCode,
         
         // Social media parameters (nullable)
         p_linkedin: data.linkedinUrl || null,
@@ -408,21 +417,23 @@ const MentorSignup = () => {
                     )}
                   </div>
                   
-                  {/* Phone Input - Primary key for duplicate prevention */}
+                  {/* Phone Input with Country Code Dropdown */}
                   <div>
-                    <Label htmlFor="phone">Phone Number *</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      {...form.register("phone")}
-                      className="mt-1"
+                    <PhoneInput
+                      label="Phone Number"
+                      value={form.watch("phone") || ""}
+                      onChange={(phone) => form.setValue("phone", phone)}
+                      countryCode={form.watch("countryCode") || "+91"}
+                      countryIsoCode={form.watch("countryIsoCode") || "IN"}
+                      onCountryChange={(countryCode, isoCode) => {
+                        form.setValue("countryCode", countryCode);
+                        form.setValue("countryIsoCode", isoCode);
+                      }}
+                      required
+                      error={form.formState.errors.phone?.message}
+                      placeholder="Enter your mobile number"
+                      className="w-full"
                     />
-                    {/* Display validation error if present */}
-                    {form.formState.errors.phone && (
-                      <p className="text-destructive text-sm mt-1">
-                        {form.formState.errors.phone.message}
-                      </p>
-                    )}
                   </div>
                 </div>
 

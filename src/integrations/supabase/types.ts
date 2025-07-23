@@ -529,6 +529,36 @@ export type Database = {
         }
         Relationships: []
       }
+      country_codes: {
+        Row: {
+          country_code: string
+          country_flag_emoji: string
+          country_id: number
+          country_name: string
+          created_at: string | null
+          is_active: boolean | null
+          iso_code: string
+        }
+        Insert: {
+          country_code: string
+          country_flag_emoji: string
+          country_id?: number
+          country_name: string
+          created_at?: string | null
+          is_active?: boolean | null
+          iso_code: string
+        }
+        Update: {
+          country_code?: string
+          country_flag_emoji?: string
+          country_id?: number
+          country_name?: string
+          created_at?: string | null
+          is_active?: boolean | null
+          iso_code?: string
+        }
+        Relationships: []
+      }
       course_progress: {
         Row: {
           assignment_scores: Json | null
@@ -952,6 +982,8 @@ export type Database = {
           communication_notifications: boolean | null
           communication_sms: boolean | null
           country: string | null
+          country_code: string | null
+          country_iso_code: string | null
           created_at: string
           created_by: string | null
           current_company: string | null
@@ -1042,6 +1074,8 @@ export type Database = {
           communication_notifications?: boolean | null
           communication_sms?: boolean | null
           country?: string | null
+          country_code?: string | null
+          country_iso_code?: string | null
           created_at?: string
           created_by?: string | null
           current_company?: string | null
@@ -1132,6 +1166,8 @@ export type Database = {
           communication_notifications?: boolean | null
           communication_sms?: boolean | null
           country?: string | null
+          country_code?: string | null
+          country_iso_code?: string | null
           created_at?: string
           created_by?: string | null
           current_company?: string | null
@@ -1204,7 +1240,15 @@ export type Database = {
           whatsapp_number?: string | null
           youtube?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_individuals_country_code"
+            columns: ["country_code", "country_iso_code"]
+            isOneToOne: false
+            referencedRelation: "country_codes"
+            referencedColumns: ["country_code", "iso_code"]
+          },
+        ]
       }
       mentor_applications: {
         Row: {
@@ -1213,6 +1257,8 @@ export type Database = {
           availability_days: string[]
           availability_notes: string | null
           availability_time: string
+          country_code: string | null
+          country_iso_code: string | null
           created_at: string | null
           individual_id: string
           instagram_handle: string | null
@@ -1230,6 +1276,8 @@ export type Database = {
           availability_days: string[]
           availability_notes?: string | null
           availability_time: string
+          country_code?: string | null
+          country_iso_code?: string | null
           created_at?: string | null
           individual_id: string
           instagram_handle?: string | null
@@ -1247,6 +1295,8 @@ export type Database = {
           availability_days?: string[]
           availability_notes?: string | null
           availability_time?: string
+          country_code?: string | null
+          country_iso_code?: string | null
           created_at?: string | null
           individual_id?: string
           instagram_handle?: string | null
@@ -1259,6 +1309,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_mentor_applications_country_code"
+            columns: ["country_code", "country_iso_code"]
+            isOneToOne: false
+            referencedRelation: "country_codes"
+            referencedColumns: ["country_code", "iso_code"]
+          },
           {
             foreignKeyName: "mentor_applications_individual_id_fkey"
             columns: ["individual_id"]
@@ -2394,23 +2451,43 @@ export type Database = {
         Returns: boolean
       }
       create_or_update_mentor_profile: {
-        Args: {
-          p_email: string
-          p_mobile: string
-          p_first_name: string
-          p_last_name: string
-          p_city: string
-          p_country: string
-          p_linkedin?: string
-          p_instagram?: string
-          p_topics_of_interest?: string[]
-          p_availability_days?: string[]
-          p_availability_time?: string
-          p_availability_notes?: string
-          p_privacy_consent?: boolean
-          p_communication_email?: boolean
-          p_communication_sms?: boolean
-        }
+        Args:
+          | {
+              p_email: string
+              p_mobile: string
+              p_first_name: string
+              p_last_name: string
+              p_city: string
+              p_country: string
+              p_country_code?: string
+              p_country_iso_code?: string
+              p_linkedin?: string
+              p_instagram?: string
+              p_topics_of_interest?: string[]
+              p_availability_days?: string[]
+              p_availability_time?: string
+              p_availability_notes?: string
+              p_privacy_consent?: boolean
+              p_communication_email?: boolean
+              p_communication_sms?: boolean
+            }
+          | {
+              p_email: string
+              p_mobile: string
+              p_first_name: string
+              p_last_name: string
+              p_city: string
+              p_country: string
+              p_linkedin?: string
+              p_instagram?: string
+              p_topics_of_interest?: string[]
+              p_availability_days?: string[]
+              p_availability_time?: string
+              p_availability_notes?: string
+              p_privacy_consent?: boolean
+              p_communication_email?: boolean
+              p_communication_sms?: boolean
+            }
         Returns: Json
       }
       get_user_individual_id: {

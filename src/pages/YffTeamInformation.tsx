@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Young Founders Floor Team Information Collection Form
  * 
@@ -63,11 +64,6 @@ interface FormData {
   privacyPolicy: boolean;
   termsConditions: boolean;
   ageVerification: boolean;
-}
-
-interface ApplicationAnswers {
-  team?: FormData;
-  [key: string]: any;
 }
 
 /**
@@ -154,13 +150,16 @@ const YffTeamInformation = () => {
         return;
       }
 
-      // Type-safe access to answers.team
-      const answers = data.answers as ApplicationAnswers;
-      if (answers?.team) {
-        setFormData(prev => ({
-          ...prev,
-          ...answers.team
-        }));
+      // Safely parse the answers
+      if (data.answers && typeof data.answers === 'object' && data.answers !== null) {
+        const answers = data.answers as Record<string, any>;
+        if (answers.team && typeof answers.team === 'object') {
+          const teamData = answers.team as Record<string, any>;
+          setFormData(prev => ({
+            ...prev,
+            ...teamData
+          }));
+        }
       }
     } catch (error) {
       console.log("No existing application found, starting fresh");
@@ -188,13 +187,16 @@ const YffTeamInformation = () => {
     
     setAutoSaving(true);
     try {
+      // Convert FormData to JSON-serializable object
+      const teamDataAsJson = JSON.parse(JSON.stringify(formData));
+      
       const { error } = await supabase
         .from('yff_applications')
         .upsert({
           individual_id: user.id,
           status: 'draft',
           application_round: 'Round 1',
-          answers: { team: formData }
+          answers: { team: teamDataAsJson } as any
         }, {
           onConflict: 'individual_id,application_round'
         });
@@ -350,13 +352,16 @@ const YffTeamInformation = () => {
     
     setLoading(true);
     try {
+      // Convert FormData to JSON-serializable object
+      const teamDataAsJson = JSON.parse(JSON.stringify(formData));
+      
       const { error } = await supabase
         .from('yff_applications')
         .upsert({
           individual_id: user.id,
           status: 'team_info_completed',
           application_round: 'Round 1',
-          answers: { team: formData }
+          answers: { team: teamDataAsJson } as any
         }, {
           onConflict: 'individual_id,application_round'
         });

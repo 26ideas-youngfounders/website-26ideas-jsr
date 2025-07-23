@@ -301,6 +301,31 @@ const Index = () => {
             </div>
           </div>
         </section>
+
+        {/* Membership Call-to-Action Section - Blue background */}
+        <section className="bg-blue-600 py-45">
+          <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            {/* Main heading */}
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
+              Join the world's leading private community for Young Founders
+            </h2>
+            
+            {/* Subtitle */}
+            <p className="text-xl text-white/90 mb-12 leading-relaxed">
+              Learn, share and build their ideas to impact.
+            </p>
+            
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <button className="bg-white text-blue-600 hover:bg-blue-800 hover:text-white px-8 py-3 rounded-md text-lg font-medium transition-all duration-300 min-w-[200px]">
+                Become a Member
+              </button>
+              <button className="bg-transparent border-2 border-white text-white hover:bg-blue-800 hover:border-blue-800 px-8 py-3 rounded-md text-lg font-medium transition-all duration-300 min-w-[200px]">
+                View Pricing
+              </button>
+            </div>
+          </div>
+        </section>
       </main>
       
       {/* Site footer with links and social media */}

@@ -69,32 +69,112 @@ const Index = () => {
         {/* Advisors Section - Full width with scrolling logos */}
         <section className="bg-blue-900 py-12 overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col lg:flex-row items-center gap-8">
-              {/* Left side - Heading */}
-              <div className="lg:w-1/3 text-center lg:text-left">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              {/* Left side - Heading (Fixed width column) */}
+              <div className="lg:col-span-4 text-center lg:text-left">
                 <h2 className="text-2xl md:text-3xl font-bold text-white leading-tight">
                   Our advisors come from leading companies and institutions
                 </h2>
               </div>
               
-              {/* Right side - Scrolling logos ticker */}
-              <div className="lg:w-2/3 relative">
+              {/* Right side - Scrolling logos ticker (Fixed width column) */}
+              <div className="lg:col-span-8 relative overflow-hidden">
                 <div className="flex animate-scroll">
                   {/* First set of logos */}
-                  <div className="flex items-center space-x-12 min-w-max">
+                  <div className="flex items-center space-x-8 min-w-max">
                     <img 
-                      src="/lovable-uploads/6d503697-5e4a-4472-b4a1-b3e8cce6c4e7.png" 
-                      alt="Advisor Companies Logos" 
-                      className="h-12 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                      src="/lovable-uploads/8010c706-d62b-4635-a835-1b23bddf638c.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/87ca2695-b8b4-43c0-b2d8-a475495a7a48.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/6359af06-63e6-413f-ab8a-5839203f9c19.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/31bb3cde-986b-43a6-a184-6b8a8d0743d0.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/fbb352ad-a307-4649-abe8-ce778193ecc5.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/92147d9d-87b9-44ba-8a73-dd8cbd226d41.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/6a997eaf-715f-489b-8c92-f5af65f362d1.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/a0f70fe3-5317-4240-b2ae-d53f5e8981e1.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/b57b618a-00e6-44e0-b836-f699bbe3ca7b.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
                     />
                   </div>
                   
                   {/* Duplicate set for seamless scrolling */}
-                  <div className="flex items-center space-x-12 min-w-max ml-12">
+                  <div className="flex items-center space-x-8 min-w-max ml-8">
                     <img 
-                      src="/lovable-uploads/6d503697-5e4a-4472-b4a1-b3e8cce6c4e7.png" 
-                      alt="Advisor Companies Logos" 
-                      className="h-12 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                      src="/lovable-uploads/8010c706-d62b-4635-a835-1b23bddf638c.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/87ca2695-b8b4-43c0-b2d8-a475495a7a48.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/6359af06-63e6-413f-ab8a-5839203f9c19.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/31bb3cde-986b-43a6-a184-6b8a8d0743d0.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/fbb352ad-a307-4649-abe8-ce778193ecc5.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/92147d9d-87b9-44ba-8a73-dd8cbd226d41.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/6a997eaf-715f-489b-8c92-f5af65f362d1.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/a0f70fe3-5317-4240-b2ae-d53f5e8981e1.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                    <img 
+                      src="/lovable-uploads/b57b618a-00e6-44e0-b836-f699bbe3ca7b.png" 
+                      alt="Advisor Company Logo" 
+                      className="h-20 object-contain opacity-80 hover:opacity-100 transition-opacity"
                     />
                   </div>
                 </div>

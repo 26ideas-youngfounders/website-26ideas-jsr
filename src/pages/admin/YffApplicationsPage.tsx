@@ -71,7 +71,7 @@ const YffApplicationsPage: React.FC = () => {
         console.error('Error fetching YFF applications:', error);
         throw error;
       }
-      return data || [];
+      return data as YffApplication[] || [];
     },
   });
 
@@ -329,7 +329,7 @@ const YffApplicationsPage: React.FC = () => {
                                 {/* Application Answers */}
                                 <div className="space-y-4">
                                   <h4 className="font-semibold">Application Answers</h4>
-                                  {application.answers && Object.entries(application.answers).map(([key, value]) => (
+                                  {application.answers && Object.entries(application.answers as Record<string, any>).map(([key, value]) => (
                                     <div key={key} className="border rounded-lg p-4">
                                       <h5 className="font-medium capitalize mb-2">
                                         {key.replace(/([A-Z])/g, ' $1').trim()}
@@ -347,7 +347,7 @@ const YffApplicationsPage: React.FC = () => {
                           <ApplicationScoringDialog 
                             application={{
                               application_id: application.application_id,
-                              answers: application.answers,
+                              answers: application.answers as Record<string, any>,
                               cumulative_score: application.cumulative_score,
                               individuals: {
                                 first_name: application.individuals.first_name,

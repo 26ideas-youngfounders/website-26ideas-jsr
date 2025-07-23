@@ -68,7 +68,7 @@ const MentorApplicationsPage: React.FC = () => {
         .from('mentor_applications')
         .select(`
           *,
-          individuals:individual_id (
+          individuals!inner (
             first_name,
             last_name,
             email,
@@ -83,7 +83,7 @@ const MentorApplicationsPage: React.FC = () => {
         console.error('Error fetching mentor applications:', error);
         throw error;
       }
-      return data || [];
+      return data as MentorApplication[] || [];
     },
   });
 

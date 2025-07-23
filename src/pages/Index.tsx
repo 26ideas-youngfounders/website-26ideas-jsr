@@ -269,7 +269,7 @@ const Index = () => {
         </section>
 
         {/* Young Founders Program Section - White background with program card */}
-        <section className="bg-white py-15">
+        <section className="bg-white py-[60px]">
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
             {/* Program card container - centered */}
             <div className="flex justify-center">

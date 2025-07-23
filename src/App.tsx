@@ -29,6 +29,9 @@ import YffTeamInformation from "./pages/YffTeamInformation";
 import YffQuestionnaire from "./pages/YffQuestionnaire";
 import NotFound from "./pages/NotFound";
 
+// Admin Components
+import CrmDashboard from "./pages/admin/CrmDashboard";
+
 /**
  * React Query client configuration
  * Handles API caching, background refetching, and error handling
@@ -68,6 +71,9 @@ const App = () => (
             <Route path="/yff" element={<YffLandingPage />} />
             <Route path="/yff/team-information" element={<YffTeamInformation />} />
             <Route path="/yff/questionnaire" element={<YffQuestionnaire />} />
+            
+            {/* Admin CRM System Routes */}
+            <Route path="/admin/crm-dashboard" element={<CrmDashboard />} />
             
             {/* Phone input test page - for testing the new component */}
             <Route path="/test/phone-input" element={<PhoneInputTest />} />

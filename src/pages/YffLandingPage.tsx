@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Young Founders Floor (YFF) landing page component
  * 
@@ -10,7 +9,7 @@
  * @author 26ideas Development Team
  */
 
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -23,6 +22,10 @@ import {
 } from "@/components/ui/table";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import SignInModal from "@/components/SignInModal";
+import { useAuth } from "@/hooks/useAuth";
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 /**
  * Young Founders Floor Landing Page Component
@@ -33,6 +36,52 @@ import Footer from "@/components/Footer";
  * @returns {JSX.Element} Complete YFF landing page
  */
 const YffLandingPage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
+  const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
+
+  // Show success message if redirected after submission
+  useEffect(() => {
+    if (location.state?.showSuccess) {
+      toast({
+        title: "Success!",
+        description: location.state.message || "Application submitted successfully!",
+        variant: "default",
+      });
+    }
+  }, [location.state, toast]);
+
+  /**
+   * Handle registration button click
+   * Check authentication status and redirect accordingly
+   */
+  const handleRegisterClick = () => {
+    if (user) {
+      // User authenticated, go to team information form
+      navigate('/yff/team-information');
+    } else {
+      // User not authenticated, show sign in modal
+      setIsSignInModalOpen(true);
+    }
+  };
+
+  /**
+   * Handle successful authentication from modal
+   */
+  const handleAuthSuccess = () => {
+    setIsSignInModalOpen(false);
+    toast({
+      title: "Welcome!",
+      description: "Please complete your team information to proceed.",
+    });
+    // Redirect to team information after successful auth
+    setTimeout(() => {
+      navigate('/yff/team-information');
+    }, 1000);
+  };
+
   /**
    * Benefits data structure for the comparison table
    * Shows what participants get in each round of the competition
@@ -188,11 +237,13 @@ const YffLandingPage = () => {
           <h3 className="text-xl md:text-2xl text-muted-foreground mb-8">
             Transform your breakthrough idea into a venture in 5 months.
           </h3>
-          <Link to="/register">
-            <Button size="lg" className="text-lg px-8 py-3">
-              Register Now
-            </Button>
-          </Link>
+          <Button 
+            size="lg" 
+            className="text-lg px-8 py-3"
+            onClick={handleRegisterClick}
+          >
+            {user ? "Continue Application" : "Register Now"}
+          </Button>
         </div>
       </section>
 
@@ -308,16 +359,26 @@ const YffLandingPage = () => {
           <p className="text-xl mb-8">
             Join hundreds of young entrepreneurs on their journey to success.
           </p>
-          <Link to="/register">
-            <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
-              Register Now
-            </Button>
-          </Link>
+          <Button 
+            size="lg" 
+            variant="secondary" 
+            className="text-lg px-8 py-3"
+            onClick={handleRegisterClick}
+          >
+            {user ? "Continue Application" : "Register Now"}
+          </Button>
         </div>
       </section>
 
       {/* Footer */}
       <Footer />
+
+      {/* Sign In Modal */}
+      <SignInModal 
+        isOpen={isSignInModalOpen}
+        onClose={() => setIsSignInModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+      />
     </div>
   );
 };

@@ -25,6 +25,8 @@ import Index from "./pages/Index";
 import MentorSignup from "./pages/MentorSignup";
 import PhoneInputTest from "./pages/PhoneInputTest";
 import YffLandingPage from "./pages/YffLandingPage";
+import YffTeamInformation from "./pages/YffTeamInformation";
+import YffQuestionnaire from "./pages/YffQuestionnaire";
 import NotFound from "./pages/NotFound";
 
 /**
@@ -61,9 +63,11 @@ const App = () => (
             {/* Mentor signup page - for users wanting to become mentors */}
             <Route path="/community/mentors" element={<MentorSignup />} />
             
-            {/* Young Founders Floor landing page - main competition page */}
+            {/* Young Founders Floor competition routes */}
             <Route path="/young-founders-floor" element={<YffLandingPage />} />
             <Route path="/yff" element={<YffLandingPage />} />
+            <Route path="/yff/team-information" element={<YffTeamInformation />} />
+            <Route path="/yff/questionnaire" element={<YffQuestionnaire />} />
             
             {/* Phone input test page - for testing the new component */}
             <Route path="/test/phone-input" element={<PhoneInputTest />} />

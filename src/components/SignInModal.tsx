@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +9,10 @@ import { useAuth } from "@/hooks/useAuth";
 interface SignInModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void; // Added callback for successful authentication
 }
 
-const SignInModal = ({ isOpen, onClose }: SignInModalProps) => {
+const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,11 +27,14 @@ const SignInModal = ({ isOpen, onClose }: SignInModalProps) => {
     
     try {
       if (isSignUp) {
-        await signUp(email, password);
+        const { error } = await signUp(email, password);
+        if (!error) {
+          onSuccess?.();
+        }
       } else {
         const { error } = await signIn(email, password);
         if (!error) {
-          onClose();
+          onSuccess?.();
         }
       }
     } finally {
@@ -43,7 +48,7 @@ const SignInModal = ({ isOpen, onClose }: SignInModalProps) => {
     } else {
       await signInWithFacebook();
     }
-    onClose();
+    onSuccess?.();
   };
 
   return (

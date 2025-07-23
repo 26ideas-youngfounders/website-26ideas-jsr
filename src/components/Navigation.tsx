@@ -100,16 +100,28 @@ const Navigation = () => {
                   {item.hasDropdown && activeDropdown === item.label && item.dropdownItems && (
                     <div className="absolute top-full left-0 mt-1 w-56 bg-dropdown-bg border border-dropdown-border rounded-lg shadow-lg z-50">
                       <div className="py-2">
-                        {item.dropdownItems.map((dropdownItem) => (
-                          <Link
-                            key={dropdownItem}
-                            to="#"
-                            className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
-                            onClick={() => setActiveDropdown(null)}
-                          >
-                            {dropdownItem}
-                          </Link>
-                        ))}
+                        {item.dropdownItems.map((dropdownItem) => {
+                          // Define specific routes for certain dropdown items
+                          const getItemRoute = (itemName: string) => {
+                            switch (itemName) {
+                              case "Mentors":
+                                return "/community/mentors";
+                              default:
+                                return "#";
+                            }
+                          };
+
+                          return (
+                            <Link
+                              key={dropdownItem}
+                              to={getItemRoute(dropdownItem)}
+                              className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
+                              onClick={() => setActiveDropdown(null)}
+                            >
+                              {dropdownItem}
+                            </Link>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

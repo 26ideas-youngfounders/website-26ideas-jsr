@@ -100,173 +100,58 @@ const MentorSignup = () => {
     try {
       console.log('Starting mentor signup submission...', data);
       
-      // First, check if a mentor already exists with this mobile number or email
-      const { data: existingMentor, error: checkError } = await supabase
-        .from('individuals')
-        .select('individual_id, mobile, email, is_mentor, metadata')
-        .or(`mobile.eq.${data.phone},email.eq.${data.email}`);
+      // Use the new database function for safe mentor creation
+      const { data: result, error } = await supabase.rpc('create_or_update_mentor_profile', {
+        p_email: data.email,
+        p_mobile: data.phone,
+        p_first_name: data.firstName,
+        p_last_name: data.lastName,
+        p_city: data.city,
+        p_country: data.country,
+        p_linkedin: data.linkedinUrl || null,
+        p_instagram: data.instagram || null,
+        p_topics_of_interest: data.topicsOfInterest,
+        p_availability_days: data.availabilityDays,
+        p_availability_time: data.availabilityTime,
+        p_availability_notes: data.availabilityNotes || null,
+        p_privacy_consent: data.privacyConsent,
+        p_communication_email: data.emailUpdates,
+        p_communication_sms: data.smsUpdates
+      });
 
-      if (checkError) {
-        console.error('Error checking existing mentor:', checkError);
+      if (error) {
+        console.error('Error submitting mentor application:', error);
         toast({
           title: "Error",
-          description: "There was an error checking existing records. Please try again.",
+          description: "There was an error submitting your application. Please try again.",
           variant: "destructive",
         });
         return;
       }
 
-      // Check for duplicates
-      if (existingMentor && existingMentor.length > 0) {
-        const duplicateByMobile = existingMentor.find(m => m.mobile === data.phone);
-        const duplicateByEmail = existingMentor.find(m => m.email === data.email);
-        
-        if (duplicateByMobile && duplicateByMobile.is_mentor) {
+      console.log('Database function result:', result);
+
+      // Handle the response from the database function
+      const response = result as any; // Type assertion for the JSON response
+      if (response?.success === false) {
+        if (response?.error === 'duplicate_mentor') {
           toast({
             title: "Already Registered",
-            description: "A mentor profile already exists with this phone number. Please use a different phone number or contact support.",
+            description: response?.message || "A mentor profile already exists with this email or phone number.",
             variant: "destructive",
           });
-          return;
-        }
-        
-        if (duplicateByEmail && duplicateByEmail.is_mentor) {
-          toast({
-            title: "Already Registered", 
-            description: "A mentor profile already exists with this email address. Please use a different email or contact support.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // If exists but not a mentor, update the existing record
-        if (duplicateByMobile && !duplicateByMobile.is_mentor) {
-          console.log('Updating existing individual to mentor status...');
-          const updateData = {
-            first_name: data.firstName,
-            last_name: data.lastName,
-            email: data.email,
-            linkedin: data.linkedinUrl || null,
-            instagram: data.instagram || null,
-            city: data.city,
-            country: data.country,
-            is_mentor: true,
-            mentor_status: true,
-            interests: data.topicsOfInterest,
-            preferences: {
-              availability_days: data.availabilityDays,
-              availability_time: data.availabilityTime,
-              availability_notes: data.availabilityNotes
-            },
-            privacy_consent: data.privacyConsent,
-            data_processing_consent: data.privacyConsent,
-            communication_email: data.emailUpdates,
-            communication_sms: data.smsUpdates,
-            metadata: {
-              ...(duplicateByMobile.metadata as Record<string, any> || {}),
-              mentor_signup: {
-                source: "mentor_signup_form",
-                submitted_at: new Date().toISOString()
-              }
-            },
-            updated_at: new Date().toISOString()
-          };
-
-          const { data: updateResult, error: updateError } = await supabase
-            .from('individuals')
-            .update(updateData)
-            .eq('individual_id', duplicateByMobile.individual_id)
-            .select();
-
-          if (updateError) {
-            console.error('Error updating existing record to mentor:', updateError);
-            toast({
-              title: "Error",
-              description: "There was an error updating your profile. Please try again.",
-              variant: "destructive",
-            });
-            return;
-          }
-
-          console.log('Successfully updated existing record to mentor:', updateResult);
-          setIsSubmitted(true);
-          toast({
-            title: "Success!",
-            description: "Your existing profile has been updated with mentor information. We'll contact you soon!",
-          });
-          return;
-        }
-      }
-
-      // Create new mentor record
-      console.log('Creating new mentor record...');
-      const mentorData = {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        email: data.email,
-        mobile: data.phone,
-        linkedin: data.linkedinUrl || null,
-        instagram: data.instagram || null,
-        city: data.city,
-        country: data.country,
-        is_mentor: true,
-        mentor_status: true,
-        interests: data.topicsOfInterest,
-        preferences: {
-          availability_days: data.availabilityDays,
-          availability_time: data.availabilityTime,
-          availability_notes: data.availabilityNotes
-        },
-        privacy_consent: data.privacyConsent,
-        data_processing_consent: data.privacyConsent,
-        communication_email: data.emailUpdates,
-        communication_sms: data.smsUpdates,
-        metadata: {
-          source: "mentor_signup_form",
-          submitted_at: new Date().toISOString()
-        }
-      };
-
-      const { data: result, error } = await supabase
-        .from('individuals')
-        .insert([mentorData])
-        .select();
-
-      if (error) {
-        console.error('Error submitting mentor application:', error);
-        
-        // Handle specific database constraint errors
-        if (error.code === '23505') { // Unique constraint violation
-          if (error.message.includes('mobile')) {
-            toast({
-              title: "Phone Number Already Registered",
-              description: "This phone number is already registered. Please use a different phone number.",
-              variant: "destructive",
-            });
-          } else if (error.message.includes('email')) {
-            toast({
-              title: "Email Already Registered", 
-              description: "This email address is already registered. Please use a different email address.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Duplicate Registration",
-              description: "A profile with these details already exists. Please check your information.",
-              variant: "destructive",
-            });
-          }
         } else {
           toast({
             title: "Error",
-            description: "There was an error submitting your application. Please try again.",
+            description: response?.message || "There was an error creating your mentor profile.",
             variant: "destructive",
           });
         }
         return;
       }
 
-      console.log('Successfully created new mentor record:', result);
+      // Success case
+      console.log('Successfully created/updated mentor profile:', response);
       setIsSubmitted(true);
       toast({
         title: "Success!",

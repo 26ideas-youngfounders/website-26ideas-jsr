@@ -1206,6 +1206,103 @@ export type Database = {
         }
         Relationships: []
       }
+      mentor_applications: {
+        Row: {
+          application_id: string
+          application_status: string | null
+          availability_days: string[]
+          availability_notes: string | null
+          availability_time: string
+          created_at: string | null
+          individual_id: string
+          instagram_handle: string | null
+          linkedin_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_notes: string | null
+          submitted_at: string | null
+          topics_of_interest: string[]
+          updated_at: string | null
+        }
+        Insert: {
+          application_id?: string
+          application_status?: string | null
+          availability_days: string[]
+          availability_notes?: string | null
+          availability_time: string
+          created_at?: string | null
+          individual_id: string
+          instagram_handle?: string | null
+          linkedin_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          submitted_at?: string | null
+          topics_of_interest: string[]
+          updated_at?: string | null
+        }
+        Update: {
+          application_id?: string
+          application_status?: string | null
+          availability_days?: string[]
+          availability_notes?: string | null
+          availability_time?: string
+          created_at?: string | null
+          individual_id?: string
+          instagram_handle?: string | null
+          linkedin_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          submitted_at?: string | null
+          topics_of_interest?: string[]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_applications_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "active_participants"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "mentor_applications_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "mentor_applications_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "mentor_applications_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "active_participants"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "mentor_applications_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "mentor_applications_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
+            referencedColumns: ["individual_id"]
+          },
+        ]
+      }
       mentorships: {
         Row: {
           duration_weeks: number | null
@@ -2146,6 +2243,17 @@ export type Database = {
         }
         Relationships: []
       }
+      mentor_stats: {
+        Row: {
+          active_mentors: number | null
+          all_topics_covered: string[] | null
+          cities_represented: number | null
+          countries_represented: number | null
+          new_mentors_last_30_days: number | null
+          total_mentors: number | null
+        }
+        Relationships: []
+      }
       multi_role_participants: {
         Row: {
           active_programs: string[] | null
@@ -2281,6 +2389,30 @@ export type Database = {
       }
     }
     Functions: {
+      check_mentor_availability: {
+        Args: { mentor_id: string; requested_day: string }
+        Returns: boolean
+      }
+      create_or_update_mentor_profile: {
+        Args: {
+          p_email: string
+          p_mobile: string
+          p_first_name: string
+          p_last_name: string
+          p_city: string
+          p_country: string
+          p_linkedin?: string
+          p_instagram?: string
+          p_topics_of_interest?: string[]
+          p_availability_days?: string[]
+          p_availability_time?: string
+          p_availability_notes?: string
+          p_privacy_consent?: boolean
+          p_communication_email?: boolean
+          p_communication_sms?: boolean
+        }
+        Returns: Json
+      }
       get_user_individual_id: {
         Args: { user_uuid?: string }
         Returns: string

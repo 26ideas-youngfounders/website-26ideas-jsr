@@ -66,6 +66,12 @@ export default {
 					text: 'hsl(var(--nav-text))',
 					'text-hover': 'hsl(var(--nav-text-hover))',
 					border: 'hsl(var(--nav-border))'
+				},
+				dropdown: {
+					bg: 'hsl(var(--dropdown-bg))',
+					border: 'hsl(var(--dropdown-border))',
+					shadow: 'hsl(var(--dropdown-shadow))',
+					'item-hover': 'hsl(var(--dropdown-item-hover))'
 				}
 			},
 			borderRadius: {

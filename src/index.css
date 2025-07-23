@@ -40,6 +40,12 @@ All colors MUST be HSL.
     --nav-text: 0 0% 20%;
     --nav-text-hover: 0 0% 40%;
     --nav-border: 0 0% 93%;
+    
+    /* Dropdown specific tokens */
+    --dropdown-bg: 0 0% 100%;
+    --dropdown-border: 0 0% 90%;
+    --dropdown-shadow: 0 0% 0%;
+    --dropdown-item-hover: 0 0% 96%;
 
     --radius: 0.5rem;
 

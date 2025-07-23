@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Main navigation component for the 26ideas Young Founders platform.
  * 
@@ -125,15 +124,20 @@ const Navigation = () => {
    * @param {string} itemName - The name of the dropdown item
    */
   const handleSpecialNavigation = (itemName: string) => {
-    closeDropdown(); // Close dropdown first
+    // Close dropdown first
+    setActiveDropdown(null);
     
-    switch (itemName) {
-      case "Young Founders Floor":
-        navigate("/young-founders-floor");
-        break;
-      default:
-        break;
-    }
+    // Use setTimeout to ensure the dropdown state update has processed
+    // before navigation occurs, preventing any interference
+    setTimeout(() => {
+      switch (itemName) {
+        case "Young Founders Floor":
+          navigate("/young-founders-floor");
+          break;
+        default:
+          break;
+      }
+    }, 0);
   };
 
   /**
@@ -206,11 +210,16 @@ const Navigation = () => {
                               <button
                                 key={dropdownItem}
                                 type="button"
-                                className="w-full text-left block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
-                                onClick={() => handleSpecialNavigation(dropdownItem)}
+                                className="w-full text-left block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150 focus:outline-none focus:bg-dropdown-item-hover"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleSpecialNavigation(dropdownItem);
+                                }}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();
+                                    e.stopPropagation();
                                     handleSpecialNavigation(dropdownItem);
                                   }
                                 }}

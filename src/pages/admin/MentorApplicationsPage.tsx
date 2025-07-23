@@ -102,7 +102,14 @@ const MentorApplicationsPage: React.FC = () => {
       }
 
       console.log('Fetched mentor applications:', data);
-      return (data || []) as MentorApplication[];
+      
+      // Transform the data to ensure proper typing
+      const transformedData = (data || []).map((app: any) => ({
+        ...app,
+        individuals: app.individuals || null
+      }));
+
+      return transformedData as MentorApplication[];
     },
   });
 

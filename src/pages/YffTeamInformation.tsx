@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Young Founders Floor Team Information Collection Form
  * 
@@ -26,6 +25,52 @@ import Navigation from "@/components/Navigation";
 import { PhoneInput } from "@/components/ui/phone-input";
 
 /**
+ * Type definitions for form data
+ */
+interface TeamMember {
+  name: string;
+  email: string;
+  linkedin: string;
+  role: string;
+}
+
+interface FormData {
+  fullName: string;
+  email: string;
+  linkedinProfile: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  gender: string;
+  institutionName: string;
+  courseProgram: string;
+  currentYear: string;
+  expectedGraduation: string;
+  currentCity: string;
+  state: string;
+  pinCode: string;
+  permanentAddress: string;
+  teamName: string;
+  numberOfMembers: string;
+  teamMembers: TeamMember[];
+  ventureName: string;
+  industrySector: string;
+  websiteUrl: string;
+  pitchVideoUrl: string;
+  hearAboutSource: string;
+  specialRequirements: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  privacyPolicy: boolean;
+  termsConditions: boolean;
+  ageVerification: boolean;
+}
+
+interface ApplicationAnswers {
+  team?: FormData;
+  [key: string]: any;
+}
+
+/**
  * Team Information Form Component
  * Collects comprehensive team and venture details for YFF application
  */
@@ -37,7 +82,7 @@ const YffTeamInformation = () => {
   const [autoSaving, setAutoSaving] = useState(false);
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     // Team Leader Information
     fullName: "",
     email: user?.email || "",
@@ -104,10 +149,17 @@ const YffTeamInformation = () => {
         .eq('application_round', 'Round 1')
         .single();
 
-      if (data && data.answers?.team) {
+      if (error || !data) {
+        console.log("No existing application found, starting fresh");
+        return;
+      }
+
+      // Type-safe access to answers.team
+      const answers = data.answers as ApplicationAnswers;
+      if (answers?.team) {
         setFormData(prev => ({
           ...prev,
-          ...data.answers.team
+          ...answers.team
         }));
       }
     } catch (error) {
@@ -338,7 +390,7 @@ const YffTeamInformation = () => {
       'hearAboutSource', 'emergencyContactName', 'emergencyContactPhone'
     ];
     
-    const filledFields = requiredFields.filter(field => formData[field]).length;
+    const filledFields = requiredFields.filter(field => formData[field as keyof FormData]).length;
     const consentFields = [formData.privacyPolicy, formData.termsConditions, formData.ageVerification].filter(Boolean).length;
     
     return Math.round(((filledFields + consentFields) / (requiredFields.length + 3)) * 100);

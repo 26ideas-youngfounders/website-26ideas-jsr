@@ -2150,6 +2150,7 @@ export type Database = {
         Row: {
           acceptance_deadline: string | null
           accepted_at: string | null
+          ai_feedback: Json | null
           answers: Json
           application_id: string
           application_round: string | null
@@ -2172,6 +2173,7 @@ export type Database = {
         Insert: {
           acceptance_deadline?: string | null
           accepted_at?: string | null
+          ai_feedback?: Json | null
           answers?: Json
           application_id?: string
           application_round?: string | null
@@ -2194,6 +2196,7 @@ export type Database = {
         Update: {
           acceptance_deadline?: string | null
           accepted_at?: string | null
+          ai_feedback?: Json | null
           answers?: Json
           application_id?: string
           application_round?: string | null

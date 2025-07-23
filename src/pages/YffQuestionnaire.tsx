@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Young Founders Floor AI-Powered Application Questionnaire
  * 
@@ -23,6 +22,31 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import Navigation from "@/components/Navigation";
 import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
+
+/**
+ * Type definitions for application data
+ */
+interface TeamData {
+  [key: string]: any;
+}
+
+interface QuestionnaireData {
+  [key: string]: string;
+}
+
+interface ApplicationAnswers {
+  team?: TeamData;
+  questionnaire?: QuestionnaireData;
+}
+
+interface AIFeedbackData {
+  [key: string]: {
+    score: string | number;
+    strengths?: string[];
+    improvements?: string[];
+    message?: string;
+  };
+}
 
 /**
  * AI-Powered Questionnaire Component
@@ -216,7 +240,19 @@ const YffQuestionnaire = () => {
         .eq('application_round', 'Round 1')
         .single();
 
-      if (!data || !data.answers?.team) {
+      if (error || !data) {
+        toast({
+          title: "Complete Team Information First",
+          description: "Please complete your team information before proceeding to the questionnaire.",
+          variant: "destructive",
+        });
+        navigate('/yff/team-information');
+        return;
+      }
+
+      // Type-safe access to answers.team
+      const answers = data.answers as ApplicationAnswers;
+      if (!answers?.team) {
         toast({
           title: "Complete Team Information First",
           description: "Please complete your team information before proceeding to the questionnaire.",
@@ -242,13 +278,22 @@ const YffQuestionnaire = () => {
         .eq('application_round', 'Round 1')
         .single();
 
-      if (data?.answers?.questionnaire) {
-        setAnswers(data.answers.questionnaire);
-        setSelectedStage(data.answers.questionnaire.q2 || "");
+      if (error || !data) {
+        console.log("No existing questionnaire data found");
+        return;
+      }
+
+      // Type-safe access to answers
+      const applicationAnswers = data.answers as ApplicationAnswers;
+      if (applicationAnswers?.questionnaire) {
+        setAnswers(applicationAnswers.questionnaire);
+        setSelectedStage(applicationAnswers.questionnaire.q2 || "");
       }
       
-      if (data?.ai_feedback) {
-        setFeedback(data.ai_feedback);
+      // Type-safe access to ai_feedback
+      const aiFeedback = data.ai_feedback as AIFeedbackData;
+      if (aiFeedback) {
+        setFeedback(aiFeedback);
       }
     } catch (error) {
       console.log("No existing questionnaire data found");

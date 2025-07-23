@@ -75,8 +75,9 @@ const YffTeamInformation = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [autoSaving, setAutoSaving] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [profileInitialized, setProfileInitialized] = useState(false);
+  const [error, setError] = useState('');
+  const [userIndividual, setUserIndividual] = useState<any>(null);
+  const [initialized, setInitialized] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -130,29 +131,28 @@ const YffTeamInformation = () => {
       return;
     }
     
-    // Initialize user profile with simplified logic
-    initializeUserProfile();
+    ensureIndividualRecord();
   }, [user, navigate]);
 
   /**
-   * Simplified user profile initialization
+   * Ensure individual record exists for the authenticated user
    */
-  const initializeUserProfile = async () => {
-    if (!user) return;
+  const ensureIndividualRecord = async () => {
+    if (!user?.email) return;
     
     try {
-      console.log("Initializing user profile for:", user.id);
+      console.log("Ensuring individual record for user:", user.email);
       
-      // Check if individual profile exists
-      let { data: individual, error: individualError } = await supabase
+      // Check if individual exists with this email
+      let { data: individual, error: fetchError } = await supabase
         .from('individuals')
         .select('*')
         .eq('email', user.email)
         .single();
 
-      // If no individual exists, create one
-      if (!individual && individualError?.code === 'PGRST116') {
-        console.log("Creating individual profile");
+      if (fetchError && fetchError.code === 'PGRST116') {
+        // Individual doesn't exist, create one
+        console.log("Creating new individual record");
         const { data: newIndividual, error: createError } = await supabase
           .from('individuals')
           .insert({
@@ -167,55 +167,28 @@ const YffTeamInformation = () => {
 
         if (createError) {
           console.error("Error creating individual:", createError);
-          throw new Error("Failed to create user profile");
+          setError("Failed to create user profile. Please try again.");
+          return;
         }
         
         individual = newIndividual;
-      } else if (individualError) {
-        console.error("Error fetching individual:", individualError);
-        throw new Error("Failed to load user profile");
+        console.log("Created individual:", individual);
+      } else if (fetchError) {
+        console.error("Error fetching individual:", fetchError);
+        setError("Failed to load user profile. Please try again.");
+        return;
       }
 
-      // Check if user role exists
-      const { data: userRole, error: roleError } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('individual_id', individual.individual_id)
-        .single();
-
-      // Create user role if it doesn't exist
-      if (!userRole && roleError?.code === 'PGRST116') {
-        console.log("Creating user role");
-        const { error: roleCreateError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: user.id,
-            individual_id: individual.individual_id,
-            role: 'user',
-            is_active: true
-          });
-
-        if (roleCreateError) {
-          console.error("Error creating user role:", roleCreateError);
-          // Don't throw error here, as this might not be critical
-        }
-      }
-
-      console.log("Profile initialized successfully:", individual);
-      setUserProfile(individual);
-      setProfileInitialized(true);
+      setUserIndividual(individual);
+      console.log("Individual record ready:", individual);
       
-      // Load existing application data
-      loadExistingApplication(individual.individual_id);
+      // Load existing application data if it exists
+      await loadExistingApplication(individual.individual_id);
+      setInitialized(true);
 
     } catch (error: any) {
-      console.error("Error in initializeUserProfile:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to initialize user profile. Please try again.",
-        variant: "destructive",
-      });
+      console.error("Error in ensureIndividualRecord:", error);
+      setError(`Profile setup failed: ${error.message}`);
     }
   };
 
@@ -223,8 +196,6 @@ const YffTeamInformation = () => {
    * Load existing application data from database
    */
   const loadExistingApplication = async (individualId: string) => {
-    if (!individualId) return;
-    
     try {
       console.log("Loading existing application for individual:", individualId);
       const { data, error } = await supabase
@@ -234,15 +205,12 @@ const YffTeamInformation = () => {
         .eq('application_round', 'Round 1')
         .single();
 
-      console.log("Application lookup result:", { data, error });
-
       if (error && error.code !== 'PGRST116') {
         console.error("Error loading application:", error);
         return;
       }
 
       if (data && data.answers) {
-        // Safely parse the answers
         const answers = data.answers as Record<string, any>;
         if (answers.team && typeof answers.team === 'object') {
           const teamData = answers.team as Record<string, any>;
@@ -262,34 +230,33 @@ const YffTeamInformation = () => {
    * Auto-save functionality
    */
   useEffect(() => {
-    if (!userProfile?.individual_id) return;
+    if (!userIndividual?.individual_id || !initialized) return;
     
     const autoSaveTimer = setTimeout(() => {
-      if (formData.fullName || formData.teamName) { // Only save if there's meaningful data
+      if (formData.fullName || formData.teamName) {
         saveAsDraft();
       }
-    }, 30000); // Auto-save every 30 seconds
+    }, 30000);
 
     return () => clearTimeout(autoSaveTimer);
-  }, [formData, userProfile]);
+  }, [formData, userIndividual, initialized]);
 
   /**
    * Save current form data as draft
    */
   const saveAsDraft = async () => {
-    if (!user || !userProfile?.individual_id) return;
+    if (!userIndividual?.individual_id) return;
     
     setAutoSaving(true);
     try {
-      console.log("Auto-saving draft for individual:", userProfile.individual_id);
+      console.log("Auto-saving draft for individual:", userIndividual.individual_id);
       
-      // Convert FormData to JSON-serializable object
       const teamDataAsJson = JSON.parse(JSON.stringify(formData));
       
       const { error } = await supabase
         .from('yff_applications')
         .upsert({
-          individual_id: userProfile.individual_id,
+          individual_id: userIndividual.individual_id,
           status: 'draft',
           application_round: 'Round 1',
           answers: { team: teamDataAsJson } as any
@@ -435,55 +402,61 @@ const YffTeamInformation = () => {
   };
 
   /**
-   * Handle form submission with simplified profile check
+   * Handle form submission with proper RLS compliance
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     
-    // Ensure profile is initialized before submission
-    if (!profileInitialized || !userProfile?.individual_id) {
-      toast({
-        title: "Error", 
-        description: "User profile not ready. Please wait and try again.",
-        variant: "destructive",
-      });
+    if (!initialized || !userIndividual?.individual_id) {
+      setError("User profile not ready. Please wait and try again.");
       return;
     }
     
     const errors = validateForm();
     if (errors.length > 0) {
-      toast({
-        title: "Validation Error",
-        description: errors[0],
-        variant: "destructive",
-      });
+      setError(errors[0]);
       return;
     }
     
     setLoading(true);
     try {
-      console.log("Submitting form for individual:", userProfile.individual_id);
+      console.log("Submitting form for individual:", userIndividual.individual_id);
+      console.log("Current user:", user);
+      console.log("Form data:", formData);
       
       // Convert FormData to JSON-serializable object
       const teamDataAsJson = JSON.parse(JSON.stringify(formData));
       
-      const { error } = await supabase
+      const applicationData = {
+        individual_id: userIndividual.individual_id,
+        status: 'team_info_completed',
+        application_round: 'Round 1',
+        answers: { team: teamDataAsJson } as any
+      };
+      
+      console.log("Application data being submitted:", applicationData);
+      
+      const { data, error } = await supabase
         .from('yff_applications')
-        .upsert({
-          individual_id: userProfile.individual_id,
-          status: 'team_info_completed',
-          application_round: 'Round 1',
-          answers: { team: teamDataAsJson } as any
-        }, {
+        .upsert(applicationData, {
           onConflict: 'individual_id,application_round'
         });
 
       if (error) {
-        console.error("Submission error:", error);
-        throw error;
+        console.error("Submission error details:", error);
+        
+        if (error.message.includes('row-level security')) {
+          setError('Permission denied. Please sign out and sign in again, then try submitting.');
+        } else if (error.message.includes('foreign key')) {
+          setError('Account setup incomplete. Please contact support.');
+        } else {
+          setError(`Submission failed: ${error.message}`);
+        }
+        return;
       }
 
-      console.log("Form submitted successfully");
+      console.log("Form submitted successfully:", data);
       toast({
         title: "Success!",
         description: "Team information saved successfully!",
@@ -493,11 +466,7 @@ const YffTeamInformation = () => {
       navigate('/yff/questionnaire');
     } catch (error: any) {
       console.error("Form submission error:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save team information",
-        variant: "destructive",
-      });
+      setError(error.message || "Failed to save team information");
     } finally {
       setLoading(false);
     }
@@ -519,7 +488,7 @@ const YffTeamInformation = () => {
   };
 
   if (!user) {
-    return null; // Will redirect via useEffect
+    return null;
   }
 
   return (
@@ -535,6 +504,11 @@ const YffTeamInformation = () => {
           <p className="text-sm text-muted-foreground mt-2">
             {calculateProgress()}% Complete {autoSaving && "• Auto-saving..."}
           </p>
+          {error && (
+            <div className="bg-destructive/10 text-destructive p-3 rounded-md mt-4">
+              {error}
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -1042,7 +1016,7 @@ const YffTeamInformation = () => {
             
             <Button 
               type="submit" 
-              disabled={loading || !profileInitialized}
+              disabled={loading || !initialized}
               className="px-8"
             >
               {loading ? "Saving..." : "Save & Continue to Questionnaire"}

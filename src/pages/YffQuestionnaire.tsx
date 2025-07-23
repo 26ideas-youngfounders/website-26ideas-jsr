@@ -5,7 +5,7 @@
  * Features comprehensive form validation, auto-save functionality,
  * and robust error handling with the fixed authentication system.
  * 
- * @version 2.1.9 - Fixed TypeScript deep instantiation error with nuclear type assertions
+ * @version 2.2.0 - Fixed TypeScript deep instantiation error by eliminating callback function
  * @author 26ideas Development Team
  */
 
@@ -17,12 +17,6 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { YffFormSections } from '@/components/forms/YffFormSections';
-
-/**
- * Ultra-simple form data type to avoid deep instantiation
- */
-// @ts-ignore - Using any to avoid TS2589 deep instantiation error
-type BasicFormData = any;
 
 /**
  * Form field keys for validation
@@ -43,6 +37,18 @@ const FORM_FIELDS = [
 ] as const;
 
 /**
+ * Create initial form data object
+ */
+// @ts-ignore - Avoiding TS2589 by creating simple object
+const createInitialFormData = () => {
+  const data: any = {};
+  FORM_FIELDS.forEach(field => {
+    data[field] = '';
+  });
+  return data;
+};
+
+/**
  * YffQuestionnaire Component
  * Handles the complete application process with auto-save and validation
  */
@@ -57,15 +63,8 @@ const YffQuestionnaire: React.FC = () => {
   const [individualId, setIndividualId] = useState<string | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   
-  // @ts-ignore - TS2589 deep instantiation error, safe to ignore
-  const [formData, setFormData] = useState<BasicFormData>(() => {
-    // Create the simplest possible object
-    const data = {} as any;
-    FORM_FIELDS.forEach(field => {
-      data[field] = '';
-    });
-    return data;
-  });
+  // @ts-ignore - TS2589 deep instantiation error, using simplest possible initialization
+  const [formData, setFormData] = useState(createInitialFormData());
 
   /**
    * Load existing application data on component mount

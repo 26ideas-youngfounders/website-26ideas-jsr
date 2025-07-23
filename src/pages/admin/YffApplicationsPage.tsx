@@ -20,7 +20,6 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Search, Eye, Star, Calendar, User } from 'lucide-react';
 import ApplicationScoringDialog from '@/components/admin/ApplicationScoringDialog';
@@ -32,7 +31,7 @@ interface YffApplication {
   status: string;
   application_round: string;
   answers: Record<string, any>;
-  overall_score: number;
+  cumulative_score: number;
   submitted_at: string;
   created_at: string;
   individuals: {
@@ -183,7 +182,7 @@ const YffApplicationsPage: React.FC = () => {
             <CardContent>
               <div className="text-2xl font-bold">
                 {applications?.length ? 
-                  (applications.reduce((sum, app) => sum + (app.overall_score || 0), 0) / applications.length).toFixed(1) : 
+                  (applications.reduce((sum, app) => sum + (app.cumulative_score || 0), 0) / applications.length).toFixed(1) : 
                   '0.0'
                 }
               </div>
@@ -273,7 +272,7 @@ const YffApplicationsPage: React.FC = () => {
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 text-yellow-500" />
-                          {application.overall_score || 0}/10
+                          {application.cumulative_score || 0}/10
                         </div>
                       </TableCell>
                       <TableCell>
@@ -301,17 +300,41 @@ const YffApplicationsPage: React.FC = () => {
                                   Application Details - {application.individuals.first_name} {application.individuals.last_name}
                                 </DialogTitle>
                               </DialogHeader>
-                              <div className="space-y-4">
-                                {application.answers && Object.entries(application.answers).map(([key, value]) => (
-                                  <div key={key}>
-                                    <h4 className="font-semibold capitalize mb-2">
-                                      {key.replace(/([A-Z])/g, ' $1').trim()}
-                                    </h4>
-                                    <p className="text-sm text-muted-foreground bg-gray-50 p-3 rounded">
-                                      {value as string}
-                                    </p>
+                              <div className="space-y-6">
+                                {/* Personal Information */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <h4 className="font-semibold mb-2">Personal Information</h4>
+                                    <div className="space-y-2 text-sm">
+                                      <div><strong>Name:</strong> {application.individuals.first_name} {application.individuals.last_name}</div>
+                                      <div><strong>Email:</strong> {application.individuals.email}</div>
+                                      <div><strong>Phone:</strong> {application.individuals.mobile}</div>
+                                    </div>
                                   </div>
-                                ))}
+                                  <div>
+                                    <h4 className="font-semibold mb-2">Application Info</h4>
+                                    <div className="space-y-2 text-sm">
+                                      <div><strong>Round:</strong> {application.application_round}</div>
+                                      <div><strong>Status:</strong> {application.status}</div>
+                                      <div><strong>Score:</strong> {application.cumulative_score || 0}/10</div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Application Answers */}
+                                <div className="space-y-4">
+                                  <h4 className="font-semibold">Application Answers</h4>
+                                  {application.answers && Object.entries(application.answers).map(([key, value]) => (
+                                    <div key={key} className="border rounded-lg p-4">
+                                      <h5 className="font-medium capitalize mb-2">
+                                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                                      </h5>
+                                      <div className="text-sm text-muted-foreground bg-gray-50 p-3 rounded">
+                                        {Array.isArray(value) ? value.join(', ') : String(value)}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             </DialogContent>
                           </Dialog>

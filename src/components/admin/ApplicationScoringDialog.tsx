@@ -24,7 +24,7 @@ interface ApplicationScoringDialogProps {
   application: {
     application_id: string;
     answers: Record<string, any>;
-    overall_score: number;
+    cumulative_score: number;
     individuals: {
       first_name: string;
       last_name: string;
@@ -101,7 +101,7 @@ const ApplicationScoringDialog: React.FC<ApplicationScoringDialogProps> = ({ app
         .from('yff_applications')
         .update({
           reviewer_scores: scores,
-          overall_score: Math.round(averageScore),
+          cumulative_score: Math.round(averageScore),
           status: 'under_review' // Update status when scores are added
         })
         .eq('application_id', application.application_id);

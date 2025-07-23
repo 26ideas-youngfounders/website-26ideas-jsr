@@ -1,798 +1,1013 @@
+
 /**
- * @fileoverview Young Founders Floor AI-Powered Application Questionnaire
+ * @fileoverview Young Founders Floor Questionnaire Page
  * 
- * This component handles the second phase of the YFF application process where
- * users answer business-related questions with real-time AI feedback.
+ * Main application form for the Young Founders Floor competition.
+ * Features comprehensive form validation, auto-save functionality,
+ * and robust error handling with the fixed authentication system.
  * 
- * @version 1.0.0
+ * @version 2.0.0 - Fixed authentication and RLS policy issues
  * @author 26ideas Development Team
  */
 
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import Navigation from "@/components/Navigation";
-import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
+import { ArrowLeft, ArrowRight, Save, Send, AlertCircle, CheckCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 /**
- * Type definitions for application data
+ * Form Data Interface
+ * Defines the structure of the YFF application form data
  */
-interface TeamData {
-  [key: string]: any;
-}
-
-interface QuestionnaireData {
-  [key: string]: string;
-}
-
-interface ApplicationAnswers {
-  team?: TeamData;
-  questionnaire?: QuestionnaireData;
-}
-
-interface AIFeedbackData {
-  [key: string]: {
-    score: string | number;
-    strengths?: string[];
-    improvements?: string[];
-    message?: string;
-  };
+interface FormData {
+  // Personal Information
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;
+  nationality: string;
+  currentLocation: string;
+  
+  // Educational Background
+  currentEducation: string;
+  institution: string;
+  fieldOfStudy: string;
+  graduationYear: string;
+  
+  // Entrepreneurial Experience
+  hasStartupExperience: string;
+  startupDetails: string;
+  businessIdea: string;
+  problemSolving: string;
+  targetMarket: string;
+  
+  // Motivation and Goals
+  whyYFF: string;
+  goals: string;
+  contribution: string;
+  
+  // Additional Information
+  skills: string;
+  achievements: string;
+  references: string;
+  
+  // Commitment and Availability
+  timeCommitment: string;
+  availability: string;
+  additionalInfo: string;
 }
 
 /**
- * AI-Powered Questionnaire Component
- * Provides dynamic questionnaire with real-time AI feedback
+ * Initial form data with empty values
+ */
+const initialFormData: FormData = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  dateOfBirth: '',
+  nationality: '',
+  currentLocation: '',
+  currentEducation: '',
+  institution: '',
+  fieldOfStudy: '',
+  graduationYear: '',
+  hasStartupExperience: '',
+  startupDetails: '',
+  businessIdea: '',
+  problemSolving: '',
+  targetMarket: '',
+  whyYFF: '',
+  goals: '',
+  contribution: '',
+  skills: '',
+  achievements: '',
+  references: '',
+  timeCommitment: '',
+  availability: '',
+  additionalInfo: '',
+};
+
+/**
+ * Form sections configuration for step-by-step navigation
+ */
+const formSections = [
+  { id: 'personal', title: 'Personal Information', fields: 7 },
+  { id: 'education', title: 'Educational Background', fields: 4 },
+  { id: 'entrepreneurial', title: 'Entrepreneurial Experience', fields: 5 },
+  { id: 'motivation', title: 'Motivation & Goals', fields: 3 },
+  { id: 'additional', title: 'Additional Information', fields: 3 },
+  { id: 'commitment', title: 'Commitment & Availability', fields: 3 },
+];
+
+/**
+ * YFF Questionnaire Component
+ * 
+ * Comprehensive application form with:
+ * - Multi-step navigation
+ * - Real-time validation
+ * - Auto-save functionality
+ * - Robust error handling
+ * - Progress tracking
  */
 const YffQuestionnaire = () => {
-  const { user } = useAuth();
+  // Authentication and navigation hooks
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
-  // Application state
-  const [loading, setLoading] = useState(false);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedStage, setSelectedStage] = useState("");
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [feedback, setFeedback] = useState<Record<string, any>>({});
-  const [loadingFeedback, setLoadingFeedback] = useState<Record<string, boolean>>({});
-  const [questions, setQuestions] = useState<any[]>([]);
 
-  // Question sets based on startup stage
-  const baseQuestions = [
-    {
-      id: "q1",
-      text: "What is your current academic level and field of study?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q2",
-      text: "What stage is your product/service currently at?",
-      type: "radio",
-      options: [
-        { value: "idea", label: "Idea Stage" },
-        { value: "mvp", label: "Minimum Lovable Product" },
-        { value: "revenue", label: "Early Revenue" }
-      ],
-      required: true
-    }
-  ];
+  // Form state management
+  const [currentStep, setCurrentStep] = useState(0);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [individualId, setIndividualId] = useState<string | null>(null);
 
-  const ideaStageQuestions = [
-    {
-      id: "q3",
-      text: "How many years of entrepreneurial experience do you have?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q4",
-      text: "Describe your business idea in 2-3 sentences",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q5",
-      text: "What specific problem does your idea solve? How are people currently coping with this problem?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q6",
-      text: "Who is your target customer? Be specific about demographics, behavior, and needs",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q7",
-      text: "How large is your target market? Provide market size estimates",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q8",
-      text: "What is your revenue model? How will you make money?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q9",
-      text: "Name 3 direct competitors and explain how you differentiate from them",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q10",
-      text: "What validation have you done for your idea so far?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q11",
-      text: "What are your biggest challenges currently?",
-      maxWords: 300,
-      required: true
-    }
-  ];
+  // Calculate progress percentage
+  const totalFields = formSections.reduce((sum, section) => sum + section.fields, 0);
+  const filledFields = Object.values(formData).filter(value => value.trim() !== '').length;
+  const progressPercentage = Math.round((filledFields / totalFields) * 100);
 
-  const revenueStageQuestions = [
-    {
-      id: "q3",
-      text: "What is your current monthly revenue?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q4",
-      text: "Describe your business model and value proposition",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q5",
-      text: "What specific problem does your product solve?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q6",
-      text: "Who are your current customers and how do you acquire them?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q7",
-      text: "What is your customer acquisition cost and lifetime value?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q8",
-      text: "What are your key revenue streams?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q9",
-      text: "Who are your main competitors and what's your market position?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q10",
-      text: "What growth metrics are you tracking?",
-      maxWords: 300,
-      required: true
-    },
-    {
-      id: "q11",
-      text: "What are your scaling challenges and funding needs?",
-      maxWords: 300,
-      required: true
-    }
-  ];
-
-  // Initialize component
+  /**
+   * Authentication Check Effect
+   * Redirects unauthenticated users to sign-in
+   */
   useEffect(() => {
-    if (!user) {
-      navigate("/young-founders-floor");
-      return;
+    if (!authLoading && !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to access the YFF application form.",
+        variant: "destructive",
+      });
+      navigate('/');
     }
-    
-    // Check if team information is completed
-    checkTeamInformation();
-    loadExistingAnswers();
-  }, [user, navigate]);
+  }, [user, authLoading, navigate, toast]);
 
-  // Update questions when stage is selected
+  /**
+   * User Data Loading Effect
+   * Loads existing application data and user profile information
+   */
   useEffect(() => {
-    if (selectedStage) {
-      let stageQuestions;
-      if (selectedStage === "revenue") {
-        stageQuestions = revenueStageQuestions;
+    if (user?.email) {
+      loadUserData();
+    }
+  }, [user]);
+
+  /**
+   * Load User Data Function
+   * Fetches existing application and profile data
+   */
+  const loadUserData = async () => {
+    if (!user?.email) return;
+
+    try {
+      setIsLoading(true);
+      console.log('Loading user data for:', user.email);
+
+      // First, get or create individual record
+      const { data: individuals, error: individualsError } = await supabase
+        .from('individuals')
+        .select('individual_id, first_name, last_name, email, mobile, dob, nationality, city, country')
+        .eq('email', user.email)
+        .limit(1);
+
+      if (individualsError) {
+        console.error('Error fetching individual:', individualsError);
+        throw individualsError;
+      }
+
+      let currentIndividualId: string;
+
+      if (individuals && individuals.length > 0) {
+        // Use existing individual record
+        const individual = individuals[0];
+        currentIndividualId = individual.individual_id;
+        setIndividualId(currentIndividualId);
+        
+        // Pre-populate form with existing data
+        setFormData(prev => ({
+          ...prev,
+          firstName: individual.first_name || '',
+          lastName: individual.last_name || '',
+          email: individual.email || '',
+          phone: individual.mobile || '',
+          dateOfBirth: individual.dob || '',
+          nationality: individual.nationality || '',
+          currentLocation: `${individual.city || ''}, ${individual.country || ''}`.replace(', ', individual.city && individual.country ? ', ' : ''),
+        }));
       } else {
-        stageQuestions = ideaStageQuestions;
-      }
-      setQuestions([...baseQuestions, ...stageQuestions]);
-    } else {
-      setQuestions(baseQuestions);
-    }
-  }, [selectedStage]);
+        // Create new individual record
+        const { data: newIndividual, error: createError } = await supabase
+          .from('individuals')
+          .insert({
+            first_name: user.user_metadata?.full_name?.split(' ')[0] || '',
+            last_name: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+            email: user.email,
+            is_founder: true,
+            privacy_consent: true,
+            data_processing_consent: true,
+          })
+          .select('individual_id')
+          .single();
 
-  /**
-   * Check if team information is completed
-   */
-  const checkTeamInformation = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('yff_applications')
-        .select('status, answers')
-        .eq('individual_id', user?.id)
-        .eq('application_round', 'Round 1')
-        .single();
-
-      if (error || !data) {
-        toast({
-          title: "Complete Team Information First",
-          description: "Please complete your team information before proceeding to the questionnaire.",
-          variant: "destructive",
-        });
-        navigate('/yff/team-information');
-        return;
-      }
-
-      // Type-safe access to answers.team
-      const answers = data.answers as ApplicationAnswers;
-      if (!answers?.team) {
-        toast({
-          title: "Complete Team Information First",
-          description: "Please complete your team information before proceeding to the questionnaire.",
-          variant: "destructive",
-        });
-        navigate('/yff/team-information');
-        return;
-      }
-    } catch (error) {
-      navigate('/yff/team-information');
-    }
-  };
-
-  /**
-   * Load existing questionnaire answers
-   */
-  const loadExistingAnswers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('yff_applications')
-        .select('answers, ai_feedback')
-        .eq('individual_id', user?.id)
-        .eq('application_round', 'Round 1')
-        .single();
-
-      if (error || !data) {
-        console.log("No existing questionnaire data found");
-        return;
-      }
-
-      // Type-safe access to answers
-      const applicationAnswers = data.answers as ApplicationAnswers;
-      if (applicationAnswers?.questionnaire) {
-        setAnswers(applicationAnswers.questionnaire);
-        setSelectedStage(applicationAnswers.questionnaire.q2 || "");
-      }
-      
-      // Type-safe access to ai_feedback
-      const aiFeedback = data.ai_feedback as AIFeedbackData;
-      if (aiFeedback) {
-        setFeedback(aiFeedback);
-      }
-    } catch (error) {
-      console.log("No existing questionnaire data found");
-    }
-  };
-
-  /**
-   * Calculate word count
-   */
-  const getWordCount = (text: string) => {
-    return text.trim().split(/\s+/).filter(word => word.length > 0).length;
-  };
-
-  /**
-   * Handle answer change
-   */
-  const handleAnswerChange = (questionId: string, value: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: value
-    }));
-    
-    // Update selected stage if this is Q2
-    if (questionId === "q2") {
-      setSelectedStage(value);
-    }
-  };
-
-  /**
-   * Get AI feedback for an answer
-   */
-  const getAIFeedback = async (questionId: string, answer: string) => {
-    const question = questions.find(q => q.id === questionId);
-    if (!question || !answer.trim()) return;
-
-    const prompt = `
-ROLE: Expert startup evaluator for Young Founders Floor competition
-
-CONTEXT: Evaluating answer for question: "${question.text}"
-Applicant Stage: ${selectedStage || "Not specified"}
-Question ID: ${questionId}
-
-ANSWER TO EVALUATE: "${answer}"
-
-EVALUATION CRITERIA:
-- Clarity and specificity of response
-- Depth of understanding shown
-- Market awareness and research
-- Feasibility and realistic approach
-- Evidence and data supporting claims
-
-CONSTRAINTS:
-- Evaluate ONLY based on the provided answer
-- Do not reference external information not mentioned
-- Answer limit is 300 words - focus on content quality
-- Provide constructive, actionable feedback
-
-RESPONSE FORMAT (STRICT):
-SCORE: [X/10]
-STRENGTHS:
-- [List specific positive aspects]
-
-AREAS FOR IMPROVEMENT:
-- [List specific actionable suggestions]
-
-SCORING GUIDE:
-9-10: Exceptional clarity, strong evidence, comprehensive understanding
-7-8: Good understanding, clear explanation, adequate evidence
-5-6: Basic understanding, needs more detail or evidence
-3-4: Limited understanding, significant gaps in explanation
-1-2: Poor understanding or irrelevant response
-`;
-
-    try {
-      const response = await supabase.functions.invoke('ai-feedback', {
-        body: { prompt, answer, questionId }
-      });
-
-      if (response.error) throw response.error;
-
-      const result = response.data;
-      return {
-        score: result.score || "N/A",
-        strengths: result.strengths || [],
-        improvements: result.improvements || [],
-        message: result.message || "Feedback generated successfully"
-      };
-    } catch (error) {
-      console.error("AI feedback error:", error);
-      return {
-        score: "N/A",
-        message: "Feedback temporarily unavailable. Your answer has been saved.",
-        strengths: [],
-        improvements: []
-      };
-    }
-  };
-
-  /**
-   * Submit answer and get feedback
-   */
-  const submitAnswer = async (questionId: string, answer: string) => {
-    const wordCount = getWordCount(answer);
-    if (wordCount > 300) {
-      toast({
-        title: "Word Limit Exceeded",
-        description: "Answer must be 300 words or less",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Save answer to database immediately
-    setLoadingFeedback(prev => ({ ...prev, [questionId]: true }));
-    
-    try {
-      // Update answers in database
-      const { error } = await supabase
-        .from('yff_applications')
-        .update({
-          answers: { questionnaire: { ...answers, [questionId]: answer } },
-          updated_at: new Date().toISOString()
-        })
-        .eq('individual_id', user.id)
-        .eq('application_round', 'Round 1');
-
-      if (error) throw error;
-
-      // Get AI feedback (non-blocking)
-      const feedbackResult = await getAIFeedback(questionId, answer);
-      setFeedback(prev => ({
-        ...prev,
-        [questionId]: feedbackResult
-      }));
-
-      // Save feedback to database
-      await supabase
-        .from('yff_applications')
-        .update({
-          ai_feedback: { ...feedback, [questionId]: feedbackResult }
-        })
-        .eq('individual_id', user.id)
-        .eq('application_round', 'Round 1');
-
-      toast({
-        title: "Answer Saved",
-        description: "Your answer has been saved and feedback generated.",
-      });
-
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save answer",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingFeedback(prev => ({ ...prev, [questionId]: false }));
-    }
-  };
-
-  /**
-   * Calculate completion percentage
-   */
-  const calculateProgress = () => {
-    const totalQuestions = questions.length;
-    const answeredQuestions = Object.keys(answers).filter(key => 
-      answers[key] && answers[key].toString().trim().length > 0
-    ).length;
-    
-    return totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
-  };
-
-  /**
-   * Navigate to previous question
-   */
-  const goToPrevious = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(currentQuestion - 1);
-    }
-  };
-
-  /**
-   * Navigate to next question
-   */
-  const goToNext = () => {
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-    }
-  };
-
-  /**
-   * Handle final submission
-   */
-  const handleFinalSubmission = async () => {
-    // Validate all required questions are answered
-    const unansweredQuestions = questions.filter(q => 
-      q.required && (!answers[q.id] || !answers[q.id].toString().trim())
-    );
-
-    if (unansweredQuestions.length > 0) {
-      toast({
-        title: "Incomplete Application",
-        description: `Please answer all required questions. ${unansweredQuestions.length} questions remaining.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('yff_applications')
-        .update({
-          status: 'submitted',
-          submitted_at: new Date().toISOString(),
-          answers: { questionnaire: answers },
-          ai_feedback: feedback
-        })
-        .eq('individual_id', user.id)
-        .eq('application_round', 'Round 1');
-
-      if (error) throw error;
-
-      toast({
-        title: "Application Submitted!",
-        description: "Your YFF application has been submitted successfully.",
-      });
-
-      // Redirect to homepage with success message
-      navigate('/young-founders-floor', { 
-        state: { 
-          showSuccess: true,
-          message: "Application submitted successfully! You will be notified about next steps via email." 
+        if (createError) {
+          console.error('Error creating individual:', createError);
+          throw createError;
         }
-      });
-    } catch (error: any) {
+
+        currentIndividualId = newIndividual.individual_id;
+        setIndividualId(currentIndividualId);
+        
+        // Pre-populate with user metadata
+        setFormData(prev => ({
+          ...prev,
+          firstName: user.user_metadata?.full_name?.split(' ')[0] || '',
+          lastName: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+          email: user.email,
+        }));
+      }
+
+      // Load existing application data
+      const { data: applications, error: appError } = await supabase
+        .from('yff_applications')
+        .select('application_id, answers, status')
+        .eq('individual_id', currentIndividualId)
+        .eq('application_round', 'Round 1')
+        .limit(1);
+
+      if (appError) {
+        console.error('Error fetching application:', appError);
+        // Don't throw error here - user might not have an application yet
+      } else if (applications && applications.length > 0) {
+        const application = applications[0];
+        setApplicationId(application.application_id);
+        
+        // Load saved answers into form
+        if (application.answers && typeof application.answers === 'object') {
+          const answers = application.answers as Record<string, any>;
+          const loadedFormData = { ...initialFormData };
+          
+          Object.keys(answers).forEach(key => {
+            if (key in loadedFormData) {
+              loadedFormData[key as keyof FormData] = answers[key] || '';
+            }
+          });
+          
+          setFormData(loadedFormData);
+        }
+
+        // Show status message if application was already submitted
+        if (application.status === 'submitted') {
+          toast({
+            title: "Application Found",
+            description: "Your YFF application has been loaded. You can review and update it.",
+          });
+        }
+      }
+
+    } catch (error) {
+      console.error('Error loading user data:', error);
       toast({
-        title: "Submission Error",
-        description: error.message || "Failed to submit application",
+        title: "Error Loading Data",
+        description: "There was an issue loading your information. You can still fill out the form.",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   /**
-   * Question Card Component
+   * Form Input Change Handler
+   * Updates form data and tracks unsaved changes
    */
-  const QuestionCard = ({ question, index }: { question: any; index: number }) => {
-    const currentAnswer = answers[question.id] || "";
-    const questionFeedback = feedback[question.id];
-    const isLoading = loadingFeedback[question.id];
-    const wordCount = getWordCount(currentAnswer);
-    const hasChanged = currentAnswer !== (answers[question.id] || "");
-
-    if (question.type === "radio") {
-      return (
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Question {index + 1} of {questions.length}</span>
-              <Badge variant="outline">Required</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <h3 className="text-lg font-semibold">{question.text}</h3>
-            
-            <RadioGroup
-              value={currentAnswer}
-              onValueChange={(value) => handleAnswerChange(question.id, value)}
-              className="space-y-2"
-            >
-              {question.options.map((option: any) => (
-                <div key={option.value} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option.value} id={option.value} />
-                  <Label htmlFor={option.value}>{option.label}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-            
-            {currentAnswer && (
-              <div className="flex items-center space-x-2 text-green-600">
-                <CheckCircle size={16} />
-                <span className="text-sm">Answer saved</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      );
-    }
-
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Question {index + 1} of {questions.length}</span>
-            <Badge variant="outline">Required</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <h3 className="text-lg font-semibold">{question.text}</h3>
-          
-          <div className="space-y-2">
-            <Textarea
-              value={currentAnswer}
-              onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-              placeholder="Enter your answer here..."
-              className="min-h-32"
-              rows={4}
-            />
-            
-            <div className="flex justify-between items-center">
-              <span className={`text-sm ${wordCount > 300 ? 'text-red-500' : 'text-gray-500'}`}>
-                {wordCount}/300 words
-              </span>
-              
-              <Button
-                onClick={() => submitAnswer(question.id, currentAnswer)}
-                disabled={!currentAnswer.trim() || wordCount > 300 || isLoading}
-                size="sm"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Getting Feedback...
-                  </>
-                ) : (
-                  'Save & Get Feedback'
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* AI Feedback Display */}
-          {questionFeedback && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-md border">
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-semibold text-lg">AI Feedback</span>
-                <div className="flex items-center space-x-2">
-                  <Badge 
-                    variant={
-                      parseInt(questionFeedback.score) >= 8 ? "default" :
-                      parseInt(questionFeedback.score) >= 6 ? "secondary" : "destructive"
-                    }
-                  >
-                    Score: {questionFeedback.score}/10
-                  </Badge>
-                </div>
-              </div>
-              
-              {questionFeedback.strengths && questionFeedback.strengths.length > 0 && (
-                <div className="mb-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <strong className="text-green-600">Strengths:</strong>
-                  </div>
-                  <ul className="list-disc list-inside text-sm space-y-1 ml-6">
-                    {questionFeedback.strengths.map((strength: string, idx: number) => (
-                      <li key={idx}>{strength}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {questionFeedback.improvements && questionFeedback.improvements.length > 0 && (
-                <div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <AlertCircle className="h-4 w-4 text-orange-600" />
-                    <strong className="text-orange-600">Areas for Improvement:</strong>
-                  </div>
-                  <ul className="list-disc list-inside text-sm space-y-1 ml-6">
-                    {questionFeedback.improvements.map((improvement: string, idx: number) => (
-                      <li key={idx}>{improvement}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
+  const handleInputChange = (field: keyof FormData, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    setHasUnsavedChanges(true);
   };
 
-  if (!user) {
-    return null; // Will redirect via useEffect
+  /**
+   * Auto-Save Function
+   * Saves form progress automatically
+   */
+  const autoSave = async () => {
+    if (!individualId || !hasUnsavedChanges) return;
+
+    try {
+      setIsSaving(true);
+      console.log('Auto-saving application...');
+
+      if (applicationId) {
+        // Update existing application
+        const { error } = await supabase
+          .from('yff_applications')
+          .update({
+            answers: formData,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('application_id', applicationId);
+
+        if (error) throw error;
+      } else {
+        // Create new application
+        const { data, error } = await supabase
+          .from('yff_applications')
+          .insert({
+            individual_id: individualId,
+            application_round: 'Round 1',
+            status: 'draft',
+            answers: formData,
+          })
+          .select('application_id')
+          .single();
+
+        if (error) throw error;
+        setApplicationId(data.application_id);
+      }
+
+      setHasUnsavedChanges(false);
+      console.log('Auto-save successful');
+    } catch (error) {
+      console.error('Auto-save error:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /**
+   * Manual Save Function
+   * Explicitly saves form data with user feedback
+   */
+  const handleSave = async () => {
+    await autoSave();
+    if (!hasUnsavedChanges) {
+      toast({
+        title: "Progress Saved",
+        description: "Your application progress has been saved successfully.",
+      });
+    }
+  };
+
+  /**
+   * Form Submission Handler
+   * Validates and submits the complete application
+   */
+  const handleSubmit = async () => {
+    // Validation check
+    const requiredFields = [
+      'firstName', 'lastName', 'email', 'phone', 'dateOfBirth',
+      'businessIdea', 'problemSolving', 'whyYFF', 'goals'
+    ];
+    
+    const missingFields = requiredFields.filter(field => 
+      !formData[field as keyof FormData]?.trim()
+    );
+
+    if (missingFields.length > 0) {
+      toast({
+        title: "Missing Information",
+        description: `Please complete all required fields: ${missingFields.join(', ')}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      console.log('Submitting application...');
+
+      // First ensure we have an individual record
+      if (!individualId) {
+        throw new Error('No individual record found. Please refresh and try again.');
+      }
+
+      // Update individual record with latest info
+      const { error: updateIndividualError } = await supabase
+        .from('individuals')
+        .update({
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          mobile: formData.phone,
+          dob: formData.dateOfBirth,
+          nationality: formData.nationality,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('individual_id', individualId);
+
+      if (updateIndividualError) {
+        console.error('Error updating individual:', updateIndividualError);
+        throw updateIndividualError;
+      }
+
+      // Submit or update application
+      if (applicationId) {
+        // Update existing application
+        const { error } = await supabase
+          .from('yff_applications')
+          .update({
+            status: 'submitted',
+            answers: formData,
+            submitted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('application_id', applicationId);
+
+        if (error) throw error;
+      } else {
+        // Create new application
+        const { data, error } = await supabase
+          .from('yff_applications')
+          .insert({
+            individual_id: individualId,
+            application_round: 'Round 1',
+            status: 'submitted',
+            answers: formData,
+            submitted_at: new Date().toISOString(),
+          })
+          .select('application_id')
+          .single();
+
+        if (error) throw error;
+        setApplicationId(data.application_id);
+      }
+
+      // Success notification
+      toast({
+        title: "Application Submitted Successfully!",
+        description: "Thank you for applying to Young Founders Floor. We'll review your application and get back to you soon.",
+      });
+
+      // Redirect to thank you page
+      setTimeout(() => {
+        navigate('/young-founders-floor');
+      }, 2000);
+
+    } catch (error: any) {
+      console.error('Submission error:', error);
+      toast({
+        title: "Submission Failed",
+        description: error.message || "There was an error submitting your application. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Auto-save effect
+   * Triggers auto-save when form data changes
+   */
+  useEffect(() => {
+    if (hasUnsavedChanges && individualId) {
+      const timeoutId = setTimeout(autoSave, 2000); // Auto-save after 2 seconds of inactivity
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formData, hasUnsavedChanges, individualId]);
+
+  // Show loading spinner while checking authentication
+  if (authLoading || isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your application...</p>
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
+  // Don't render if user is not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
+
+  /**
+   * Render Personal Information Section
+   */
+  const renderPersonalSection = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="firstName">First Name *</Label>
+          <Input
+            id="firstName"
+            value={formData.firstName}
+            onChange={(e) => handleInputChange('firstName', e.target.value)}
+            placeholder="Enter your first name"
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="lastName">Last Name *</Label>
+          <Input
+            id="lastName"
+            value={formData.lastName}
+            onChange={(e) => handleInputChange('lastName', e.target.value)}
+            placeholder="Enter your last name"
+            required
+          />
+        </div>
+      </div>
       
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="email">Email Address *</Label>
+          <Input
+            id="email"
+            type="email"
+            value={formData.email}
+            onChange={(e) => handleInputChange('email', e.target.value)}
+            placeholder="Enter your email"
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="phone">Phone Number *</Label>
+          <Input
+            id="phone"
+            type="tel"
+            value={formData.phone}
+            onChange={(e) => handleInputChange('phone', e.target.value)}
+            placeholder="Enter your phone number"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <Label htmlFor="dateOfBirth">Date of Birth *</Label>
+          <Input
+            id="dateOfBirth"
+            type="date"
+            value={formData.dateOfBirth}
+            onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="nationality">Nationality</Label>
+          <Input
+            id="nationality"
+            value={formData.nationality}
+            onChange={(e) => handleInputChange('nationality', e.target.value)}
+            placeholder="Enter your nationality"
+          />
+        </div>
+        <div>
+          <Label htmlFor="currentLocation">Current Location</Label>
+          <Input
+            id="currentLocation"
+            value={formData.currentLocation}
+            onChange={(e) => handleInputChange('currentLocation', e.target.value)}
+            placeholder="City, Country"
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  /**
+   * Render Educational Background Section
+   */
+  const renderEducationSection = () => (
+    <div className="space-y-6">
+      <div>
+        <Label htmlFor="currentEducation">Current Education Status</Label>
+        <RadioGroup 
+          value={formData.currentEducation} 
+          onValueChange={(value) => handleInputChange('currentEducation', value)}
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="undergraduate" id="undergraduate" />
+            <Label htmlFor="undergraduate">Undergraduate Student</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="graduate" id="graduate" />
+            <Label htmlFor="graduate">Graduate Student</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="recent-graduate" id="recent-graduate" />
+            <Label htmlFor="recent-graduate">Recent Graduate</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="working-professional" id="working-professional" />
+            <Label htmlFor="working-professional">Working Professional</Label>
+          </div>
+        </RadioGroup>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="institution">Institution/University</Label>
+          <Input
+            id="institution"
+            value={formData.institution}
+            onChange={(e) => handleInputChange('institution', e.target.value)}
+            placeholder="Enter your institution name"
+          />
+        </div>
+        <div>
+          <Label htmlFor="fieldOfStudy">Field of Study</Label>
+          <Input
+            id="fieldOfStudy"
+            value={formData.fieldOfStudy}
+            onChange={(e) => handleInputChange('fieldOfStudy', e.target.value)}
+            placeholder="Enter your field of study"
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="graduationYear">Expected/Actual Graduation Year</Label>
+        <Input
+          id="graduationYear"
+          type="number"
+          min="2020"
+          max="2030"
+          value={formData.graduationYear}
+          onChange={(e) => handleInputChange('graduationYear', e.target.value)}
+          placeholder="e.g., 2024"
+        />
+      </div>
+    </div>
+  );
+
+  /**
+   * Render Entrepreneurial Experience Section
+   */
+  const renderEntrepreneurialSection = () => (
+    <div className="space-y-6">
+      <div>
+        <Label htmlFor="hasStartupExperience">Do you have any startup or entrepreneurial experience?</Label>
+        <RadioGroup 
+          value={formData.hasStartupExperience} 
+          onValueChange={(value) => handleInputChange('hasStartupExperience', value)}
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="yes" id="startup-yes" />
+            <Label htmlFor="startup-yes">Yes, I have startup experience</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="some" id="startup-some" />
+            <Label htmlFor="startup-some">Some experience (side projects, freelancing)</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="no" id="startup-no" />
+            <Label htmlFor="startup-no">No, this would be my first venture</Label>
+          </div>
+        </RadioGroup>
+      </div>
+
+      {formData.hasStartupExperience !== 'no' && (
+        <div>
+          <Label htmlFor="startupDetails">Please describe your entrepreneurial experience</Label>
+          <Textarea
+            id="startupDetails"
+            value={formData.startupDetails}
+            onChange={(e) => handleInputChange('startupDetails', e.target.value)}
+            placeholder="Describe any startups, side projects, or entrepreneurial activities you've been involved in"
+            rows={4}
+          />
+        </div>
+      )}
+
+      <div>
+        <Label htmlFor="businessIdea">Describe your business idea or the problem you want to solve *</Label>
+        <Textarea
+          id="businessIdea"
+          value={formData.businessIdea}
+          onChange={(e) => handleInputChange('businessIdea', e.target.value)}
+          placeholder="Provide a clear description of your business idea and the problem it addresses"
+          rows={4}
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="problemSolving">How does your solution address this problem uniquely? *</Label>
+        <Textarea
+          id="problemSolving"
+          value={formData.problemSolving}
+          onChange={(e) => handleInputChange('problemSolving', e.target.value)}
+          placeholder="Explain what makes your approach unique and how it solves the problem better than existing solutions"
+          rows={4}
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="targetMarket">Who is your target market?</Label>
+        <Textarea
+          id="targetMarket"
+          value={formData.targetMarket}
+          onChange={(e) => handleInputChange('targetMarket', e.target.value)}
+          placeholder="Describe your target customers and market size"
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+
+  /**
+   * Render Motivation and Goals Section
+   */
+  const renderMotivationSection = () => (
+    <div className="space-y-6">
+      <div>
+        <Label htmlFor="whyYFF">Why do you want to join Young Founders Floor? *</Label>
+        <Textarea
+          id="whyYFF"
+          value={formData.whyYFF}
+          onChange={(e) => handleInputChange('whyYFF', e.target.value)}
+          placeholder="Explain your motivation for joining YFF and what you hope to achieve"
+          rows={4}
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="goals">What are your goals for the next 12 months? *</Label>
+        <Textarea
+          id="goals"
+          value={formData.goals}
+          onChange={(e) => handleInputChange('goals', e.target.value)}
+          placeholder="Describe your personal and professional goals for the coming year"
+          rows={4}
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="contribution">How can you contribute to the YFF community?</Label>
+        <Textarea
+          id="contribution"
+          value={formData.contribution}
+          onChange={(e) => handleInputChange('contribution', e.target.value)}
+          placeholder="Describe how you can add value to the YFF community and help other members"
+          rows={4}
+        />
+      </div>
+    </div>
+  );
+
+  /**
+   * Render Additional Information Section
+   */
+  const renderAdditionalSection = () => (
+    <div className="space-y-6">
+      <div>
+        <Label htmlFor="skills">Key Skills and Expertise</Label>
+        <Textarea
+          id="skills"
+          value={formData.skills}
+          onChange={(e) => handleInputChange('skills', e.target.value)}
+          placeholder="List your key skills, technical expertise, and areas of knowledge"
+          rows={3}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="achievements">Notable Achievements</Label>
+        <Textarea
+          id="achievements"
+          value={formData.achievements}
+          onChange={(e) => handleInputChange('achievements', e.target.value)}
+          placeholder="Describe any awards, recognitions, or significant accomplishments"
+          rows={3}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="references">References (Optional)</Label>
+        <Textarea
+          id="references"
+          value={formData.references}
+          onChange={(e) => handleInputChange('references', e.target.value)}
+          placeholder="Provide contact information for professional or academic references"
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+
+  /**
+   * Render Commitment and Availability Section
+   */
+  const renderCommitmentSection = () => (
+    <div className="space-y-6">
+      <div>
+        <Label htmlFor="timeCommitment">How much time can you commit to YFF activities weekly?</Label>
+        <RadioGroup 
+          value={formData.timeCommitment} 
+          onValueChange={(value) => handleInputChange('timeCommitment', value)}
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="2-5 hours" id="time-light" />
+            <Label htmlFor="time-light">2-5 hours per week</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="5-10 hours" id="time-moderate" />
+            <Label htmlFor="time-moderate">5-10 hours per week</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="10+ hours" id="time-high" />
+            <Label htmlFor="time-high">10+ hours per week</Label>
+          </div>
+        </RadioGroup>
+      </div>
+
+      <div>
+        <Label htmlFor="availability">When are you typically available for YFF activities?</Label>
+        <Textarea
+          id="availability"
+          value={formData.availability}
+          onChange={(e) => handleInputChange('availability', e.target.value)}
+          placeholder="Describe your typical availability (e.g., weekends, evenings, specific days)"
+          rows={3}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="additionalInfo">Any additional information you'd like to share?</Label>
+        <Textarea
+          id="additionalInfo"
+          value={formData.additionalInfo}
+          onChange={(e) => handleInputChange('additionalInfo', e.target.value)}
+          placeholder="Share anything else you think would be relevant for your application"
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+
+  /**
+   * Render the appropriate section based on current step
+   */
+  const renderCurrentSection = () => {
+    switch (currentStep) {
+      case 0: return renderPersonalSection();
+      case 1: return renderEducationSection();
+      case 2: return renderEntrepreneurialSection();
+      case 3: return renderMotivationSection();
+      case 4: return renderAdditionalSection();
+      case 5: return renderCommitmentSection();
+      default: return renderPersonalSection();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+      <div className="container mx-auto px-4 max-w-4xl">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Young Founders Floor Application</h1>
-          <p className="text-muted-foreground mb-4">Step 2 of 2: Application Questionnaire</p>
-          <Progress value={calculateProgress()} className="w-full max-w-md mx-auto" />
-          <p className="text-sm text-muted-foreground mt-2">
-            {calculateProgress()}% Complete • {Object.keys(answers).length} of {questions.length} questions answered
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Young Founders Floor Application
+          </h1>
+          <p className="text-gray-600">
+            Complete your application to join the next generation of entrepreneurs
           </p>
         </div>
 
-        {/* Question Display */}
-        {questions.length > 0 && (
-          <div className="space-y-6">
-            <QuestionCard 
-              question={questions[currentQuestion]} 
-              index={currentQuestion}
-            />
-            
-            {/* Navigation Controls */}
-            <div className="flex justify-between items-center">
-              <Button 
-                variant="outline"
-                onClick={goToPrevious}
-                disabled={currentQuestion === 0}
-              >
-                Previous Question
-              </Button>
-              
-              <div className="flex space-x-2">
-                {questions.map((_, index) => (
-                  <Button
-                    key={index}
-                    variant={index === currentQuestion ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentQuestion(index)}
-                    className={`w-10 h-10 ${
-                      answers[questions[index]?.id] ? 'bg-green-100 border-green-500' : ''
-                    }`}
-                  >
-                    {index + 1}
-                  </Button>
-                ))}
-              </div>
-              
-              {currentQuestion === questions.length - 1 ? (
-                <Button 
-                  onClick={handleFinalSubmission}
-                  disabled={loading || calculateProgress() < 100}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    'Submit Application'
-                  )}
-                </Button>
-              ) : (
-                <Button 
-                  onClick={goToNext}
-                  disabled={currentQuestion === questions.length - 1}
-                >
-                  Next Question
-                </Button>
-              )}
-            </div>
-
-            {/* Application Overview */}
-            <Card className="mt-8">
-              <CardHeader>
-                <CardTitle>Application Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-primary">
-                      {Object.keys(answers).length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Questions Answered
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-primary">
-                      {Object.keys(feedback).length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      AI Feedback Received
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-primary">
-                      {calculateProgress()}%
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Completion
-                    </div>
-                  </div>
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm text-gray-600">Progress</span>
+            <div className="flex items-center space-x-2">
+              {isSaving && (
+                <div className="flex items-center text-sm text-blue-600">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600 mr-1"></div>
+                  Saving...
                 </div>
-              </CardContent>
-            </Card>
+              )}
+              <span className="text-sm text-gray-600">{progressPercentage}% complete</span>
+            </div>
           </div>
-        )}
+          <Progress value={progressPercentage} className="h-2" />
+        </div>
+
+        {/* Step Navigation */}
+        <div className="flex justify-center mb-8">
+          <div className="flex space-x-2 overflow-x-auto">
+            {formSections.map((section, index) => (
+              <button
+                key={section.id}
+                onClick={() => setCurrentStep(index)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  index === currentStep
+                    ? 'bg-blue-600 text-white'
+                    : index < currentStep
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {index < currentStep && <CheckCircle className="w-4 h-4 inline mr-1" />}
+                {section.title}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Main Form Card */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <span className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">
+                {currentStep + 1}
+              </span>
+              {formSections[currentStep].title}
+            </CardTitle>
+            <CardDescription>
+              Step {currentStep + 1} of {formSections.length}
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent>
+            {renderCurrentSection()}
+
+            {/* Navigation Buttons */}
+            <div className="flex justify-between items-center mt-8 pt-6 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+                disabled={currentStep === 0}
+                className="flex items-center"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Previous
+              </Button>
+
+              <div className="flex space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={handleSave}
+                  disabled={isSaving || !hasUnsavedChanges}
+                  className="flex items-center"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Progress
+                </Button>
+
+                {currentStep === formSections.length - 1 ? (
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={isLoading}
+                    className="flex items-center bg-green-600 hover:bg-green-700"
+                  >
+                    {isLoading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b border-white mr-2"></div>
+                    ) : (
+                      <Send className="w-4 h-4 mr-2" />
+                    )}
+                    Submit Application
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => setCurrentStep(Math.min(formSections.length - 1, currentStep + 1))}
+                    className="flex items-center"
+                  >
+                    Next
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Help Section */}
+        <Card className="mt-6 bg-blue-50 border-blue-200">
+          <CardContent className="p-4">
+            <div className="flex items-start">
+              <AlertCircle className="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-blue-900 mb-1">Need Help?</h4>
+                <p className="text-sm text-blue-700">
+                  Your progress is automatically saved as you fill out the form. 
+                  You can return anytime to complete your application. 
+                  For assistance, contact us at support@26ideas.org
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

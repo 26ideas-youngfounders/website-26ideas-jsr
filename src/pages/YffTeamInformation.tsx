@@ -76,6 +76,7 @@ const YffTeamInformation = () => {
   const [loading, setLoading] = useState(false);
   const [autoSaving, setAutoSaving] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [profileInitialized, setProfileInitialized] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -129,35 +130,35 @@ const YffTeamInformation = () => {
       return;
     }
     
-    // Initialize user profile and load existing application data
+    // Initialize user profile with simplified logic
     initializeUserProfile();
   }, [user, navigate]);
 
   /**
-   * Initialize user profile and ensure they have proper access
+   * Simplified user profile initialization
    */
   const initializeUserProfile = async () => {
+    if (!user) return;
+    
     try {
-      console.log("Initializing user profile for:", user?.id);
+      console.log("Initializing user profile for:", user.id);
       
-      // First, check if user has an individual profile
+      // Check if individual profile exists
       let { data: individual, error: individualError } = await supabase
         .from('individuals')
         .select('*')
-        .eq('email', user?.email)
+        .eq('email', user.email)
         .single();
 
-      console.log("Individual lookup result:", { individual, individualError });
-
-      // If no individual profile exists, create one
-      if (individualError && individualError.code === 'PGRST116') {
-        console.log("Creating new individual profile");
+      // If no individual exists, create one
+      if (!individual && individualError?.code === 'PGRST116') {
+        console.log("Creating individual profile");
         const { data: newIndividual, error: createError } = await supabase
           .from('individuals')
           .insert({
-            first_name: user?.user_metadata?.full_name?.split(' ')[0] || '',
-            last_name: user?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
-            email: user?.email || '',
+            first_name: user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0] || '',
+            last_name: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+            email: user.email,
             privacy_consent: false,
             data_processing_consent: false,
           })
@@ -165,73 +166,54 @@ const YffTeamInformation = () => {
           .single();
 
         if (createError) {
-          console.error("Error creating individual profile:", createError);
-          toast({
-            title: "Error",
-            description: "Failed to create user profile. Please try again.",
-            variant: "destructive",
-          });
-          return;
+          console.error("Error creating individual:", createError);
+          throw new Error("Failed to create user profile");
         }
-
+        
         individual = newIndividual;
-        console.log("Created individual profile:", individual);
       } else if (individualError) {
         console.error("Error fetching individual:", individualError);
-        toast({
-          title: "Error",
-          description: "Failed to load user profile. Please try again.",
-          variant: "destructive",
-        });
-        return;
+        throw new Error("Failed to load user profile");
       }
 
-      // Check if user has a role assigned
+      // Check if user role exists
       const { data: userRole, error: roleError } = await supabase
         .from('user_roles')
         .select('*')
-        .eq('user_id', user?.id)
-        .eq('individual_id', individual?.individual_id)
+        .eq('user_id', user.id)
+        .eq('individual_id', individual.individual_id)
         .single();
 
-      console.log("User role lookup result:", { userRole, roleError });
-
-      // If no role exists, create one
-      if (roleError && roleError.code === 'PGRST116') {
+      // Create user role if it doesn't exist
+      if (!userRole && roleError?.code === 'PGRST116') {
         console.log("Creating user role");
         const { error: roleCreateError } = await supabase
           .from('user_roles')
           .insert({
-            user_id: user?.id,
-            individual_id: individual?.individual_id,
+            user_id: user.id,
+            individual_id: individual.individual_id,
             role: 'user',
             is_active: true
           });
 
         if (roleCreateError) {
           console.error("Error creating user role:", roleCreateError);
-          toast({
-            title: "Error",
-            description: "Failed to set up user permissions. Please try again.",
-            variant: "destructive",
-          });
-          return;
+          // Don't throw error here, as this might not be critical
         }
-        console.log("User role created successfully");
-      } else if (roleError) {
-        console.error("Error fetching user role:", roleError);
       }
 
+      console.log("Profile initialized successfully:", individual);
       setUserProfile(individual);
+      setProfileInitialized(true);
       
       // Load existing application data
-      loadExistingApplication(individual?.individual_id);
+      loadExistingApplication(individual.individual_id);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in initializeUserProfile:", error);
       toast({
         title: "Error",
-        description: "Failed to initialize user profile. Please try again.",
+        description: error.message || "Failed to initialize user profile. Please try again.",
         variant: "destructive",
       });
     }
@@ -453,15 +435,16 @@ const YffTeamInformation = () => {
   };
 
   /**
-   * Handle form submission
+   * Handle form submission with simplified profile check
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!userProfile?.individual_id) {
+    // Ensure profile is initialized before submission
+    if (!profileInitialized || !userProfile?.individual_id) {
       toast({
-        title: "Error",
-        description: "User profile not found. Please refresh the page and try again.",
+        title: "Error", 
+        description: "User profile not ready. Please wait and try again.",
         variant: "destructive",
       });
       return;
@@ -1059,7 +1042,7 @@ const YffTeamInformation = () => {
             
             <Button 
               type="submit" 
-              disabled={loading || !userProfile}
+              disabled={loading || !profileInitialized}
               className="px-8"
             >
               {loading ? "Saving..." : "Save & Continue to Questionnaire"}

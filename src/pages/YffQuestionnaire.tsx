@@ -6,7 +6,7 @@
  * Features comprehensive form validation, auto-save functionality,
  * and robust error handling with the fixed authentication system.
  * 
- * @version 2.1.7 - Fixed TypeScript deep instantiation error with basic types
+ * @version 2.1.8 - Fixed TypeScript deep instantiation error with basic Record type
  * @author 26ideas Development Team
  */
 
@@ -20,12 +20,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { YffFormSections } from '@/components/forms/YffFormSections';
 
 /**
- * Basic form data type using Record to avoid deep instantiation
+ * Simple form data type to avoid deep instantiation
  */
-type FormDataRecord = Record<string, string>;
+type SimpleFormData = Record<string, string>;
 
 /**
- * Form field keys for type safety
+ * Form field keys for validation
  */
 const FORM_FIELDS = [
   'firstName',
@@ -43,17 +43,6 @@ const FORM_FIELDS = [
 ] as const;
 
 /**
- * Initial form data factory function
- */
-const createInitialFormData = (): FormDataRecord => {
-  const data: FormDataRecord = {};
-  FORM_FIELDS.forEach(field => {
-    data[field] = '';
-  });
-  return data;
-};
-
-/**
  * YffQuestionnaire Component
  * Handles the complete application process with auto-save and validation
  */
@@ -61,13 +50,21 @@ const YffQuestionnaire: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // State management with basic types
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  // State management with basic types to avoid deep instantiation
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [individualId, setIndividualId] = useState<string | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<FormDataRecord>(createInitialFormData);
+  
+  // Use the simplest possible type to avoid TypeScript deep instantiation
+  const [formData, setFormData] = useState<SimpleFormData>(() => {
+    const data: SimpleFormData = {};
+    FORM_FIELDS.forEach(field => {
+      data[field] = '';
+    });
+    return data;
+  });
 
   /**
    * Load existing application data on component mount
@@ -95,17 +92,21 @@ const YffQuestionnaire: React.FC = () => {
           setIndividualId(individualData.individual_id);
           console.log('Individual ID found:', individualData.individual_id);
 
-          // Pre-populate form with individual data
-          const updatedFormData: FormDataRecord = {
-            ...createInitialFormData(),
-            firstName: individualData.first_name || '',
-            lastName: individualData.last_name || '',
-            email: individualData.email || '',
-            phone: individualData.mobile || '',
-            dateOfBirth: individualData.dob || '',
-            nationality: individualData.nationality || '',
-          };
-          setFormData(updatedFormData);
+          // Pre-populate form with individual data using simple assignment
+          const newFormData: SimpleFormData = {};
+          FORM_FIELDS.forEach(field => {
+            newFormData[field] = '';
+          });
+          
+          // Explicitly set known fields
+          newFormData.firstName = individualData.first_name || '';
+          newFormData.lastName = individualData.last_name || '';
+          newFormData.email = individualData.email || '';
+          newFormData.phone = individualData.mobile || '';
+          newFormData.dateOfBirth = individualData.dob || '';
+          newFormData.nationality = individualData.nationality || '';
+          
+          setFormData(newFormData);
 
           // Check for existing application
           const { data: applicationData, error: applicationError } = await supabase
@@ -123,14 +124,24 @@ const YffQuestionnaire: React.FC = () => {
             setApplicationId(applicationData.application_id);
             console.log('Existing application found:', applicationData.application_id);
 
-            // Load saved answers if they exist
+            // Load saved answers if they exist - use simple assignment
             if (applicationData.answers) {
               const savedAnswers = applicationData.answers as Record<string, string>;
-              const mergedFormData: FormDataRecord = {
-                ...updatedFormData,
-                ...savedAnswers,
-              };
-              setFormData(mergedFormData);
+              const mergedData: SimpleFormData = {};
+              
+              // Copy all current form data
+              FORM_FIELDS.forEach(field => {
+                mergedData[field] = newFormData[field] || '';
+              });
+              
+              // Override with saved answers
+              Object.keys(savedAnswers).forEach(key => {
+                if (savedAnswers[key]) {
+                  mergedData[key] = savedAnswers[key];
+                }
+              });
+              
+              setFormData(mergedData);
             }
 
             // If application is already submitted, show success message
@@ -160,8 +171,11 @@ const YffQuestionnaire: React.FC = () => {
     try {
       console.log('Auto-saving application...');
       
-      // Convert form data to simple object
-      const answersJson = { ...formData };
+      // Create a simple object copy for JSON storage
+      const answersJson: Record<string, string> = {};
+      Object.keys(formData).forEach(key => {
+        answersJson[key] = formData[key] || '';
+      });
 
       if (applicationId) {
         // Update existing application
@@ -259,8 +273,11 @@ const YffQuestionnaire: React.FC = () => {
         return;
       }
 
-      // Convert form data to simple object
-      const answersJson = { ...formData };
+      // Create a simple object copy for JSON storage
+      const answersJson: Record<string, string> = {};
+      Object.keys(formData).forEach(key => {
+        answersJson[key] = formData[key] || '';
+      });
 
       // Submit or update application
       if (applicationId) {
@@ -316,7 +333,13 @@ const YffQuestionnaire: React.FC = () => {
    * Handle form field changes with auto-save trigger
    */
   const handleFieldChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    const newFormData: SimpleFormData = {};
+    Object.keys(formData).forEach(key => {
+      newFormData[key] = formData[key];
+    });
+    newFormData[field] = value;
+    
+    setFormData(newFormData);
     setHasUnsavedChanges(true);
   };
 

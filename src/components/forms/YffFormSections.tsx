@@ -5,7 +5,7 @@
  * Extracted form sections for better maintainability and reusability.
  * Each section handles specific parts of the YFF application form.
  * 
- * @version 1.1.2 - Fixed TypeScript deep instantiation with basic types
+ * @version 1.1.3 - Fixed TypeScript deep instantiation with basic Record type
  * @author 26ideas Development Team
  */
 
@@ -17,12 +17,12 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 /**
- * Basic form data type using Record to avoid deep type instantiation
+ * Simple form data type to avoid deep type instantiation
  */
-type FormDataRecord = Record<string, string>;
+type SimpleFormData = Record<string, string>;
 
 interface FormSectionProps {
-  formData: FormDataRecord;
+  formData: SimpleFormData;
   onFieldChange: (field: string, value: string) => void;
 }
 
@@ -196,7 +196,7 @@ const GoalsCommitmentSection: React.FC<FormSectionProps> = ({ formData, onFieldC
  */
 interface YffFormSectionsProps {
   currentStep: number;
-  formData: FormDataRecord;
+  formData: SimpleFormData;
   onFieldChange: (field: string, value: string) => void;
 }
 

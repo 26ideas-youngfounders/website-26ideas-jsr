@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Young Founders Floor Team Information Collection Form
  * 
@@ -76,6 +75,7 @@ const YffTeamInformation = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [autoSaving, setAutoSaving] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -129,29 +129,138 @@ const YffTeamInformation = () => {
       return;
     }
     
-    // Load existing application data if available
-    loadExistingApplication();
+    // Initialize user profile and load existing application data
+    initializeUserProfile();
   }, [user, navigate]);
+
+  /**
+   * Initialize user profile and ensure they have proper access
+   */
+  const initializeUserProfile = async () => {
+    try {
+      console.log("Initializing user profile for:", user?.id);
+      
+      // First, check if user has an individual profile
+      let { data: individual, error: individualError } = await supabase
+        .from('individuals')
+        .select('*')
+        .eq('email', user?.email)
+        .single();
+
+      console.log("Individual lookup result:", { individual, individualError });
+
+      // If no individual profile exists, create one
+      if (individualError && individualError.code === 'PGRST116') {
+        console.log("Creating new individual profile");
+        const { data: newIndividual, error: createError } = await supabase
+          .from('individuals')
+          .insert({
+            first_name: user?.user_metadata?.full_name?.split(' ')[0] || '',
+            last_name: user?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+            email: user?.email || '',
+            privacy_consent: false,
+            data_processing_consent: false,
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error("Error creating individual profile:", createError);
+          toast({
+            title: "Error",
+            description: "Failed to create user profile. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        individual = newIndividual;
+        console.log("Created individual profile:", individual);
+      } else if (individualError) {
+        console.error("Error fetching individual:", individualError);
+        toast({
+          title: "Error",
+          description: "Failed to load user profile. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if user has a role assigned
+      const { data: userRole, error: roleError } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', user?.id)
+        .eq('individual_id', individual?.individual_id)
+        .single();
+
+      console.log("User role lookup result:", { userRole, roleError });
+
+      // If no role exists, create one
+      if (roleError && roleError.code === 'PGRST116') {
+        console.log("Creating user role");
+        const { error: roleCreateError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: user?.id,
+            individual_id: individual?.individual_id,
+            role: 'user',
+            is_active: true
+          });
+
+        if (roleCreateError) {
+          console.error("Error creating user role:", roleCreateError);
+          toast({
+            title: "Error",
+            description: "Failed to set up user permissions. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+        console.log("User role created successfully");
+      } else if (roleError) {
+        console.error("Error fetching user role:", roleError);
+      }
+
+      setUserProfile(individual);
+      
+      // Load existing application data
+      loadExistingApplication(individual?.individual_id);
+
+    } catch (error) {
+      console.error("Error in initializeUserProfile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to initialize user profile. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   /**
    * Load existing application data from database
    */
-  const loadExistingApplication = async () => {
+  const loadExistingApplication = async (individualId: string) => {
+    if (!individualId) return;
+    
     try {
+      console.log("Loading existing application for individual:", individualId);
       const { data, error } = await supabase
         .from('yff_applications')
         .select('*')
-        .eq('individual_id', user?.id)
+        .eq('individual_id', individualId)
         .eq('application_round', 'Round 1')
         .single();
 
-      if (error || !data) {
-        console.log("No existing application found, starting fresh");
+      console.log("Application lookup result:", { data, error });
+
+      if (error && error.code !== 'PGRST116') {
+        console.error("Error loading application:", error);
         return;
       }
 
-      // Safely parse the answers
-      if (data.answers && typeof data.answers === 'object' && data.answers !== null) {
+      if (data && data.answers) {
+        // Safely parse the answers
         const answers = data.answers as Record<string, any>;
         if (answers.team && typeof answers.team === 'object') {
           const teamData = answers.team as Record<string, any>;
@@ -159,10 +268,11 @@ const YffTeamInformation = () => {
             ...prev,
             ...teamData
           }));
+          console.log("Loaded existing form data");
         }
       }
     } catch (error) {
-      console.log("No existing application found, starting fresh");
+      console.error("Error in loadExistingApplication:", error);
     }
   };
 
@@ -170,6 +280,8 @@ const YffTeamInformation = () => {
    * Auto-save functionality
    */
   useEffect(() => {
+    if (!userProfile?.individual_id) return;
+    
     const autoSaveTimer = setTimeout(() => {
       if (formData.fullName || formData.teamName) { // Only save if there's meaningful data
         saveAsDraft();
@@ -177,23 +289,25 @@ const YffTeamInformation = () => {
     }, 30000); // Auto-save every 30 seconds
 
     return () => clearTimeout(autoSaveTimer);
-  }, [formData]);
+  }, [formData, userProfile]);
 
   /**
    * Save current form data as draft
    */
   const saveAsDraft = async () => {
-    if (!user) return;
+    if (!user || !userProfile?.individual_id) return;
     
     setAutoSaving(true);
     try {
+      console.log("Auto-saving draft for individual:", userProfile.individual_id);
+      
       // Convert FormData to JSON-serializable object
       const teamDataAsJson = JSON.parse(JSON.stringify(formData));
       
       const { error } = await supabase
         .from('yff_applications')
         .upsert({
-          individual_id: user.id,
+          individual_id: userProfile.individual_id,
           status: 'draft',
           application_round: 'Round 1',
           answers: { team: teamDataAsJson } as any
@@ -201,7 +315,11 @@ const YffTeamInformation = () => {
           onConflict: 'individual_id,application_round'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Auto-save error:", error);
+      } else {
+        console.log("Auto-save successful");
+      }
     } catch (error) {
       console.error("Auto-save failed:", error);
     } finally {
@@ -340,6 +458,15 @@ const YffTeamInformation = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!userProfile?.individual_id) {
+      toast({
+        title: "Error",
+        description: "User profile not found. Please refresh the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const errors = validateForm();
     if (errors.length > 0) {
       toast({
@@ -352,13 +479,15 @@ const YffTeamInformation = () => {
     
     setLoading(true);
     try {
+      console.log("Submitting form for individual:", userProfile.individual_id);
+      
       // Convert FormData to JSON-serializable object
       const teamDataAsJson = JSON.parse(JSON.stringify(formData));
       
       const { error } = await supabase
         .from('yff_applications')
         .upsert({
-          individual_id: user.id,
+          individual_id: userProfile.individual_id,
           status: 'team_info_completed',
           application_round: 'Round 1',
           answers: { team: teamDataAsJson } as any
@@ -366,8 +495,12 @@ const YffTeamInformation = () => {
           onConflict: 'individual_id,application_round'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Submission error:", error);
+        throw error;
+      }
 
+      console.log("Form submitted successfully");
       toast({
         title: "Success!",
         description: "Team information saved successfully!",
@@ -376,6 +509,7 @@ const YffTeamInformation = () => {
       // Redirect to questionnaire
       navigate('/yff/questionnaire');
     } catch (error: any) {
+      console.error("Form submission error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to save team information",
@@ -925,7 +1059,7 @@ const YffTeamInformation = () => {
             
             <Button 
               type="submit" 
-              disabled={loading}
+              disabled={loading || !userProfile}
               className="px-8"
             >
               {loading ? "Saving..." : "Save & Continue to Questionnaire"}

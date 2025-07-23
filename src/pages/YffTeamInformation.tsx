@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Young Founders Floor Team Information Collection Form
  * 
@@ -78,6 +79,7 @@ const YffTeamInformation = () => {
   const [error, setError] = useState('');
   const [userIndividual, setUserIndividual] = useState<any>(null);
   const [initialized, setInitialized] = useState(false);
+  const [profileCreated, setProfileCreated] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -131,19 +133,28 @@ const YffTeamInformation = () => {
       return;
     }
     
-    ensureIndividualRecord();
+    createOrGetIndividualRecord();
   }, [user, navigate]);
 
   /**
-   * Ensure individual record exists for the authenticated user
+   * Create or get individual record for the authenticated user
+   * This is the main function that handles profile creation
    */
-  const ensureIndividualRecord = async () => {
-    if (!user?.email) return;
+  const createOrGetIndividualRecord = async () => {
+    if (!user?.email) {
+      setError("No user email found. Please sign in again.");
+      return;
+    }
     
     try {
-      console.log("Ensuring individual record for user:", user.email);
+      console.log("=== DEBUG: Profile Creation Process ===");
+      console.log("User object:", user);
+      console.log("User email:", user.email);
       
-      // Check if individual exists with this email
+      setError(''); // Clear any previous errors
+      
+      // First, check if individual already exists with this email
+      console.log("Checking for existing individual record...");
       let { data: individual, error: fetchError } = await supabase
         .from('individuals')
         .select('*')
@@ -152,31 +163,48 @@ const YffTeamInformation = () => {
 
       if (fetchError && fetchError.code === 'PGRST116') {
         // Individual doesn't exist, create one
-        console.log("Creating new individual record");
+        console.log("No existing individual found, creating new record...");
+        
+        const individualData = {
+          first_name: user.user_metadata?.full_name?.split(' ')[0] || 
+                     user.user_metadata?.first_name || 
+                     user.email?.split('@')[0] || 
+                     'User',
+          last_name: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 
+                    user.user_metadata?.last_name || 
+                    '',
+          email: user.email,
+          privacy_consent: true,
+          data_processing_consent: true,
+          country_code: '+91',
+          country_iso_code: 'IN',
+          is_active: true,
+          email_verified: user.email_confirmed_at ? true : false,
+        };
+        
+        console.log("Creating individual with data:", individualData);
+        
         const { data: newIndividual, error: createError } = await supabase
           .from('individuals')
-          .insert({
-            first_name: user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0] || '',
-            last_name: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
-            email: user.email,
-            privacy_consent: false,
-            data_processing_consent: false,
-          })
+          .insert(individualData)
           .select()
           .single();
 
         if (createError) {
           console.error("Error creating individual:", createError);
-          setError("Failed to create user profile. Please try again.");
-          return;
+          throw new Error(`Profile creation failed: ${createError.message}`);
         }
         
         individual = newIndividual;
-        console.log("Created individual:", individual);
+        console.log("Successfully created individual:", individual);
+        setProfileCreated(true);
+        
       } else if (fetchError) {
         console.error("Error fetching individual:", fetchError);
-        setError("Failed to load user profile. Please try again.");
-        return;
+        throw new Error(`Failed to check existing profile: ${fetchError.message}`);
+      } else {
+        console.log("Found existing individual:", individual);
+        setProfileCreated(true);
       }
 
       setUserIndividual(individual);
@@ -185,10 +213,18 @@ const YffTeamInformation = () => {
       // Load existing application data if it exists
       await loadExistingApplication(individual.individual_id);
       setInitialized(true);
+      console.log("=== END DEBUG ===");
 
     } catch (error: any) {
-      console.error("Error in ensureIndividualRecord:", error);
-      setError(`Profile setup failed: ${error.message}`);
+      console.error("Error in createOrGetIndividualRecord:", error);
+      setError(`Failed to create user profile: ${error.message}`);
+      
+      // Show retry option
+      toast({
+        title: "Profile Creation Failed",
+        description: error.message + " Please try refreshing the page.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -402,7 +438,7 @@ const YffTeamInformation = () => {
   };
 
   /**
-   * Handle form submission with proper RLS compliance
+   * Handle form submission
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -430,7 +466,7 @@ const YffTeamInformation = () => {
       
       const applicationData = {
         individual_id: userIndividual.individual_id,
-        status: 'team_info_completed',
+        status: 'draft', // Start as draft
         application_round: 'Round 1',
         answers: { team: teamDataAsJson } as any
       };
@@ -472,6 +508,14 @@ const YffTeamInformation = () => {
     }
   };
 
+  /**
+   * Retry profile creation
+   */
+  const retryProfileCreation = async () => {
+    setError('');
+    await createOrGetIndividualRecord();
+  };
+
   // Calculate progress
   const calculateProgress = () => {
     const requiredFields = [
@@ -489,6 +533,30 @@ const YffTeamInformation = () => {
 
   if (!user) {
     return null;
+  }
+
+  // Show loading state if profile not created yet
+  if (!profileCreated) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold mb-4">Setting up your profile...</h1>
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+            {error && (
+              <div className="mt-6 bg-destructive/10 text-destructive p-4 rounded-md">
+                <h3 className="font-medium mb-2">Profile Creation Error</h3>
+                <p className="mb-4">{error}</p>
+                <Button onClick={retryProfileCreation} variant="outline">
+                  Try Again
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -60,11 +60,11 @@ const MentorApplicationsPage: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch mentor applications with individual details
-  const { data: applications, isLoading } = useQuery({
+  // Fetch mentor applications with individual details using left join
+  const { data: applications, isLoading, error } = useQuery({
     queryKey: ['mentor-applications'],
     queryFn: async () => {
-      console.log('Fetching mentor applications...');
+      console.log('Fetching mentor applications with left join...');
       
       const { data, error } = await supabase
         .from('mentor_applications')
@@ -85,7 +85,7 @@ const MentorApplicationsPage: React.FC = () => {
           country_iso_code,
           created_at,
           updated_at,
-          individuals!inner (
+          individuals (
             first_name,
             last_name,
             email,
@@ -101,11 +101,8 @@ const MentorApplicationsPage: React.FC = () => {
         throw error;
       }
 
-      // Transform data to match interface
-      return (data || []).map((app: any) => ({
-        ...app,
-        individuals: app.individuals || null
-      })) as MentorApplication[];
+      console.log('Fetched mentor applications:', data);
+      return (data || []) as MentorApplication[];
     },
   });
 
@@ -189,6 +186,36 @@ const MentorApplicationsPage: React.FC = () => {
       notes: reviewerNotes 
     });
   };
+
+  // Show error state if there's an error
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold">Mentor Applications</h1>
+            <p className="text-muted-foreground">
+              Review and manage mentor applications for the 26ideas platform
+            </p>
+          </div>
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center text-red-600">
+                <p className="text-lg font-semibold">Error loading applications</p>
+                <p className="text-sm mt-2">{error.message}</p>
+                <Button 
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['mentor-applications'] })}
+                  className="mt-4"
+                >
+                  Retry
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>

@@ -269,7 +269,7 @@ const Index = () => {
         </section>
 
         {/* Young Founders Program Section - White background with program card */}
-        <section className="bg-white py-45">
+        <section className="bg-white py-15">
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
             {/* Program card container - centered */}
             <div className="flex justify-center">
@@ -278,11 +278,23 @@ const Index = () => {
                   {/* Program card image with 20px border radius */}
                   <div className="w-full rounded-[20px] overflow-hidden">
                     <img 
-                      src="/lovable-uploads/a1150392-877d-4407-a88a-eab663f996b9.png" 
+                      src="/lovable-uploads/a2e9398f-b4f6-4a0f-a99e-6a2e03167646.png" 
                       alt="Young Founders Program 2025 - Your journey from Idea to Impact" 
                       className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-300" 
                       loading="lazy" 
                     />
+                  </div>
+                  
+                  {/* Program card label below image */}
+                  <div className="mt-4 text-center">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      Young Founders Program 2025
+                    </h3>
+                    <div className="flex justify-center items-center text-gray-600 text-base">
+                      <span>Learn More</span>
+                      <ChevronRight className="ml-1 w-4 h-4" />
+                      <ChevronRight className="ml-0 w-4 h-4" />
+                    </div>
                   </div>
                 </div>
               </Link>

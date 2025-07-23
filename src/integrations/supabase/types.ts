@@ -761,7 +761,11 @@ export type Database = {
           achievements: Json | null
           alumni_status: boolean | null
           ambassador_status: boolean | null
+          availability_for_mentoring: number | null
+          background_check_status: string | null
+          bio: string | null
           city: string | null
+          collaboration_openness: boolean | null
           communication_email: boolean | null
           communication_marketing: boolean | null
           communication_notifications: boolean | null
@@ -769,14 +773,24 @@ export type Database = {
           country: string | null
           created_at: string
           created_by: string | null
+          current_company: string | null
           data_processing_consent: boolean
           data_retention_date: string | null
+          degree_level: string | null
           dob: string | null
           education: Json | null
           email: string
+          email_verification_status: boolean | null
+          email_verified: boolean | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           facebook: string | null
           first_name: string
+          gender: string | null
+          graduation_year: number | null
+          identity_verification_level: number | null
           individual_id: string
+          industry: string | null
           instagram: string | null
           interests: string[] | null
           is_active: boolean | null
@@ -786,37 +800,57 @@ export type Database = {
           is_judge: boolean | null
           is_mentor: boolean | null
           is_parent: boolean | null
+          job_title: string | null
           languages: string[] | null
+          last_activity_date: string | null
           last_login: string | null
           last_name: string
           linkedin: string | null
           marketing_consent: boolean | null
+          meeting_preferences: string | null
           mentor_status: boolean | null
           metadata: Json | null
           mobile: string | null
+          nationality: string | null
+          networking_interests: string[] | null
+          notification_frequency: string | null
+          onboarding_completed: boolean | null
+          phone_verified: boolean | null
           pinterest: string | null
           preferences: Json | null
           privacy_consent: boolean
           professional_experience: Json | null
           profile_completion: number | null
+          profile_photo_url: string | null
+          pronouns: string | null
+          public_profile: boolean | null
+          referral_source: string | null
+          secondary_email: string | null
           sectors: string[] | null
           skills: string[] | null
           spi_retraction: boolean | null
+          startup_stage: string | null
           state: string | null
           tiktok: string | null
           timezone: string | null
           topics: string[] | null
           twitter: string | null
+          university: string | null
           updated_at: string
           updated_by: string | null
           verticals: string[] | null
+          whatsapp_number: string | null
           youtube: string | null
         }
         Insert: {
           achievements?: Json | null
           alumni_status?: boolean | null
           ambassador_status?: boolean | null
+          availability_for_mentoring?: number | null
+          background_check_status?: string | null
+          bio?: string | null
           city?: string | null
+          collaboration_openness?: boolean | null
           communication_email?: boolean | null
           communication_marketing?: boolean | null
           communication_notifications?: boolean | null
@@ -824,14 +858,24 @@ export type Database = {
           country?: string | null
           created_at?: string
           created_by?: string | null
+          current_company?: string | null
           data_processing_consent?: boolean
           data_retention_date?: string | null
+          degree_level?: string | null
           dob?: string | null
           education?: Json | null
           email: string
+          email_verification_status?: boolean | null
+          email_verified?: boolean | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           facebook?: string | null
           first_name: string
+          gender?: string | null
+          graduation_year?: number | null
+          identity_verification_level?: number | null
           individual_id?: string
+          industry?: string | null
           instagram?: string | null
           interests?: string[] | null
           is_active?: boolean | null
@@ -841,37 +885,57 @@ export type Database = {
           is_judge?: boolean | null
           is_mentor?: boolean | null
           is_parent?: boolean | null
+          job_title?: string | null
           languages?: string[] | null
+          last_activity_date?: string | null
           last_login?: string | null
           last_name: string
           linkedin?: string | null
           marketing_consent?: boolean | null
+          meeting_preferences?: string | null
           mentor_status?: boolean | null
           metadata?: Json | null
           mobile?: string | null
+          nationality?: string | null
+          networking_interests?: string[] | null
+          notification_frequency?: string | null
+          onboarding_completed?: boolean | null
+          phone_verified?: boolean | null
           pinterest?: string | null
           preferences?: Json | null
           privacy_consent?: boolean
           professional_experience?: Json | null
           profile_completion?: number | null
+          profile_photo_url?: string | null
+          pronouns?: string | null
+          public_profile?: boolean | null
+          referral_source?: string | null
+          secondary_email?: string | null
           sectors?: string[] | null
           skills?: string[] | null
           spi_retraction?: boolean | null
+          startup_stage?: string | null
           state?: string | null
           tiktok?: string | null
           timezone?: string | null
           topics?: string[] | null
           twitter?: string | null
+          university?: string | null
           updated_at?: string
           updated_by?: string | null
           verticals?: string[] | null
+          whatsapp_number?: string | null
           youtube?: string | null
         }
         Update: {
           achievements?: Json | null
           alumni_status?: boolean | null
           ambassador_status?: boolean | null
+          availability_for_mentoring?: number | null
+          background_check_status?: string | null
+          bio?: string | null
           city?: string | null
+          collaboration_openness?: boolean | null
           communication_email?: boolean | null
           communication_marketing?: boolean | null
           communication_notifications?: boolean | null
@@ -879,14 +943,24 @@ export type Database = {
           country?: string | null
           created_at?: string
           created_by?: string | null
+          current_company?: string | null
           data_processing_consent?: boolean
           data_retention_date?: string | null
+          degree_level?: string | null
           dob?: string | null
           education?: Json | null
           email?: string
+          email_verification_status?: boolean | null
+          email_verified?: boolean | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           facebook?: string | null
           first_name?: string
+          gender?: string | null
+          graduation_year?: number | null
+          identity_verification_level?: number | null
           individual_id?: string
+          industry?: string | null
           instagram?: string | null
           interests?: string[] | null
           is_active?: boolean | null
@@ -896,30 +970,46 @@ export type Database = {
           is_judge?: boolean | null
           is_mentor?: boolean | null
           is_parent?: boolean | null
+          job_title?: string | null
           languages?: string[] | null
+          last_activity_date?: string | null
           last_login?: string | null
           last_name?: string
           linkedin?: string | null
           marketing_consent?: boolean | null
+          meeting_preferences?: string | null
           mentor_status?: boolean | null
           metadata?: Json | null
           mobile?: string | null
+          nationality?: string | null
+          networking_interests?: string[] | null
+          notification_frequency?: string | null
+          onboarding_completed?: boolean | null
+          phone_verified?: boolean | null
           pinterest?: string | null
           preferences?: Json | null
           privacy_consent?: boolean
           professional_experience?: Json | null
           profile_completion?: number | null
+          profile_photo_url?: string | null
+          pronouns?: string | null
+          public_profile?: boolean | null
+          referral_source?: string | null
+          secondary_email?: string | null
           sectors?: string[] | null
           skills?: string[] | null
           spi_retraction?: boolean | null
+          startup_stage?: string | null
           state?: string | null
           tiktok?: string | null
           timezone?: string | null
           topics?: string[] | null
           twitter?: string | null
+          university?: string | null
           updated_at?: string
           updated_by?: string | null
           verticals?: string[] | null
+          whatsapp_number?: string | null
           youtube?: string | null
         }
         Relationships: []

@@ -120,6 +120,13 @@ export type Database = {
             referencedColumns: ["individual_id"]
           },
           {
+            foreignKeyName: "ambassador_assignments_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
+            referencedColumns: ["individual_id"]
+          },
+          {
             foreignKeyName: "ambassador_assignments_mentor_id_fkey"
             columns: ["mentor_id"]
             isOneToOne: false
@@ -131,6 +138,13 @@ export type Database = {
             columns: ["mentor_id"]
             isOneToOne: false
             referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "ambassador_assignments_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
             referencedColumns: ["individual_id"]
           },
         ]
@@ -248,6 +262,13 @@ export type Database = {
             referencedRelation: "individuals"
             referencedColumns: ["individual_id"]
           },
+          {
+            foreignKeyName: "analytics_events_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
+            referencedColumns: ["individual_id"]
+          },
         ]
       }
       certificates: {
@@ -354,6 +375,13 @@ export type Database = {
             referencedColumns: ["individual_id"]
           },
           {
+            foreignKeyName: "certificates_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
+            referencedColumns: ["individual_id"]
+          },
+          {
             foreignKeyName: "certificates_issued_by_fkey"
             columns: ["issued_by"]
             isOneToOne: false
@@ -365,6 +393,13 @@ export type Database = {
             columns: ["issued_by"]
             isOneToOne: false
             referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "certificates_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
             referencedColumns: ["individual_id"]
           },
         ]
@@ -426,6 +461,13 @@ export type Database = {
             columns: ["individual_id"]
             isOneToOne: false
             referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "chapter_members_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
             referencedColumns: ["individual_id"]
           },
         ]
@@ -590,6 +632,13 @@ export type Database = {
             columns: ["individual_id"]
             isOneToOne: false
             referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "course_progress_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
             referencedColumns: ["individual_id"]
           },
         ]
@@ -763,6 +812,13 @@ export type Database = {
             columns: ["individual_id"]
             isOneToOne: false
             referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "event_participation_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
             referencedColumns: ["individual_id"]
           },
         ]
@@ -1251,6 +1307,13 @@ export type Database = {
             referencedColumns: ["individual_id"]
           },
           {
+            foreignKeyName: "mentorships_mentee_id_fkey"
+            columns: ["mentee_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
+            referencedColumns: ["individual_id"]
+          },
+          {
             foreignKeyName: "mentorships_mentor_id_fkey"
             columns: ["mentor_id"]
             isOneToOne: false
@@ -1262,6 +1325,13 @@ export type Database = {
             columns: ["mentor_id"]
             isOneToOne: false
             referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "mentorships_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
             referencedColumns: ["individual_id"]
           },
         ]
@@ -1390,6 +1460,13 @@ export type Database = {
             referencedRelation: "individuals"
             referencedColumns: ["individual_id"]
           },
+          {
+            foreignKeyName: "notifications_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
+            referencedColumns: ["individual_id"]
+          },
         ]
       }
       parent_child: {
@@ -1433,6 +1510,13 @@ export type Database = {
             referencedColumns: ["individual_id"]
           },
           {
+            foreignKeyName: "parent_child_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
+            referencedColumns: ["individual_id"]
+          },
+          {
             foreignKeyName: "parent_child_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
@@ -1444,6 +1528,13 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "parent_child_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
             referencedColumns: ["individual_id"]
           },
         ]
@@ -1525,6 +1616,13 @@ export type Database = {
             columns: ["individual_id"]
             isOneToOne: false
             referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "program_enrollments_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
             referencedColumns: ["individual_id"]
           },
           {
@@ -1715,6 +1813,13 @@ export type Database = {
             referencedRelation: "individuals"
             referencedColumns: ["individual_id"]
           },
+          {
+            foreignKeyName: "sponsorships_managed_by_fkey"
+            columns: ["managed_by"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
+            referencedColumns: ["individual_id"]
+          },
         ]
       }
       team_roles: {
@@ -1797,6 +1902,13 @@ export type Database = {
             referencedColumns: ["individual_id"]
           },
           {
+            foreignKeyName: "team_roles_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
+            referencedColumns: ["individual_id"]
+          },
+          {
             foreignKeyName: "team_roles_reporting_to_fkey"
             columns: ["reporting_to"]
             isOneToOne: false
@@ -1808,6 +1920,13 @@ export type Database = {
             columns: ["reporting_to"]
             isOneToOne: false
             referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "team_roles_reporting_to_fkey"
+            columns: ["reporting_to"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
             referencedColumns: ["individual_id"]
           },
         ]
@@ -1862,6 +1981,13 @@ export type Database = {
             columns: ["individual_id"]
             isOneToOne: false
             referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "user_roles_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
             referencedColumns: ["individual_id"]
           },
         ]
@@ -1948,6 +2074,13 @@ export type Database = {
             referencedRelation: "individuals"
             referencedColumns: ["individual_id"]
           },
+          {
+            foreignKeyName: "yff_applications_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "multi_role_participants"
+            referencedColumns: ["individual_id"]
+          },
         ]
       }
     }
@@ -2010,6 +2143,93 @@ export type Database = {
           updated_by: string | null
           verticals: string[] | null
           youtube: string | null
+        }
+        Relationships: []
+      }
+      multi_role_participants: {
+        Row: {
+          active_programs: string[] | null
+          ambassador_performance_score: number | null
+          ambassador_region: string | null
+          ambassador_university: string | null
+          created_at: string | null
+          current_age: number | null
+          dob: string | null
+          email: string | null
+          first_name: string | null
+          has_active_program_enrollments: boolean | null
+          individual_id: string | null
+          is_active: boolean | null
+          is_active_ambassador: boolean | null
+          is_active_chapter_member: boolean | null
+          is_course_participant: boolean | null
+          is_eligible_young_founder: boolean | null
+          is_yff_applicant: boolean | null
+          last_login: string | null
+          last_name: string | null
+          program_completion_rate: number | null
+          total_active_roles: number | null
+        }
+        Insert: {
+          active_programs?: string[] | null
+          ambassador_performance_score?: number | null
+          ambassador_region?: string | null
+          ambassador_university?: string | null
+          created_at?: string | null
+          current_age?: never
+          dob?: string | null
+          email?: string | null
+          first_name?: string | null
+          has_active_program_enrollments?: never
+          individual_id?: string | null
+          is_active?: boolean | null
+          is_active_ambassador?: never
+          is_active_chapter_member?: never
+          is_course_participant?: never
+          is_eligible_young_founder?: never
+          is_yff_applicant?: never
+          last_login?: string | null
+          last_name?: string | null
+          program_completion_rate?: number | null
+          total_active_roles?: never
+        }
+        Update: {
+          active_programs?: string[] | null
+          ambassador_performance_score?: number | null
+          ambassador_region?: string | null
+          ambassador_university?: string | null
+          created_at?: string | null
+          current_age?: never
+          dob?: string | null
+          email?: string | null
+          first_name?: string | null
+          has_active_program_enrollments?: never
+          individual_id?: string | null
+          is_active?: boolean | null
+          is_active_ambassador?: never
+          is_active_chapter_member?: never
+          is_course_participant?: never
+          is_eligible_young_founder?: never
+          is_yff_applicant?: never
+          last_login?: string | null
+          last_name?: string | null
+          program_completion_rate?: number | null
+          total_active_roles?: never
+        }
+        Relationships: []
+      }
+      role_participation_summary: {
+        Row: {
+          active_ambassadors: number | null
+          active_chapter_members: number | null
+          average_age: number | null
+          course_participants: number | null
+          eligible_young_founders: number | null
+          highly_engaged_participants: number | null
+          multi_role_participants: number | null
+          program_enrollees: number | null
+          total_active_individuals: number | null
+          yff_applicants: number | null
         }
         Relationships: []
       }

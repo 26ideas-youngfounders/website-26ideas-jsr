@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Young Founders Floor Questionnaire Page
  * 
@@ -5,7 +6,7 @@
  * Features comprehensive form validation, auto-save functionality,
  * and robust error handling with the fixed authentication system.
  * 
- * @version 2.0.1 - Fixed TypeScript compatibility and extracted form sections
+ * @version 2.1.0 - Fixed TypeScript compatibility and removed manual timestamp handling
  * @author 26ideas Development Team
  */
 
@@ -265,7 +266,7 @@ const YffQuestionnaire = () => {
 
   /**
    * Auto-Save Function
-   * Saves form progress automatically
+   * Saves form progress automatically - removed manual updated_at handling
    */
   const autoSave = async () => {
     if (!individualId || !hasUnsavedChanges) return;
@@ -278,12 +279,11 @@ const YffQuestionnaire = () => {
       const answersJson = convertFormDataToJson(formData);
 
       if (applicationId) {
-        // Update existing application
+        // Update existing application - let database trigger handle updated_at
         const { error } = await supabase
           .from('yff_applications')
           .update({
             answers: answersJson,
-            updated_at: new Date().toISOString(),
           })
           .eq('application_id', applicationId);
 
@@ -330,7 +330,7 @@ const YffQuestionnaire = () => {
 
   /**
    * Form Submission Handler
-   * Validates and submits the complete application
+   * Validates and submits the complete application - removed manual updated_at handling
    */
   const handleSubmit = async () => {
     // Validation check
@@ -370,7 +370,6 @@ const YffQuestionnaire = () => {
           mobile: formData.phone,
           dob: formData.dateOfBirth,
           nationality: formData.nationality,
-          updated_at: new Date().toISOString(),
         })
         .eq('individual_id', individualId);
 
@@ -382,7 +381,7 @@ const YffQuestionnaire = () => {
       // Convert form data to Json format
       const answersJson = convertFormDataToJson(formData);
 
-      // Submit or update application
+      // Submit or update application - let database trigger handle updated_at
       if (applicationId) {
         // Update existing application
         const { error } = await supabase
@@ -391,7 +390,6 @@ const YffQuestionnaire = () => {
             status: 'submitted',
             answers: answersJson,
             submitted_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
           })
           .eq('application_id', applicationId);
 

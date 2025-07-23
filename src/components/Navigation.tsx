@@ -111,6 +111,13 @@ const Navigation = () => {
             </div>
           </div>
 
+          {/* Sign In Button */}
+          <div className="hidden md:block">
+            <button className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200">
+              Sign In
+            </button>
+          </div>
+
           {/* Mobile menu button */}
           <div className="md:hidden">
             <button className="text-nav-text hover:text-nav-text-hover p-2">

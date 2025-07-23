@@ -27,7 +27,6 @@ const Navigation = () => {
       dropdownItems: [
         "Young Founders Floor",
         "Annual Retreat",
-        "Webinars",
         "Women Founders Meetup"
       ]
     },
@@ -99,7 +98,7 @@ const Navigation = () => {
                         {item.dropdownItems.map((dropdownItem) => (
                           <Link
                             key={dropdownItem}
-                            to={dropdownItem === "Webinars" ? "/webinars" : "#"}
+                            to="#"
                             className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
                             onClick={() => setActiveDropdown(null)}
                           >

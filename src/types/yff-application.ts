@@ -8,6 +8,7 @@
  */
 
 import { Database } from '@/integrations/supabase/types';
+import type { YffFormData } from './yff-form';
 
 // Base type from Supabase
 export type BaseYffApplication = Database['public']['Tables']['yff_applications']['Row'];
@@ -28,28 +29,6 @@ export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {
 export interface ExtendedYffApplicationUpdate extends BaseYffApplicationUpdate {
   created_at?: string;
   updated_at?: string;
-}
-
-// Form data interface for type safety
-export interface YffFormData {
-  // Personal Information
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  dateOfBirth: string;
-  nationality: string;
-  
-  // Application Questions
-  whyApplying: string;
-  businessIdea: string;
-  experience: string;
-  challenges: string;
-  goals: string;
-  commitment: string;
-  
-  // Additional fields
-  [key: string]: string | number | boolean;
 }
 
 /**

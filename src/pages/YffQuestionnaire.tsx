@@ -5,7 +5,7 @@
  * Features comprehensive form validation, auto-save functionality,
  * and robust error handling with the fixed authentication system.
  * 
- * @version 2.1.4 - Fixed TypeScript deep instantiation error
+ * @version 2.1.5 - Fixed TypeScript deep instantiation error completely
  * @author 26ideas Development Team
  */
 
@@ -17,12 +17,27 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { YffFormSections } from '@/components/forms/YffFormSections';
-import type { YffFormData } from '@/types/yff-form';
+
+// Simple interface to avoid circular dependencies
+interface FormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;
+  nationality: string;
+  whyApplying: string;
+  businessIdea: string;
+  experience: string;
+  challenges: string;
+  goals: string;
+  commitment: string;
+}
 
 /**
- * Initial form data with proper typing
+ * Initial form data with simple typing
  */
-const initialFormData: YffFormData = {
+const getInitialFormData = (): FormData => ({
   firstName: '',
   lastName: '',
   email: '',
@@ -35,7 +50,7 @@ const initialFormData: YffFormData = {
   challenges: '',
   goals: '',
   commitment: '',
-};
+});
 
 /**
  * YffQuestionnaire Component
@@ -45,15 +60,13 @@ const YffQuestionnaire: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // State management
-  const [currentStep, setCurrentStep] = useState<number>(1);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  // State management with simple types
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [individualId, setIndividualId] = useState<string | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
-
-  // Form data state with explicit typing to avoid deep instantiation
-  const [formData, setFormData] = useState<YffFormData>(initialFormData);
+  const [formData, setFormData] = useState(getInitialFormData);
 
   /**
    * Load existing application data on component mount
@@ -209,7 +222,7 @@ const YffQuestionnaire: React.FC = () => {
    * Form Submission Handler
    * Validates and submits the complete application
    */
-  const handleSubmit = async (): Promise<void> => {
+  const handleSubmit = async () => {
     // Validation check
     if (!validateCurrentStep()) {
       toast.error('Please fill in all required fields before submitting.');
@@ -246,7 +259,7 @@ const YffQuestionnaire: React.FC = () => {
       }
 
       // Convert form data to Json format
-      const answersJson: Record<string, string> = {
+      const answersJson = {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
@@ -314,7 +327,7 @@ const YffQuestionnaire: React.FC = () => {
   /**
    * Handle form field changes with auto-save trigger
    */
-  const handleFieldChange = (field: keyof YffFormData, value: string): void => {
+  const handleFieldChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setHasUnsavedChanges(true);
   };
@@ -322,7 +335,7 @@ const YffQuestionnaire: React.FC = () => {
   /**
    * Navigate to next step with validation
    */
-  const nextStep = (): void => {
+  const nextStep = () => {
     if (validateCurrentStep()) {
       setCurrentStep(prev => Math.min(prev + 1, 3));
     } else {
@@ -333,14 +346,14 @@ const YffQuestionnaire: React.FC = () => {
   /**
    * Navigate to previous step
    */
-  const prevStep = (): void => {
+  const prevStep = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
   /**
    * Validate current step fields
    */
-  const validateCurrentStep = (): boolean => {
+  const validateCurrentStep = () => {
     switch (currentStep) {
       case 1:
         return !!(formData.firstName && formData.lastName && formData.email && 

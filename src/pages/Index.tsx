@@ -303,7 +303,7 @@ const Index = () => {
         </section>
 
         {/* Membership Call-to-Action Section - Blue background */}
-        <section className="bg-blue-600 py-45">
+        <section className="bg-blue-600 py-15">
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
             {/* Main heading */}
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">

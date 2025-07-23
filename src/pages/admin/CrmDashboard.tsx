@@ -153,49 +153,63 @@ const CrmDashboard: React.FC = () => {
   const loadRecentApplications = async () => {
     try {
       // Get recent YFF applications with individual details
+      // Using explicit join syntax to avoid ambiguity
       const { data: recentYff, error: yffError } = await supabase
         .from('yff_applications')
         .select(`
           application_id,
           status,
           submitted_at,
-          individuals!inner(first_name, last_name, email)
+          individual_id,
+          individuals!yff_applications_individual_id_fkey(first_name, last_name, email)
         `)
         .not('submitted_at', 'is', null)
         .order('submitted_at', { ascending: false })
         .limit(5);
 
-      if (yffError) throw yffError;
+      if (yffError) {
+        console.error('YFF error:', yffError);
+        throw yffError;
+      }
 
       // Get recent mentor applications with individual details
+      // Using explicit join syntax to avoid ambiguity
       const { data: recentMentor, error: mentorError } = await supabase
         .from('mentor_applications')
         .select(`
           application_id,
           application_status,
           submitted_at,
-          individuals!inner(first_name, last_name, email)
+          individual_id,
+          individuals!mentor_applications_individual_id_fkey(first_name, last_name, email)
         `)
         .order('submitted_at', { ascending: false })
         .limit(5);
 
-      if (mentorError) throw mentorError;
+      if (mentorError) {
+        console.error('Mentor error:', mentorError);
+        throw mentorError;
+      }
 
       // Combine and format recent applications
       const combined: RecentApplication[] = [
-        ...recentYff.map(app => ({
+        ...(recentYff || []).map(app => ({
           id: app.application_id,
           type: 'yff' as const,
-          applicantName: `${app.individuals.first_name} ${app.individuals.last_name}`.trim() || 'No name',
-          email: app.individuals.email,
+          applicantName: app.individuals ? 
+            `${app.individuals.first_name} ${app.individuals.last_name}`.trim() || 'No name' : 
+            'No name',
+          email: app.individuals?.email || 'No email',
           submittedAt: app.submitted_at,
           status: app.status,
         })),
-        ...recentMentor.map(app => ({
+        ...(recentMentor || []).map(app => ({
           id: app.application_id,
           type: 'mentor' as const,
-          applicantName: `${app.individuals.first_name} ${app.individuals.last_name}`.trim() || 'No name',
-          email: app.individuals.email,
+          applicantName: app.individuals ? 
+            `${app.individuals.first_name} ${app.individuals.last_name}`.trim() || 'No name' : 
+            'No name',
+          email: app.individuals?.email || 'No email',
           submittedAt: app.submitted_at,
           status: app.application_status,
         })),

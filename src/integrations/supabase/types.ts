@@ -14,6 +14,127 @@ export type Database = {
   }
   public: {
     Tables: {
+      ambassador_activities: {
+        Row: {
+          activity_date: string
+          activity_id: string
+          activity_type: string
+          ambassador_id: string
+          created_at: string | null
+          impact_metrics: Json | null
+          notes: string | null
+          participants_count: number | null
+        }
+        Insert: {
+          activity_date: string
+          activity_id?: string
+          activity_type: string
+          ambassador_id: string
+          created_at?: string | null
+          impact_metrics?: Json | null
+          notes?: string | null
+          participants_count?: number | null
+        }
+        Update: {
+          activity_date?: string
+          activity_id?: string
+          activity_type?: string
+          ambassador_id?: string
+          created_at?: string | null
+          impact_metrics?: Json | null
+          notes?: string | null
+          participants_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ambassador_activities_ambassador_id_fkey"
+            columns: ["ambassador_id"]
+            isOneToOne: false
+            referencedRelation: "ambassador_assignments"
+            referencedColumns: ["assignment_id"]
+          },
+        ]
+      }
+      ambassador_assignments: {
+        Row: {
+          assigned_at: string | null
+          assignment_end_date: string | null
+          assignment_id: string
+          campus_name: string
+          created_at: string | null
+          individual_id: string
+          mentor_id: string | null
+          performance_data: Json | null
+          region: string | null
+          responsibilities: string[] | null
+          status: string | null
+          target_metrics: Json | null
+          university_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assignment_end_date?: string | null
+          assignment_id?: string
+          campus_name: string
+          created_at?: string | null
+          individual_id: string
+          mentor_id?: string | null
+          performance_data?: Json | null
+          region?: string | null
+          responsibilities?: string[] | null
+          status?: string | null
+          target_metrics?: Json | null
+          university_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assignment_end_date?: string | null
+          assignment_id?: string
+          campus_name?: string
+          created_at?: string | null
+          individual_id?: string
+          mentor_id?: string | null
+          performance_data?: Json | null
+          region?: string | null
+          responsibilities?: string[] | null
+          status?: string | null
+          target_metrics?: Json | null
+          university_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ambassador_assignments_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "active_participants"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "ambassador_assignments_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "ambassador_assignments_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "active_participants"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "ambassador_assignments_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+        ]
+      }
       analytics_events: {
         Row: {
           analytics_id: string
@@ -1351,6 +1472,109 @@ export type Database = {
         }
         Relationships: []
       }
+      program_enrollments: {
+        Row: {
+          achievements: Json | null
+          completion_date: string | null
+          completion_percentage: number | null
+          created_at: string | null
+          enrollment_date: string | null
+          enrollment_id: string
+          individual_id: string
+          notes: string | null
+          program_id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          achievements?: Json | null
+          completion_date?: string | null
+          completion_percentage?: number | null
+          created_at?: string | null
+          enrollment_date?: string | null
+          enrollment_id?: string
+          individual_id: string
+          notes?: string | null
+          program_id: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          achievements?: Json | null
+          completion_date?: string | null
+          completion_percentage?: number | null
+          created_at?: string | null
+          enrollment_date?: string | null
+          enrollment_id?: string
+          individual_id?: string
+          notes?: string | null
+          program_id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_enrollments_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "active_participants"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "program_enrollments_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+          {
+            foreignKeyName: "program_enrollments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["program_id"]
+          },
+        ]
+      }
+      programs: {
+        Row: {
+          age_requirements: Json | null
+          created_at: string | null
+          description: string | null
+          duration_months: number | null
+          eligibility_criteria: Json | null
+          is_active: boolean | null
+          name: string
+          program_id: string
+          program_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          age_requirements?: Json | null
+          created_at?: string | null
+          description?: string | null
+          duration_months?: number | null
+          eligibility_criteria?: Json | null
+          is_active?: boolean | null
+          name: string
+          program_id?: string
+          program_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          age_requirements?: Json | null
+          created_at?: string | null
+          description?: string | null
+          duration_months?: number | null
+          eligibility_criteria?: Json | null
+          is_active?: boolean | null
+          name?: string
+          program_id?: string
+          program_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       sponsorships: {
         Row: {
           amount: number | null
@@ -1590,6 +1814,7 @@ export type Database = {
       }
       user_roles: {
         Row: {
+          assignment_details: Json | null
           expires_at: string | null
           granted_at: string
           granted_by: string | null
@@ -1597,9 +1822,11 @@ export type Database = {
           individual_id: string
           is_active: boolean | null
           role: Database["public"]["Enums"]["app_role"]
+          role_metadata: Json | null
           user_id: string
         }
         Insert: {
+          assignment_details?: Json | null
           expires_at?: string | null
           granted_at?: string
           granted_by?: string | null
@@ -1607,9 +1834,11 @@ export type Database = {
           individual_id: string
           is_active?: boolean | null
           role: Database["public"]["Enums"]["app_role"]
+          role_metadata?: Json | null
           user_id: string
         }
         Update: {
+          assignment_details?: Json | null
           expires_at?: string | null
           granted_at?: string
           granted_by?: string | null
@@ -1617,6 +1846,7 @@ export type Database = {
           individual_id?: string
           is_active?: boolean | null
           role?: Database["public"]["Enums"]["app_role"]
+          role_metadata?: Json | null
           user_id?: string
         }
         Relationships: [
@@ -1861,6 +2091,8 @@ export type Database = {
         | "judge"
         | "advisor"
         | "user"
+        | "campus_ambassador"
+        | "program_participant"
       engagement_level: "low" | "medium" | "high" | "very_high"
       event_type:
         | "yff"
@@ -2027,6 +2259,8 @@ export const Constants = {
         "judge",
         "advisor",
         "user",
+        "campus_ambassador",
+        "program_participant",
       ],
       engagement_level: ["low", "medium", "high", "very_high"],
       event_type: [

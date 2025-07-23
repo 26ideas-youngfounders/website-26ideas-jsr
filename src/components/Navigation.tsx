@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Main navigation component for the 26ideas Young Founders platform.
  * 
@@ -160,6 +161,8 @@ const Navigation = () => {
                              switch (itemName) {
                                case "Mentors":
                                  return "/community/mentors"; // Mentor signup page
+                               case "Young Founders Floor":
+                                 return "/young-founders-floor"; // YFF landing page
                                default:
                                  return "#"; // Placeholder for future routes
                              }

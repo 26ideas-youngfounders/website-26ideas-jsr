@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Main application component that sets up the root application structure
  * with authentication, routing, and UI providers for the 26ideas Young Founders platform.
@@ -23,6 +24,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import MentorSignup from "./pages/MentorSignup";
 import PhoneInputTest from "./pages/PhoneInputTest";
+import YffLandingPage from "./pages/YffLandingPage";
 import NotFound from "./pages/NotFound";
 
 /**
@@ -58,6 +60,10 @@ const App = () => (
             
             {/* Mentor signup page - for users wanting to become mentors */}
             <Route path="/community/mentors" element={<MentorSignup />} />
+            
+            {/* Young Founders Floor landing page - main competition page */}
+            <Route path="/young-founders-floor" element={<YffLandingPage />} />
+            <Route path="/yff" element={<YffLandingPage />} />
             
             {/* Phone input test page - for testing the new component */}
             <Route path="/test/phone-input" element={<PhoneInputTest />} />

@@ -5,7 +5,7 @@
  * Extracted form sections for better maintainability and reusability.
  * Each section handles specific parts of the YFF application form.
  * 
- * @version 1.1.1 - Simplified types to avoid circular dependencies
+ * @version 1.1.2 - Fixed TypeScript deep instantiation with basic types
  * @author 26ideas Development Team
  */
 
@@ -17,26 +17,13 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 /**
- * Simple form data interface to avoid deep type instantiation
+ * Basic form data type using Record to avoid deep type instantiation
  */
-interface SimpleFormData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  dateOfBirth: string;
-  nationality: string;
-  whyApplying: string;
-  businessIdea: string;
-  experience: string;
-  challenges: string;
-  goals: string;
-  commitment: string;
-}
+type FormDataRecord = Record<string, string>;
 
 interface FormSectionProps {
-  formData: SimpleFormData;
-  onFieldChange: (field: keyof SimpleFormData, value: string) => void;
+  formData: FormDataRecord;
+  onFieldChange: (field: string, value: string) => void;
 }
 
 /**
@@ -49,7 +36,7 @@ const PersonalInfoSection: React.FC<FormSectionProps> = ({ formData, onFieldChan
         <Label htmlFor="firstName">First Name *</Label>
         <Input
           id="firstName"
-          value={formData.firstName}
+          value={formData.firstName || ''}
           onChange={(e) => onFieldChange('firstName', e.target.value)}
           required
         />
@@ -58,7 +45,7 @@ const PersonalInfoSection: React.FC<FormSectionProps> = ({ formData, onFieldChan
         <Label htmlFor="lastName">Last Name *</Label>
         <Input
           id="lastName"
-          value={formData.lastName}
+          value={formData.lastName || ''}
           onChange={(e) => onFieldChange('lastName', e.target.value)}
           required
         />
@@ -70,7 +57,7 @@ const PersonalInfoSection: React.FC<FormSectionProps> = ({ formData, onFieldChan
       <Input
         id="email"
         type="email"
-        value={formData.email}
+        value={formData.email || ''}
         onChange={(e) => onFieldChange('email', e.target.value)}
         required
       />
@@ -80,7 +67,7 @@ const PersonalInfoSection: React.FC<FormSectionProps> = ({ formData, onFieldChan
       <Label htmlFor="phone">Phone Number *</Label>
       <Input
         id="phone"
-        value={formData.phone}
+        value={formData.phone || ''}
         onChange={(e) => onFieldChange('phone', e.target.value)}
         required
       />
@@ -91,7 +78,7 @@ const PersonalInfoSection: React.FC<FormSectionProps> = ({ formData, onFieldChan
       <Input
         id="dateOfBirth"
         type="date"
-        value={formData.dateOfBirth}
+        value={formData.dateOfBirth || ''}
         onChange={(e) => onFieldChange('dateOfBirth', e.target.value)}
         required
       />
@@ -101,7 +88,7 @@ const PersonalInfoSection: React.FC<FormSectionProps> = ({ formData, onFieldChan
       <Label htmlFor="nationality">Nationality *</Label>
       <Input
         id="nationality"
-        value={formData.nationality}
+        value={formData.nationality || ''}
         onChange={(e) => onFieldChange('nationality', e.target.value)}
         required
       />
@@ -118,7 +105,7 @@ const ApplicationQuestionsSection: React.FC<FormSectionProps> = ({ formData, onF
       <Label htmlFor="whyApplying">Why do you want to join Young Founders Floor? *</Label>
       <Textarea
         id="whyApplying"
-        value={formData.whyApplying}
+        value={formData.whyApplying || ''}
         onChange={(e) => onFieldChange('whyApplying', e.target.value)}
         placeholder="Explain your motivation for joining YFF and what you hope to achieve"
         rows={4}
@@ -130,7 +117,7 @@ const ApplicationQuestionsSection: React.FC<FormSectionProps> = ({ formData, onF
       <Label htmlFor="businessIdea">Describe your business idea or the problem you want to solve *</Label>
       <Textarea
         id="businessIdea"
-        value={formData.businessIdea}
+        value={formData.businessIdea || ''}
         onChange={(e) => onFieldChange('businessIdea', e.target.value)}
         placeholder="Provide a clear description of your business idea and the problem it addresses"
         rows={4}
@@ -142,7 +129,7 @@ const ApplicationQuestionsSection: React.FC<FormSectionProps> = ({ formData, onF
       <Label htmlFor="experience">Describe your relevant experience *</Label>
       <Textarea
         id="experience"
-        value={formData.experience}
+        value={formData.experience || ''}
         onChange={(e) => onFieldChange('experience', e.target.value)}
         placeholder="Share any entrepreneurial, professional, or academic experience relevant to your application"
         rows={4}
@@ -161,7 +148,7 @@ const GoalsCommitmentSection: React.FC<FormSectionProps> = ({ formData, onFieldC
       <Label htmlFor="challenges">What challenges do you expect to face, and how will you overcome them? *</Label>
       <Textarea
         id="challenges"
-        value={formData.challenges}
+        value={formData.challenges || ''}
         onChange={(e) => onFieldChange('challenges', e.target.value)}
         placeholder="Describe potential challenges and your strategies to address them"
         rows={4}
@@ -173,7 +160,7 @@ const GoalsCommitmentSection: React.FC<FormSectionProps> = ({ formData, onFieldC
       <Label htmlFor="goals">What are your goals for the next 12 months? *</Label>
       <Textarea
         id="goals"
-        value={formData.goals}
+        value={formData.goals || ''}
         onChange={(e) => onFieldChange('goals', e.target.value)}
         placeholder="Describe your personal and professional goals for the coming year"
         rows={4}
@@ -184,7 +171,7 @@ const GoalsCommitmentSection: React.FC<FormSectionProps> = ({ formData, onFieldC
     <div>
       <Label htmlFor="commitment">How much time can you commit to YFF activities weekly? *</Label>
       <RadioGroup 
-        value={formData.commitment} 
+        value={formData.commitment || ''} 
         onValueChange={(value) => onFieldChange('commitment', value)}
       >
         <div className="flex items-center space-x-2">
@@ -209,8 +196,8 @@ const GoalsCommitmentSection: React.FC<FormSectionProps> = ({ formData, onFieldC
  */
 interface YffFormSectionsProps {
   currentStep: number;
-  formData: SimpleFormData;
-  onFieldChange: (field: keyof SimpleFormData, value: string) => void;
+  formData: FormDataRecord;
+  onFieldChange: (field: string, value: string) => void;
 }
 
 export const YffFormSections: React.FC<YffFormSectionsProps> = ({

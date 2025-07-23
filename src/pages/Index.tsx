@@ -259,36 +259,37 @@ const Index = () => {
         {/* Mentors Section - Auto-scrolling carousel of mentor cards */}
         <section className="bg-white py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {/* Section heading - centered and prominent */}
+            {/* Section heading - centered and prominent with consistent 60px spacing */}
             <div className="text-center mb-15">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
                 Mentors at Young Founders
               </h2>
             </div>
 
-            {/* Mentor carousel with auto-scroll functionality */}
-            <div className="relative">
+            {/* Mentor carousel with auto-scroll functionality and responsive sizing */}
+            <div className="relative w-full overflow-hidden">
               <Carousel
                 plugins={[autoplayPlugin.current]}
-                className="w-full max-w-6xl mx-auto"
+                className="w-full"
                 onMouseEnter={autoplayPlugin.current.stop}
                 onMouseLeave={autoplayPlugin.current.reset}
                 opts={{
                   align: "start",
                   loop: true,
+                  containScroll: "trimSnaps",
                 }}
               >
-                <CarouselContent className="-ml-2 md:-ml-4">
+                <CarouselContent className="-ml-1 sm:-ml-2 md:-ml-4">
                   {mentors.map((mentor) => (
                     <CarouselItem 
                       key={mentor.id} 
-                      className="pl-2 md:pl-4 basis-full sm:basis-1/2 lg:basis-1/4"
+                      className="pl-1 sm:pl-2 md:pl-4 basis-full sm:basis-1/2 lg:basis-1/4 min-w-0"
                     >
-                      {/* Individual mentor card with hover effects */}
-                      <div className="group cursor-pointer transform transition-all duration-300 hover:scale-105">
-                        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-shadow duration-300">
-                          {/* Mentor profile image */}
-                          <div className="aspect-square overflow-hidden">
+                      {/* Individual mentor card with proper aspect ratio and responsive sizing */}
+                      <div className="group cursor-pointer transform transition-all duration-300 hover:scale-105 w-full">
+                        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-shadow duration-300 w-full">
+                          {/* Mentor profile image with proper aspect ratio */}
+                          <div className="aspect-square overflow-hidden w-full">
                             <img
                               src={mentor.image}
                               alt={mentor.alt}
@@ -302,9 +303,9 @@ const Index = () => {
                   ))}
                 </CarouselContent>
                 
-                {/* Navigation arrows for manual control */}
-                <CarouselPrevious className="absolute -left-12 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white border border-gray-200 text-gray-600 hover:text-gray-900 shadow-lg" />
-                <CarouselNext className="absolute -right-12 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white border border-gray-200 text-gray-600 hover:text-gray-900 shadow-lg" />
+                {/* Navigation arrows positioned responsively */}
+                <CarouselPrevious className="absolute -left-4 sm:-left-8 md:-left-12 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white border border-gray-200 text-gray-600 hover:text-gray-900 shadow-lg" />
+                <CarouselNext className="absolute -right-4 sm:-right-8 md:-right-12 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white border border-gray-200 text-gray-600 hover:text-gray-900 shadow-lg" />
               </Carousel>
             </div>
           </div>

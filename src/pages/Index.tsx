@@ -8,11 +8,9 @@ const Index = () => {
       <main className="flex-1">
         {/* Hero Section */}
         <section 
-          className="relative min-h-screen flex items-center justify-start bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/lovable-uploads/fbb14c18-b224-4530-a108-2872e0233ed2.png')" }}
+          className="relative min-h-screen flex items-center justify-start bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400"
         >
-          <div className="absolute inset-0 bg-black/50"></div>
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl">
               <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
                 The world's leading private community for{" "}

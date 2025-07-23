@@ -142,7 +142,7 @@ const Index = () => {
         </section>
 
         {/* Advisors Section - Full width with scrolling logos */}
-        <section className="bg-blue-900 py-12 overflow-hidden">
+        <section className="bg-blue-900 py-45 overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
               {/* Left side - Heading (Fixed width column) */}
@@ -314,7 +314,7 @@ const Index = () => {
         </section>
 
         {/* On the Horizon Section - White background with upcoming events */}
-        <section className="bg-white py-15">
+        <section className="bg-white py-45">
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
             {/* Section heading - centered with 32px spacing below */}
             <div className="text-center mb-8">

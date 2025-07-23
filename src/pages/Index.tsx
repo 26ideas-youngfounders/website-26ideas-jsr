@@ -273,7 +273,7 @@ const Index = () => {
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
             {/* Program card container - centered */}
             <div className="flex justify-center">
-              <Link to="/young-founders-program" className="block w-full max-w-[720px] group cursor-pointer">
+              <Link to="/young-founders-program" className="block w-full max-w-[800px] group cursor-pointer">
                 <div className="w-full">
                   {/* Program card image with 20px border radius */}
                   <div className="w-full rounded-[20px] overflow-hidden">

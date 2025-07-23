@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 
 const Navigation = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -96,13 +97,14 @@ const Navigation = () => {
                     <div className="absolute top-full left-0 mt-1 w-56 bg-dropdown-bg border border-dropdown-border rounded-lg shadow-lg z-50">
                       <div className="py-2">
                         {item.dropdownItems.map((dropdownItem) => (
-                          <a
+                          <Link
                             key={dropdownItem}
-                            href={dropdownItem === "Webinars" ? "/webinars" : "#"}
+                            to={dropdownItem === "Webinars" ? "/webinars" : "#"}
                             className="block px-4 py-3 text-sm text-nav-text hover:bg-dropdown-item-hover hover:text-nav-text transition-colors duration-150"
+                            onClick={() => setActiveDropdown(null)}
                           >
                             {dropdownItem}
-                          </a>
+                          </Link>
                         ))}
                       </div>
                     </div>

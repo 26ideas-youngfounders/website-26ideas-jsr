@@ -28,6 +28,7 @@ import {
   BarChart3,
   AlertCircle,
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface DashboardStats {
   yffApplications: {
@@ -65,9 +66,16 @@ interface RecentApplication {
   status: string;
 }
 
+interface ChartData {
+  name: string;
+  yff: number;
+  mentor: number;
+}
+
 const CrmDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentApplications, setRecentApplications] = useState<RecentApplication[]>([]);
+  const [chartData, setChartData] = useState<ChartData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,35 +103,61 @@ const CrmDashboard: React.FC = () => {
 
       // Calculate YFF stats
       const yffStats = {
-        total: yffData.length,
-        draft: yffData.filter(app => app.status === 'draft').length,
-        submitted: yffData.filter(app => app.status === 'submitted').length,
-        under_review: yffData.filter(app => app.status === 'under_review').length,
-        approved: yffData.filter(app => app.status === 'approved').length,
-        rejected: yffData.filter(app => app.status === 'rejected').length,
-        waitlisted: yffData.filter(app => app.status === 'waitlisted').length,
+        total: yffData?.length || 0,
+        draft: yffData?.filter(app => app.status === 'draft').length || 0,
+        submitted: yffData?.filter(app => app.status === 'submitted').length || 0,
+        under_review: yffData?.filter(app => app.status === 'under_review').length || 0,
+        approved: yffData?.filter(app => app.status === 'approved').length || 0,
+        rejected: yffData?.filter(app => app.status === 'rejected').length || 0,
+        waitlisted: yffData?.filter(app => app.status === 'waitlisted').length || 0,
       };
 
       // Calculate mentor stats
       const mentorStats = {
-        total: mentorData.length,
-        submitted: mentorData.filter(app => app.application_status === 'submitted').length,
-        under_review: mentorData.filter(app => app.application_status === 'under_review').length,
-        approved: mentorData.filter(app => app.application_status === 'approved').length,
-        rejected: mentorData.filter(app => app.application_status === 'rejected').length,
+        total: mentorData?.length || 0,
+        submitted: mentorData?.filter(app => app.application_status === 'submitted').length || 0,
+        under_review: mentorData?.filter(app => app.application_status === 'under_review').length || 0,
+        approved: mentorData?.filter(app => app.application_status === 'approved').length || 0,
+        rejected: mentorData?.filter(app => app.application_status === 'rejected').length || 0,
       };
 
       // Calculate recent applications (last 7 days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      const recentYff = yffData.filter(app => 
+      const recentYff = yffData?.filter(app => 
         app.submitted_at && new Date(app.submitted_at) > sevenDaysAgo
-      ).length;
+      ).length || 0;
 
-      const recentMentor = mentorData.filter(app => 
+      const recentMentor = mentorData?.filter(app => 
         app.submitted_at && new Date(app.submitted_at) > sevenDaysAgo
-      ).length;
+      ).length || 0;
+
+      // Generate chart data for the last 7 days
+      const chartData: ChartData[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        const yffCount = yffData?.filter(app => {
+          if (!app.submitted_at) return false;
+          const appDate = new Date(app.submitted_at);
+          return appDate.toDateString() === date.toDateString();
+        }).length || 0;
+
+        const mentorCount = mentorData?.filter(app => {
+          if (!app.submitted_at) return false;
+          const appDate = new Date(app.submitted_at);
+          return appDate.toDateString() === date.toDateString();
+        }).length || 0;
+
+        chartData.push({
+          name: dateStr,
+          yff: yffCount,
+          mentor: mentorCount,
+        });
+      }
 
       // Set stats
       setStats({
@@ -139,6 +173,8 @@ const CrmDashboard: React.FC = () => {
         },
       });
 
+      setChartData(chartData);
+
       // Load recent applications with applicant details
       await loadRecentApplications();
 
@@ -153,15 +189,13 @@ const CrmDashboard: React.FC = () => {
   const loadRecentApplications = async () => {
     try {
       // Get recent YFF applications with individual details
-      // Using explicit join syntax to avoid ambiguity
       const { data: recentYff, error: yffError } = await supabase
         .from('yff_applications')
         .select(`
           application_id,
           status,
           submitted_at,
-          individual_id,
-          individuals!yff_applications_individual_id_fkey(first_name, last_name, email)
+          individual_id
         `)
         .not('submitted_at', 'is', null)
         .order('submitted_at', { ascending: false })
@@ -169,50 +203,73 @@ const CrmDashboard: React.FC = () => {
 
       if (yffError) {
         console.error('YFF error:', yffError);
-        throw yffError;
       }
 
       // Get recent mentor applications with individual details
-      // Using explicit join syntax to avoid ambiguity
       const { data: recentMentor, error: mentorError } = await supabase
         .from('mentor_applications')
         .select(`
           application_id,
           application_status,
           submitted_at,
-          individual_id,
-          individuals!mentor_applications_individual_id_fkey(first_name, last_name, email)
+          individual_id
         `)
         .order('submitted_at', { ascending: false })
         .limit(5);
 
       if (mentorError) {
         console.error('Mentor error:', mentorError);
-        throw mentorError;
       }
+
+      // Get individual details for the applications
+      const allIndividualIds = [
+        ...(recentYff || []).map(app => app.individual_id),
+        ...(recentMentor || []).map(app => app.individual_id)
+      ];
+
+      const { data: individuals, error: individualsError } = await supabase
+        .from('individuals')
+        .select('individual_id, first_name, last_name, email')
+        .in('individual_id', allIndividualIds);
+
+      if (individualsError) {
+        console.error('Individuals error:', individualsError);
+      }
+
+      // Create a map of individual data
+      const individualsMap = new Map();
+      individuals?.forEach(individual => {
+        individualsMap.set(individual.individual_id, individual);
+      });
 
       // Combine and format recent applications
       const combined: RecentApplication[] = [
-        ...(recentYff || []).map(app => ({
-          id: app.application_id,
-          type: 'yff' as const,
-          applicantName: app.individuals ? 
-            `${app.individuals.first_name} ${app.individuals.last_name}`.trim() || 'No name' : 
-            'No name',
-          email: app.individuals?.email || 'No email',
-          submittedAt: app.submitted_at,
-          status: app.status,
-        })),
-        ...(recentMentor || []).map(app => ({
-          id: app.application_id,
-          type: 'mentor' as const,
-          applicantName: app.individuals ? 
-            `${app.individuals.first_name} ${app.individuals.last_name}`.trim() || 'No name' : 
-            'No name',
-          email: app.individuals?.email || 'No email',
-          submittedAt: app.submitted_at,
-          status: app.application_status,
-        })),
+        ...(recentYff || []).map(app => {
+          const individual = individualsMap.get(app.individual_id);
+          return {
+            id: app.application_id,
+            type: 'yff' as const,
+            applicantName: individual ? 
+              `${individual.first_name} ${individual.last_name}`.trim() || 'No name' : 
+              'No name',
+            email: individual?.email || 'No email',
+            submittedAt: app.submitted_at,
+            status: app.status,
+          };
+        }),
+        ...(recentMentor || []).map(app => {
+          const individual = individualsMap.get(app.individual_id);
+          return {
+            id: app.application_id,
+            type: 'mentor' as const,
+            applicantName: individual ? 
+              `${individual.first_name} ${individual.last_name}`.trim() || 'No name' : 
+              'No name',
+            email: individual?.email || 'No email',
+            submittedAt: app.submitted_at,
+            status: app.application_status,
+          };
+        }),
       ].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
        .slice(0, 10);
 
@@ -354,6 +411,29 @@ const CrmDashboard: React.FC = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Analytics Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Application Trends (Last 7 Days)</CardTitle>
+              <CardDescription>
+                Daily application submissions for YFF and Mentor programs
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="yff" fill="#3b82f6" name="YFF Applications" />
+                  <Bar dataKey="mentor" fill="#10b981" name="Mentor Applications" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
           {/* Quick Action Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

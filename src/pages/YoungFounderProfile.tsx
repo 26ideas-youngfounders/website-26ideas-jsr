@@ -96,7 +96,9 @@ const YoungFounderProfile: React.FC = () => {
 
   // Redirect if not authenticated
   useEffect(() => {
+    console.log('YoungFounderProfile: Auth state', { user: !!user, authLoading, email: user?.email });
     if (!authLoading && !user) {
+      console.log('YoungFounderProfile: Redirecting to home - no user');
       navigate('/');
       return;
     }

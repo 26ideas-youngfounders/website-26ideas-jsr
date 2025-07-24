@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import YffLandingPage from "./pages/YffLandingPage";
@@ -31,7 +31,9 @@ const App = () => (
             <Route path="/" element={<Index />} />
               <Route path="/yff" element={<YffLandingPage />} />
               <Route path="/young-founders-floor" element={<YffLandingPage />} />
-              <Route path="/annual-retreat" element={<AnnualRetreat />} />
+              <Route path="/events/annual-retreat" element={<AnnualRetreat />} />
+              {/* 301 Redirect for old Annual Retreat route */}
+              <Route path="/annual-retreat" element={<Navigate to="/events/annual-retreat" replace />} />
             <Route path="/yff/apply" element={<YffQuestionnaire />} />
             <Route path="/yff/team" element={<YffTeamInformation />} />
             <Route path="/mentor-signup" element={<MentorSignup />} />

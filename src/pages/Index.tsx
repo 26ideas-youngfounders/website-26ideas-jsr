@@ -244,7 +244,7 @@ const Index = () => {
               </Link>
 
               {/* Young Founders Annual Retreat Card */}
-              <Link to="/young-founders-retreat" className="block w-full max-w-[360px] group cursor-pointer">
+              <Link to="/events/annual-retreat" className="block w-full max-w-[360px] group cursor-pointer">
                 <div className="w-full">
                   {/* Card image with 20px border radius */}
                   <div className="w-full rounded-[20px] overflow-hidden">

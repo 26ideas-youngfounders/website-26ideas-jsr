@@ -180,7 +180,7 @@ const Navigation = () => {
       case "Mentors":
         return "/community/mentors"; // Mentor signup page
       case "Annual Retreat":
-        return "/annual-retreat"; // Annual retreat page
+        return "/events/annual-retreat"; // Annual retreat page
       default:
         return "#"; // Placeholder for future routes
     }

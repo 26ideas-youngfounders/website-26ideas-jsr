@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import YffLandingPage from "./pages/YffLandingPage";
+import AnnualRetreat from "./pages/AnnualRetreat";
 import YffQuestionnaire from "./pages/YffQuestionnaire";
 import YffTeamInformation from "./pages/YffTeamInformation";
 import MentorSignup from "./pages/MentorSignup";
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
               <Route path="/yff" element={<YffLandingPage />} />
               <Route path="/young-founders-floor" element={<YffLandingPage />} />
+              <Route path="/annual-retreat" element={<AnnualRetreat />} />
             <Route path="/yff/apply" element={<YffQuestionnaire />} />
             <Route path="/yff/team" element={<YffTeamInformation />} />
             <Route path="/mentor-signup" element={<MentorSignup />} />

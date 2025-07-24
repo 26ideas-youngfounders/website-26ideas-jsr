@@ -25,71 +25,35 @@ import { Home, Calendar, MapPin, Users, Clock } from "lucide-react";
  */
 const AnnualRetreat = () => {
   /**
-   * Event highlights data
+   * Feature highlights data
    */
-  const highlights = [
+  const features = [
     {
       icon: Users,
-      title: "Networking Excellence",
-      description: "Connect with 200+ young founders, investors, and industry leaders"
+      title: "Keynotes from Industry Leaders",
+      description: "Learn from successful entrepreneurs and industry veterans"
     },
     {
       icon: Calendar,
-      title: "3-Day Intensive",
-      description: "Packed schedule with workshops, panels, and collaboration sessions"
+      title: "Hands-on Workshops & Hackathons",
+      description: "Build, create and innovate with fellow founders"
+    },
+    {
+      icon: Clock,
+      title: "Investor Speed Dating",
+      description: "Connect directly with investors and funding opportunities"
+    },
+    {
+      icon: Users,
+      title: "Candid Conversations",
+      description: "Open discussions about real entrepreneurship challenges"
     },
     {
       icon: MapPin,
-      title: "Premium Location",
-      description: "Scenic retreat venue with all modern amenities and facilities"
+      title: "Curated Dinners & Wellness Sessions",
+      description: "Network over meals and recharge with wellness activities"
     }
   ];
-
-  /**
-   * Agenda timeline data
-   */
-  const agenda = [
-    {
-      day: "Day 1",
-      title: "Welcome & Foundation",
-      activities: [
-        "Registration & Welcome Reception",
-        "Keynote: Future of Entrepreneurship",
-        "Networking Dinner"
-      ]
-    },
-    {
-      day: "Day 2",
-      title: "Learning & Growth",
-      activities: [
-        "Morning Workshops",
-        "Panel Discussions",
-        "Investor Pitch Sessions",
-        "Evening Social Activities"
-      ]
-    },
-    {
-      day: "Day 3",
-      title: "Action & Commitment",
-      activities: [
-        "Collaborative Projects",
-        "Mentorship Matching",
-        "Closing Ceremony",
-        "Follow-up Planning"
-      ]
-    }
-  ];
-
-  /**
-   * Event details
-   */
-  const eventDetails = {
-    date: "March 15-17, 2026",
-    location: "Goa, India",
-    duration: "3 Days, 2 Nights",
-    capacity: "200 Participants",
-    price: "₹25,000 per person"
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -111,55 +75,49 @@ const AnnualRetreat = () => {
       </div>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="bg-gradient-to-br from-gray-900 via-red-900 to-red-800 py-20 min-h-[60vh] flex items-center">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
-            Young Founders Annual Retreat 2026
+            Young Founders Annual Retreat
           </h1>
-          <h3 className="text-xl md:text-2xl text-gray-200 mb-8">
-            Connect. Learn. Grow. Build lasting relationships that transform your entrepreneurial journey.
-          </h3>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center text-white mb-8">
-            <div className="flex items-center">
-              <Calendar className="h-5 w-5 mr-2" />
-              <span>{eventDetails.date}</span>
-            </div>
-            <div className="flex items-center">
-              <MapPin className="h-5 w-5 mr-2" />
-              <span>{eventDetails.location}</span>
-            </div>
-            <div className="flex items-center">
-              <Clock className="h-5 w-5 mr-2" />
-              <span>{eventDetails.duration}</span>
-            </div>
+          <h2 className="text-xl md:text-2xl text-gray-200 mb-8">
+            Coming June 2026 | Location: TBD
+          </h2>
+          <div className="space-y-4 text-white">
+            <p className="text-lg">An unforgettable weekend.</p>
+            <p className="text-lg">For the most unforgettable generation.</p>
           </div>
-          <Button 
-            size="lg" 
-            variant="secondary"
-            className="text-lg px-8 py-3"
-          >
-            Register Now - {eventDetails.price}
-          </Button>
         </div>
       </section>
 
-      {/* Event Highlights */}
+      {/* Introduction Section */}
       <section className="py-16 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-left mb-12">
+            <p className="text-lg mb-4">
+              We're bringing together <strong>250+ young founders</strong>, builders, investors, mentors, and enablers for a{" "}
+              <strong>2-day immersive retreat</strong>—designed to fuel ambition, build deep connections, and unlock real growth.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-16 bg-muted/30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Why Join the Annual Retreat?
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {highlights.map((highlight, index) => (
-              <Card key={index} className="text-center">
-                <CardHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((feature, index) => (
+              <Card key={index} className="text-center border-gray-200 bg-white">
+                <CardHeader className="pb-4">
                   <div className="flex justify-center mb-4">
-                    <highlight.icon className="h-12 w-12 text-primary" />
+                    <feature.icon className="h-8 w-8 text-gray-600" />
                   </div>
-                  <CardTitle className="text-xl">{highlight.title}</CardTitle>
+                  <CardTitle className="text-lg font-semibold text-gray-900">
+                    {feature.title}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">{highlight.description}</p>
+                  <p className="text-sm text-gray-600">{feature.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -167,98 +125,38 @@ const AnnualRetreat = () => {
         </div>
       </section>
 
-      {/* Event Agenda */}
-      <section className="py-16 bg-muted/50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            3-Day Agenda
-          </h2>
-          <div className="space-y-8">
-            {agenda.map((day, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <CardTitle className="text-2xl text-primary">{day.day}: {day.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {day.activities.map((activity, actIndex) => (
-                      <li key={actIndex} className="flex items-start space-x-3">
-                        <span className="flex-shrink-0 w-2 h-2 bg-primary rounded-full mt-2"></span>
-                        <span className="text-lg">{activity}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+      {/* Dots Separator */}
+      <section className="py-8 bg-white">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="flex justify-center space-x-2">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className={`w-2 h-2 rounded-full ${i === 2 ? 'bg-gray-400' : 'bg-gray-300'}`}
+              />
             ))}
           </div>
         </div>
       </section>
 
-      {/* Event Details */}
+      {/* Mission Statement */}
       <section className="py-16 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Event Details
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8">
+            This isn't just another startup event.
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>When & Where</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <strong>Date:</strong> {eventDetails.date}
-                </div>
-                <div>
-                  <strong>Location:</strong> {eventDetails.location}
-                </div>
-                <div>
-                  <strong>Duration:</strong> {eventDetails.duration}
-                </div>
-                <div>
-                  <strong>Capacity:</strong> {eventDetails.capacity}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>What's Included</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  <li>• All meals and refreshments</li>
-                  <li>• Premium accommodation (2 nights)</li>
-                  <li>• Workshop materials and resources</li>
-                  <li>• Networking events and activities</li>
-                  <li>• Transportation from Mumbai</li>
-                  <li>• Digital certificate of participation</li>
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
+          <p className="text-lg text-gray-700 leading-relaxed max-w-3xl mx-auto">
+            It's a campfire for the future young founders to know each other early—before the world knows their names.
+          </p>
         </div>
       </section>
 
-      {/* Registration Call to Action */}
-      <section className="py-16 bg-primary text-primary-foreground text-center">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold mb-6">Ready to Transform Your Journey?</h2>
-          <p className="text-xl mb-8 opacity-90">
-            Limited seats available. Secure your spot at India's premier young founders retreat.
-          </p>
-          <div className="space-y-4">
-            <Button 
-              size="lg" 
-              variant="secondary" 
-              className="text-lg px-8 py-3"
-            >
-              Register Now - {eventDetails.price}
-            </Button>
-            <div className="text-sm opacity-80">
-              Early bird discount available until December 31, 2025
-            </div>
+      {/* Registration Information */}
+      <section className="py-16 bg-muted/30">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="space-y-4 text-gray-700">
+            <p className="text-lg">Venue, dates & details dropping soon.</p>
+            <p className="text-lg font-semibold">Applications open early 2026.</p>
           </div>
         </div>
       </section>

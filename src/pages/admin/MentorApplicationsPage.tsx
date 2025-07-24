@@ -2,8 +2,8 @@
 /**
  * @fileoverview Mentor Applications Management Page
  * 
- * Allows admins to view, filter, and manage mentor applications
- * with detailed information display and status management.
+ * Admin page for viewing and managing all mentor applications.
+ * Displays applications in a table format with search and filter capabilities.
  * 
  * @version 1.0.0
  * @author 26ideas Development Team
@@ -11,528 +11,407 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import AdminAuth from '@/components/admin/AdminAuth';
-import AdminLayout from '@/components/admin/AdminLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useQuery } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Search, 
-  Filter, 
-  Download, 
-  Eye, 
-  AlertCircle,
-  UserCheck,
-  Calendar,
-  MapPin,
-  Phone,
-  Mail,
-  Linkedin,
-  Instagram
-} from 'lucide-react';
-
-interface MentorApplication {
-  application_id: string;
-  individual_id: string;
-  application_status: string;
-  submitted_at: string;
-  reviewed_at: string | null;
-  reviewer_notes: string | null;
-  linkedin_url: string | null;
-  instagram_handle: string | null;
-  city: string | null;
-  country: string | null;
-  phone_number: string | null;
-  country_code: string | null;
-  topics_of_interest: string[] | null;
-  availability_days: string[] | null;
-  availability_time: string | null;
-  availability_notes: string | null;
-  email_updates_consent: boolean;
-  sms_updates_consent: boolean;
-  individuals: {
-    first_name: string;
-    last_name: string;
-    email: string;
-  } | null;
-}
+import { Search, Eye, Edit, Calendar, MapPin, Phone, Mail, Linkedin, Instagram } from 'lucide-react';
+import { format } from 'date-fns';
+import { MentorApplication } from '@/types/mentor-application';
 
 const MentorApplicationsPage: React.FC = () => {
-  const [applications, setApplications] = useState<MentorApplication[]>([]);
-  const [filteredApplications, setFilteredApplications] = useState<MentorApplication[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedApplication, setSelectedApplication] = useState<MentorApplication | null>(null);
 
-  useEffect(() => {
-    loadApplications();
-  }, []);
-
-  useEffect(() => {
-    filterApplications();
-  }, [applications, searchTerm, statusFilter]);
-
-  const loadApplications = async () => {
-    try {
-      setLoading(true);
+  // Fetch mentor applications with individual data
+  const { data: applications, isLoading, error, refetch } = useQuery({
+    queryKey: ['mentor-applications'],
+    queryFn: async () => {
+      console.log('Fetching mentor applications...');
       
-      const { data: applicationsData, error: applicationsError } = await supabase
+      const { data, error } = await supabase
         .from('mentor_applications')
         .select(`
-          application_id,
-          individual_id,
-          application_status,
-          submitted_at,
-          reviewed_at,
-          reviewer_notes,
-          linkedin_url,
-          instagram_handle,
-          city,
-          country,
-          phone_number,
-          country_code,
-          topics_of_interest,
-          availability_days,
-          availability_time,
-          availability_notes,
-          email_updates_consent,
-          sms_updates_consent
+          *,
+          individuals (
+            first_name,
+            last_name,
+            email
+          )
         `)
         .order('submitted_at', { ascending: false });
 
-      if (applicationsError) {
-        throw applicationsError;
+      if (error) {
+        console.error('Error fetching mentor applications:', error);
+        throw error;
       }
 
-      // Get individual details
-      const individualIds = applicationsData?.map(app => app.individual_id) || [];
+      console.log('Fetched mentor applications:', data);
       
-      if (individualIds.length > 0) {
-        const { data: individualsData, error: individualsError } = await supabase
-          .from('individuals')
-          .select('individual_id, first_name, last_name, email')
-          .in('individual_id', individualIds);
+      // Transform the data to match our type interface
+      const transformedData: MentorApplication[] = data?.map(app => ({
+        ...app,
+        topics_of_interest: Array.isArray(app.topics_of_interest) 
+          ? app.topics_of_interest 
+          : app.topics_of_interest 
+            ? [app.topics_of_interest as string] 
+            : [],
+        availability_days: Array.isArray(app.availability_days) 
+          ? app.availability_days 
+          : app.availability_days 
+            ? [app.availability_days as string] 
+            : [],
+      })) || [];
 
-        if (individualsError) {
-          throw individualsError;
-        }
+      return transformedData;
+    },
+  });
 
-        // Create a map of individuals by ID
-        const individualsMap = new Map();
-        individualsData?.forEach(individual => {
-          individualsMap.set(individual.individual_id, individual);
-        });
+  // Filter applications based on search and status
+  const filteredApplications = applications?.filter(app => {
+    const matchesSearch = !searchTerm || 
+      app.individuals?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.individuals?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.individuals?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.city?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || app.application_status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  }) || [];
 
-        // Combine application and individual data
-        const combinedData: MentorApplication[] = applicationsData?.map(app => ({
-          ...app,
-          individuals: individualsMap.get(app.individual_id) || null
-        })) || [];
+  // Update application status
+  const updateApplicationStatus = async (applicationId: string, newStatus: string, notes?: string) => {
+    try {
+      const { error } = await supabase
+        .from('mentor_applications')
+        .update({
+          application_status: newStatus,
+          reviewer_notes: notes,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('application_id', applicationId);
 
-        setApplications(combinedData);
-      } else {
-        setApplications([]);
-      }
-
+      if (error) throw error;
+      
+      refetch();
     } catch (error) {
-      console.error('Error loading mentor applications:', error);
-      setError('Failed to load mentor applications. Please try again.');
-    } finally {
-      setLoading(false);
+      console.error('Error updating application status:', error);
     }
-  };
-
-  const filterApplications = () => {
-    let filtered = applications;
-
-    // Filter by search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(app => {
-        const individual = app.individuals;
-        return (
-          individual?.first_name?.toLowerCase().includes(term) ||
-          individual?.last_name?.toLowerCase().includes(term) ||
-          individual?.email?.toLowerCase().includes(term) ||
-          app.city?.toLowerCase().includes(term) ||
-          app.country?.toLowerCase().includes(term)
-        );
-      });
-    }
-
-    // Filter by status
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(app => app.application_status === statusFilter);
-    }
-
-    setFilteredApplications(filtered);
   };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'approved':
-        return 'default';
-      case 'rejected':
-        return 'destructive';
-      case 'under_review':
-        return 'secondary';
-      case 'submitted':
-        return 'outline';
-      default:
-        return 'outline';
+      case 'approved': return 'default';
+      case 'rejected': return 'destructive';
+      case 'under_review': return 'secondary';
+      default: return 'outline';
     }
   };
 
-  const formatTopics = (topics: string[] | null) => {
-    if (!topics || !Array.isArray(topics)) return 'None';
-    return topics.join(', ');
-  };
-
-  const formatAvailabilityDays = (days: string[] | null) => {
-    if (!days || !Array.isArray(days)) return 'None';
-    return days.join(', ');
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <AdminAuth>
-        <AdminLayout>
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Mentor Applications</h1>
-                <p className="text-gray-600">Manage and review mentor applications</p>
-              </div>
-            </div>
-            <div className="animate-pulse space-y-4">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-16 bg-gray-200 rounded"></div>
-              ))}
-            </div>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="h-8 w-8 mx-auto mb-4 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-600">Loading mentor applications...</p>
           </div>
-        </AdminLayout>
-      </AdminAuth>
+        </div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <AdminAuth>
-        <AdminLayout>
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        </AdminLayout>
-      </AdminAuth>
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-red-600">Error loading applications: {error.message}</p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <AdminAuth>
-      <AdminLayout>
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Mentor Applications</h1>
-              <p className="text-gray-600">
-                {applications.length} total applications • {filteredApplications.length} displayed
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </div>
-          </div>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Mentor Applications</h1>
+        <Badge variant="outline" className="text-lg px-3 py-1">
+          {applications?.length || 0} Total Applications
+        </Badge>
+      </div>
 
-          {/* Filters */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Filters</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search by name, email, city, or country..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-48">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="submitted">Submitted</SelectItem>
-                    <SelectItem value="under_review">Under Review</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by name, email, or city..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="submitted">Submitted</SelectItem>
+            <SelectItem value="under_review">Under Review</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-          {/* Applications Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Applications</CardTitle>
-              <CardDescription>
-                {filteredApplications.length} applications found
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {filteredApplications.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Applicant</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Topics of Interest</TableHead>
-                      <TableHead>Availability</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredApplications.map((application) => (
-                      <TableRow key={application.application_id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">
-                              {application.individuals ? 
-                                `${application.individuals.first_name} ${application.individuals.last_name}` :
-                                'No name'
-                              }
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {application.individuals?.email || 'No email'}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            {application.phone_number && (
-                              <div className="flex items-center text-sm">
-                                <Phone className="h-3 w-3 mr-1" />
-                                {application.country_code} {application.phone_number}
-                              </div>
-                            )}
-                            {application.linkedin_url && (
-                              <div className="flex items-center text-sm">
-                                <Linkedin className="h-3 w-3 mr-1" />
-                                <a href={application.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                  LinkedIn
-                                </a>
-                              </div>
-                            )}
-                            {application.instagram_handle && (
-                              <div className="flex items-center text-sm">
-                                <Instagram className="h-3 w-3 mr-1" />
-                                {application.instagram_handle}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center text-sm">
-                            <MapPin className="h-3 w-3 mr-1" />
-                            {application.city && application.country ? 
-                              `${application.city}, ${application.country}` :
-                              application.city || application.country || 'Not specified'
-                            }
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm max-w-xs truncate">
-                            {formatTopics(application.topics_of_interest)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <div>{formatAvailabilityDays(application.availability_days)}</div>
-                            {application.availability_time && (
-                              <div className="text-gray-500">{application.availability_time}</div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusBadgeVariant(application.application_status)}>
-                            {application.application_status.replace('_', ' ')}
+      {/* Applications Table */}
+      {filteredApplications.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <p className="text-gray-500 text-lg">No mentor applications found.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Applications ({filteredApplications.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Topics</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredApplications.map((app) => (
+                  <TableRow key={app.application_id}>
+                    <TableCell className="font-medium">
+                      {app.individuals?.first_name} {app.individuals?.last_name}
+                    </TableCell>
+                    <TableCell>{app.individuals?.email}</TableCell>
+                    <TableCell>
+                      {app.city && app.country ? `${app.city}, ${app.country}` : app.city || app.country || 'Not specified'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {app.topics_of_interest?.slice(0, 2).map((topic, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {topic}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center text-sm text-gray-500">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {new Date(application.submitted_at).toLocaleDateString()}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => setSelectedApplication(application)}
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            View
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="text-center py-8">
-                  <UserCheck className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No mentor applications found</h3>
-                  <p className="text-gray-500">
-                    {applications.length === 0 
-                      ? "No mentor applications have been submitted yet."
-                      : "No applications match your current filters."
-                    }
-                  </p>
+                        ))}
+                        {(app.topics_of_interest?.length || 0) > 2 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{(app.topics_of_interest?.length || 0) - 2} more
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(app.application_status)}>
+                        {app.application_status.replace('_', ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm text-gray-500">
+                        <Calendar className="h-3 w-3" />
+                        {format(new Date(app.submitted_at), 'MMM dd, yyyy')}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <ApplicationDetailDialog application={app} onStatusUpdate={updateApplicationStatus} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+// Application Detail Dialog Component
+interface ApplicationDetailDialogProps {
+  application: MentorApplication;
+  onStatusUpdate: (id: string, status: string, notes?: string) => void;
+}
+
+const ApplicationDetailDialog: React.FC<ApplicationDetailDialogProps> = ({ 
+  application, 
+  onStatusUpdate 
+}) => {
+  const [newStatus, setNewStatus] = useState(application.application_status);
+  const [reviewerNotes, setReviewerNotes] = useState(application.reviewer_notes || '');
+
+  const handleStatusUpdate = () => {
+    onStatusUpdate(application.application_id, newStatus, reviewerNotes);
+  };
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Eye className="h-4 w-4 mr-1" />
+          View
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl">
+            {application.individuals?.first_name} {application.individuals?.last_name}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Personal Information */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg border-b pb-2">Personal Information</h3>
+            
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">Email:</span>
+                <span>{application.individuals?.email}</span>
+              </div>
+              
+              {application.phone_number && (
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">Phone:</span>
+                  <span>{application.country_code} {application.phone_number}</span>
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Application Detail Modal */}
-          {selectedApplication && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <h2 className="text-xl font-bold">Application Details</h2>
-                    <Button variant="ghost" onClick={() => setSelectedApplication(null)}>
-                      ×
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="font-semibold mb-2">Personal Information</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium">Name</label>
-                          <p className="text-sm text-gray-600">
-                            {selectedApplication.individuals ? 
-                              `${selectedApplication.individuals.first_name} ${selectedApplication.individuals.last_name}` :
-                              'No name'
-                            }
-                          </p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">Email</label>
-                          <p className="text-sm text-gray-600">{selectedApplication.individuals?.email || 'No email'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">Phone</label>
-                          <p className="text-sm text-gray-600">
-                            {selectedApplication.phone_number ? 
-                              `${selectedApplication.country_code} ${selectedApplication.phone_number}` :
-                              'Not provided'
-                            }
-                          </p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">Location</label>
-                          <p className="text-sm text-gray-600">
-                            {selectedApplication.city && selectedApplication.country ? 
-                              `${selectedApplication.city}, ${selectedApplication.country}` :
-                              'Not specified'
-                            }
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold mb-2">Professional Information</h3>
-                      <div className="space-y-2">
-                        <div>
-                          <label className="text-sm font-medium">Topics of Interest</label>
-                          <p className="text-sm text-gray-600">{formatTopics(selectedApplication.topics_of_interest)}</p>
-                        </div>
-                        {selectedApplication.linkedin_url && (
-                          <div>
-                            <label className="text-sm font-medium">LinkedIn</label>
-                            <p className="text-sm text-gray-600">
-                              <a href={selectedApplication.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                {selectedApplication.linkedin_url}
-                              </a>
-                            </p>
-                          </div>
-                        )}
-                        {selectedApplication.instagram_handle && (
-                          <div>
-                            <label className="text-sm font-medium">Instagram</label>
-                            <p className="text-sm text-gray-600">{selectedApplication.instagram_handle}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold mb-2">Availability</h3>
-                      <div className="space-y-2">
-                        <div>
-                          <label className="text-sm font-medium">Preferred Days</label>
-                          <p className="text-sm text-gray-600">{formatAvailabilityDays(selectedApplication.availability_days)}</p>
-                        </div>
-                        {selectedApplication.availability_time && (
-                          <div>
-                            <label className="text-sm font-medium">Preferred Time</label>
-                            <p className="text-sm text-gray-600">{selectedApplication.availability_time}</p>
-                          </div>
-                        )}
-                        {selectedApplication.availability_notes && (
-                          <div>
-                            <label className="text-sm font-medium">Additional Notes</label>
-                            <p className="text-sm text-gray-600">{selectedApplication.availability_notes}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold mb-2">Consent & Preferences</h3>
-                      <div className="space-y-2">
-                        <div>
-                          <label className="text-sm font-medium">Email Updates</label>
-                          <p className="text-sm text-gray-600">{selectedApplication.email_updates_consent ? 'Yes' : 'No'}</p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">SMS Updates</label>
-                          <p className="text-sm text-gray-600">{selectedApplication.sms_updates_consent ? 'Yes' : 'No'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">Location:</span>
+                <span>{application.city && application.country ? `${application.city}, ${application.country}` : 'Not specified'}</span>
               </div>
             </div>
-          )}
+            
+            {/* Social Links */}
+            <div className="space-y-2">
+              {application.linkedin_url && (
+                <div className="flex items-center gap-2">
+                  <Linkedin className="h-4 w-4 text-gray-500" />
+                  <a href={application.linkedin_url} target="_blank" rel="noopener noreferrer" 
+                     className="text-blue-600 hover:underline text-sm">
+                    LinkedIn Profile
+                  </a>
+                </div>
+              )}
+              
+              {application.instagram_handle && (
+                <div className="flex items-center gap-2">
+                  <Instagram className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm">Instagram: @{application.instagram_handle}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Mentor Preferences */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg border-b pb-2">Mentor Preferences</h3>
+            
+            <div className="space-y-3">
+              <div>
+                <span className="text-sm text-gray-600 block mb-1">Topics of Interest:</span>
+                <div className="flex flex-wrap gap-1">
+                  {application.topics_of_interest?.map((topic, index) => (
+                    <Badge key={index} variant="secondary">{topic}</Badge>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <span className="text-sm text-gray-600 block mb-1">Preferred Days:</span>
+                <div className="flex flex-wrap gap-1">
+                  {application.availability_days?.map((day, index) => (
+                    <Badge key={index} variant="outline">{day}</Badge>
+                  ))}
+                </div>
+              </div>
+              
+              {application.availability_time && (
+                <div>
+                  <span className="text-sm text-gray-600 block mb-1">Preferred Time:</span>
+                  <span>{application.availability_time}</span>
+                </div>
+              )}
+              
+              {application.availability_notes && (
+                <div>
+                  <span className="text-sm text-gray-600 block mb-1">Additional Notes:</span>
+                  <p className="text-sm bg-gray-50 p-2 rounded">{application.availability_notes}</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </AdminLayout>
-    </AdminAuth>
+        
+        {/* Review Section */}
+        <div className="mt-6 pt-4 border-t space-y-4">
+          <h3 className="font-semibold text-lg">Review & Status</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-gray-600">Status:</label>
+              <Select value={newStatus} onValueChange={setNewStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="submitted">Submitted</SelectItem>
+                  <SelectItem value="under_review">Under Review</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="text-sm text-gray-600">
+              <p>Submitted: {format(new Date(application.submitted_at), 'PPp')}</p>
+              {application.reviewed_at && (
+                <p>Last Reviewed: {format(new Date(application.reviewed_at), 'PPp')}</p>
+              )}
+            </div>
+          </div>
+          
+          <div>
+            <label className="text-sm text-gray-600 block mb-1">Reviewer Notes:</label>
+            <Textarea
+              value={reviewerNotes}
+              onChange={(e) => setReviewerNotes(e.target.value)}
+              placeholder="Add notes about this application..."
+              rows={3}
+            />
+          </div>
+          
+          <Button onClick={handleStatusUpdate} className="w-full">
+            <Edit className="h-4 w-4 mr-2" />
+            Update Application
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

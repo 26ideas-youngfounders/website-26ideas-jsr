@@ -29,12 +29,19 @@ interface MentorApplication {
   application_id: string;
   individual_id: string;
   application_status: string;
-  topics_of_interest: string[];
-  availability_days: string[];
+  topics_of_interest: string;
+  availability_days: string;
   availability_time: string;
   availability_notes: string;
   linkedin_url: string;
   instagram_handle: string;
+  city: string;
+  country: string;
+  phone_number: string;
+  country_code: string;
+  country_iso_code: string;
+  email_updates_consent: boolean;
+  sms_updates_consent: boolean;
   reviewer_notes: string;
   submitted_at: string;
   reviewed_at: string;
@@ -72,11 +79,16 @@ const MentorApplicationsPage: React.FC = () => {
           availability_notes,
           linkedin_url,
           instagram_handle,
+          city,
+          country,
+          phone_number,
+          country_code,
+          country_iso_code,
+          email_updates_consent,
+          sms_updates_consent,
           reviewer_notes,
           submitted_at,
           reviewed_at,
-          country_code,
-          country_iso_code,
           individuals!left (
             first_name,
             last_name,
@@ -90,10 +102,17 @@ const MentorApplicationsPage: React.FC = () => {
 
       if (error) throw error;
       
-      // Transform the data to handle null individuals
+      // Transform the data to handle null individuals and parse JSON fields
       const transformedData = data?.map(item => ({
         ...item,
-        individuals: item.individuals && !('error' in item.individuals) ? item.individuals : null
+        individuals: item.individuals && !('error' in item.individuals) ? item.individuals : null,
+        // Parse JSON fields safely
+        topics_of_interest: typeof item.topics_of_interest === 'string' 
+          ? JSON.parse(item.topics_of_interest || '[]') 
+          : (item.topics_of_interest || []),
+        availability_days: typeof item.availability_days === 'string'
+          ? JSON.parse(item.availability_days || '[]')
+          : (item.availability_days || [])
       })) || [];
       
       return transformedData as MentorApplication[];
@@ -146,7 +165,7 @@ const MentorApplicationsPage: React.FC = () => {
     const searchMatch = !searchTerm || 
       (app.individuals && `${app.individuals.first_name} ${app.individuals.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (app.individuals && app.individuals.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      app.topics_of_interest.some(topic => topic.toLowerCase().includes(searchTerm.toLowerCase()));
+      (Array.isArray(app.topics_of_interest) && app.topics_of_interest.some(topic => topic.toLowerCase().includes(searchTerm.toLowerCase())));
     
     const statusMatch = statusFilter === 'all' || app.application_status === statusFilter;
     
@@ -318,19 +337,22 @@ const MentorApplicationsPage: React.FC = () => {
                          </div>
                        </TableCell>
                        <TableCell>
-                         {application.individuals ? 
-                           `${application.individuals.city}, ${application.individuals.country}` : 
-                           'N/A'
+                         {application.city && application.country ? 
+                           `${application.city}, ${application.country}` : 
+                           (application.individuals ? 
+                             `${application.individuals.city || ''}, ${application.individuals.country || ''}`.replace(/^,\s*|,\s*$/, '') : 
+                             'N/A'
+                           )
                          }
                        </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1 max-w-[200px]">
-                          {application.topics_of_interest.slice(0, 2).map((topic, index) => (
+                          {Array.isArray(application.topics_of_interest) && application.topics_of_interest.slice(0, 2).map((topic, index) => (
                             <Badge key={index} variant="outline" className="text-xs">
                               {topic}
                             </Badge>
                           ))}
-                          {application.topics_of_interest.length > 2 && (
+                          {Array.isArray(application.topics_of_interest) && application.topics_of_interest.length > 2 && (
                             <Badge variant="outline" className="text-xs">
                               +{application.topics_of_interest.length - 2}
                             </Badge>
@@ -339,8 +361,8 @@ const MentorApplicationsPage: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div>{application.availability_days.join(', ')}</div>
-                          <div className="text-muted-foreground">{application.availability_time}</div>
+                          <div>{Array.isArray(application.availability_days) ? application.availability_days.join(', ') : 'N/A'}</div>
+                          <div className="text-muted-foreground">{application.availability_time || 'N/A'}</div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -382,8 +404,8 @@ const MentorApplicationsPage: React.FC = () => {
                                        <div className="space-y-2 text-sm">
                                          <div><strong>Name:</strong> {selectedApplication.individuals?.first_name} {selectedApplication.individuals?.last_name}</div>
                                          <div><strong>Email:</strong> {selectedApplication.individuals?.email || 'N/A'}</div>
-                                         <div><strong>Phone:</strong> {selectedApplication.individuals?.mobile || 'N/A'}</div>
-                                         <div><strong>Location:</strong> {selectedApplication.individuals ? `${selectedApplication.individuals.city}, ${selectedApplication.individuals.country}` : 'N/A'}</div>
+                                         <div><strong>Phone:</strong> {selectedApplication.country_code} {selectedApplication.phone_number || 'N/A'}</div>
+                                         <div><strong>Location:</strong> {selectedApplication.city}, {selectedApplication.country}</div>
                                        </div>
                                     </div>
                                     <div>
@@ -403,7 +425,7 @@ const MentorApplicationsPage: React.FC = () => {
                                   <div>
                                     <h4 className="font-semibold mb-2">Topics of Interest</h4>
                                     <div className="flex flex-wrap gap-2">
-                                      {selectedApplication.topics_of_interest.map((topic, index) => (
+                                      {Array.isArray(selectedApplication.topics_of_interest) && selectedApplication.topics_of_interest.map((topic, index) => (
                                         <Badge key={index} variant="outline">{topic}</Badge>
                                       ))}
                                     </div>
@@ -412,11 +434,20 @@ const MentorApplicationsPage: React.FC = () => {
                                   <div>
                                     <h4 className="font-semibold mb-2">Availability</h4>
                                     <div className="space-y-2 text-sm">
-                                      <div><strong>Days:</strong> {selectedApplication.availability_days.join(', ')}</div>
+                                      <div><strong>Days:</strong> {Array.isArray(selectedApplication.availability_days) ? selectedApplication.availability_days.join(', ') : 'N/A'}</div>
                                       <div><strong>Time:</strong> {selectedApplication.availability_time}</div>
                                       {selectedApplication.availability_notes && (
                                         <div><strong>Notes:</strong> {selectedApplication.availability_notes}</div>
                                       )}
+                                    </div>
+                                  </div>
+
+                                  {/* Communication Preferences */}
+                                  <div>
+                                    <h4 className="font-semibold mb-2">Communication Preferences</h4>
+                                    <div className="space-y-2 text-sm">
+                                      <div><strong>Email Updates:</strong> {selectedApplication.email_updates_consent ? 'Yes' : 'No'}</div>
+                                      <div><strong>SMS Updates:</strong> {selectedApplication.sms_updates_consent ? 'Yes' : 'No'}</div>
                                     </div>
                                   </div>
 

@@ -96,31 +96,70 @@ export type Database = {
         Row: {
           application_id: string
           application_status: string
+          availability_days: Json | null
+          availability_notes: string | null
+          availability_time: string | null
+          city: string | null
+          country: string | null
+          country_code: string | null
+          country_iso_code: string | null
           created_at: string
+          email_updates_consent: boolean | null
           individual_id: string
+          instagram_handle: string | null
+          linkedin_url: string | null
+          phone_number: string | null
           reviewed_at: string | null
           reviewer_notes: string | null
+          sms_updates_consent: boolean | null
           submitted_at: string
+          topics_of_interest: Json | null
           updated_at: string
         }
         Insert: {
           application_id?: string
           application_status?: string
+          availability_days?: Json | null
+          availability_notes?: string | null
+          availability_time?: string | null
+          city?: string | null
+          country?: string | null
+          country_code?: string | null
+          country_iso_code?: string | null
           created_at?: string
+          email_updates_consent?: boolean | null
           individual_id: string
+          instagram_handle?: string | null
+          linkedin_url?: string | null
+          phone_number?: string | null
           reviewed_at?: string | null
           reviewer_notes?: string | null
+          sms_updates_consent?: boolean | null
           submitted_at?: string
+          topics_of_interest?: Json | null
           updated_at?: string
         }
         Update: {
           application_id?: string
           application_status?: string
+          availability_days?: Json | null
+          availability_notes?: string | null
+          availability_time?: string | null
+          city?: string | null
+          country?: string | null
+          country_code?: string | null
+          country_iso_code?: string | null
           created_at?: string
+          email_updates_consent?: boolean | null
           individual_id?: string
+          instagram_handle?: string | null
+          linkedin_url?: string | null
+          phone_number?: string | null
           reviewed_at?: string | null
           reviewer_notes?: string | null
+          sms_updates_consent?: boolean | null
           submitted_at?: string
+          topics_of_interest?: Json | null
           updated_at?: string
         }
         Relationships: []
@@ -164,6 +203,7 @@ export type Database = {
         Row: {
           answers: Json
           application_id: string
+          application_round: string | null
           created_at: string
           cumulative_score: number | null
           individual_id: string
@@ -175,6 +215,7 @@ export type Database = {
         Insert: {
           answers?: Json
           application_id?: string
+          application_round?: string | null
           created_at?: string
           cumulative_score?: number | null
           individual_id: string
@@ -186,6 +227,7 @@ export type Database = {
         Update: {
           answers?: Json
           application_id?: string
+          application_round?: string | null
           created_at?: string
           cumulative_score?: number | null
           individual_id?: string

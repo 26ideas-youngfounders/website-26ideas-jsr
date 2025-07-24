@@ -7,7 +7,7 @@
  * 
  * Features:
  * - Multi-section form with validation
- * - Duplicate prevention using mobile number as primary key
+ * - Duplicate prevention using email as primary key
  * - Integration with Supabase database
  * - Real-time form validation with user feedback
  * - Success/error handling with toast notifications
@@ -198,13 +198,31 @@ const MentorSignup = () => {
         return;
       }
 
-      // Create mentor application record
+      // Create comprehensive mentor application record with all form fields
       const { error: applicationError } = await supabase
         .from('mentor_applications')
         .insert({
           individual_id: individualData.individual_id,
           application_status: 'submitted',
           submitted_at: new Date().toISOString(),
+          // Personal information
+          phone_number: data.phone,
+          country_code: data.countryCode,
+          country_iso_code: data.countryIsoCode,
+          // Social links
+          linkedin_url: data.linkedinUrl || null,
+          instagram_handle: data.instagram || null,
+          // Location
+          city: data.city,
+          country: data.country,
+          // Mentorship preferences
+          topics_of_interest: JSON.stringify(data.topicsOfInterest),
+          availability_days: JSON.stringify(data.availabilityDays),
+          availability_time: data.availabilityTime,
+          availability_notes: data.availabilityNotes || null,
+          // Communication preferences
+          email_updates_consent: data.emailUpdates,
+          sms_updates_consent: data.smsUpdates,
         });
 
       if (applicationError) {
@@ -217,7 +235,7 @@ const MentorSignup = () => {
         return;
       }
 
-      console.log('✅ Successfully created mentor application');
+      console.log('✅ Successfully created mentor application with all fields');
       setIsSubmitted(true);
       toast({
         title: "Success!",

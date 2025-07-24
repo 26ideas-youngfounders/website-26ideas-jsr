@@ -33,7 +33,6 @@ interface YffApplication {
   answers: Record<string, any>;
   cumulative_score: number;
   submitted_at: string;
-  created_at: string;
   individuals: {
     first_name: string;
     last_name: string;
@@ -56,7 +55,13 @@ const YffApplicationsPage: React.FC = () => {
       const { data, error } = await supabase
         .from('yff_applications')
         .select(`
-          *,
+          application_id,
+          individual_id,
+          status,
+          application_round,
+          answers,
+          cumulative_score,
+          submitted_at,
           individuals (
             first_name,
             last_name,
@@ -64,7 +69,7 @@ const YffApplicationsPage: React.FC = () => {
             mobile
           )
         `)
-        .order('created_at', { ascending: false });
+        .order('submitted_at', { ascending: false });
 
       if (error) throw error;
       return data as YffApplication[];

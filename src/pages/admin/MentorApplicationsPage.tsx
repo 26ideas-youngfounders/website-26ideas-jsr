@@ -45,7 +45,7 @@ interface MentorApplication {
     mobile: string;
     city: string;
     country: string;
-  };
+  } | null;
 }
 
 const MentorApplicationsPage: React.FC = () => {
@@ -63,8 +63,21 @@ const MentorApplicationsPage: React.FC = () => {
       const { data, error } = await supabase
         .from('mentor_applications')
         .select(`
-          *,
-          individuals (
+          application_id,
+          individual_id,
+          application_status,
+          topics_of_interest,
+          availability_days,
+          availability_time,
+          availability_notes,
+          linkedin_url,
+          instagram_handle,
+          reviewer_notes,
+          submitted_at,
+          reviewed_at,
+          country_code,
+          country_iso_code,
+          individuals!left (
             first_name,
             last_name,
             email,
@@ -76,7 +89,14 @@ const MentorApplicationsPage: React.FC = () => {
         .order('submitted_at', { ascending: false });
 
       if (error) throw error;
-      return data as MentorApplication[];
+      
+      // Transform the data to handle null individuals
+      const transformedData = data?.map(item => ({
+        ...item,
+        individuals: item.individuals && !('error' in item.individuals) ? item.individuals : null
+      })) || [];
+      
+      return transformedData as MentorApplication[];
     },
   });
 
@@ -124,8 +144,8 @@ const MentorApplicationsPage: React.FC = () => {
   // Filter applications
   const filteredApplications = applications?.filter((app) => {
     const searchMatch = !searchTerm || 
-      `${app.individuals.first_name} ${app.individuals.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.individuals.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (app.individuals && `${app.individuals.first_name} ${app.individuals.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (app.individuals && app.individuals.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
       app.topics_of_interest.some(topic => topic.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const statusMatch = statusFilter === 'all' || app.application_status === statusFilter;
@@ -284,19 +304,25 @@ const MentorApplicationsPage: React.FC = () => {
                 ) : (
                   filteredApplications.map((application) => (
                     <TableRow key={application.application_id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {application.individuals.first_name} {application.individuals.last_name}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {application.individuals.email}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {application.individuals.city}, {application.individuals.country}
-                      </TableCell>
+                       <TableCell>
+                         <div>
+                           <div className="font-medium">
+                             {application.individuals ? 
+                               `${application.individuals.first_name} ${application.individuals.last_name}` : 
+                               'N/A'
+                             }
+                           </div>
+                           <div className="text-sm text-muted-foreground">
+                             {application.individuals?.email || 'N/A'}
+                           </div>
+                         </div>
+                       </TableCell>
+                       <TableCell>
+                         {application.individuals ? 
+                           `${application.individuals.city}, ${application.individuals.country}` : 
+                           'N/A'
+                         }
+                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1 max-w-[200px]">
                           {application.topics_of_interest.slice(0, 2).map((topic, index) => (
@@ -344,7 +370,7 @@ const MentorApplicationsPage: React.FC = () => {
                             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle>
-                                  Mentor Application Review - {application.individuals.first_name} {application.individuals.last_name}
+                                  Mentor Application Review - {application.individuals?.first_name} {application.individuals?.last_name}
                                 </DialogTitle>
                               </DialogHeader>
                               {selectedApplication && (
@@ -353,12 +379,12 @@ const MentorApplicationsPage: React.FC = () => {
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                       <h4 className="font-semibold mb-2">Personal Information</h4>
-                                      <div className="space-y-2 text-sm">
-                                        <div><strong>Name:</strong> {selectedApplication.individuals.first_name} {selectedApplication.individuals.last_name}</div>
-                                        <div><strong>Email:</strong> {selectedApplication.individuals.email}</div>
-                                        <div><strong>Phone:</strong> {selectedApplication.individuals.mobile}</div>
-                                        <div><strong>Location:</strong> {selectedApplication.individuals.city}, {selectedApplication.individuals.country}</div>
-                                      </div>
+                                       <div className="space-y-2 text-sm">
+                                         <div><strong>Name:</strong> {selectedApplication.individuals?.first_name} {selectedApplication.individuals?.last_name}</div>
+                                         <div><strong>Email:</strong> {selectedApplication.individuals?.email || 'N/A'}</div>
+                                         <div><strong>Phone:</strong> {selectedApplication.individuals?.mobile || 'N/A'}</div>
+                                         <div><strong>Location:</strong> {selectedApplication.individuals ? `${selectedApplication.individuals.city}, ${selectedApplication.individuals.country}` : 'N/A'}</div>
+                                       </div>
                                     </div>
                                     <div>
                                       <h4 className="font-semibold mb-2">Social Links</h4>

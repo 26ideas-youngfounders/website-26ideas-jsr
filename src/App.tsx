@@ -13,7 +13,6 @@ import YffTeamInformation from "./pages/YffTeamInformation";
 import MentorSignup from "./pages/MentorSignup";
 import NotFound from "./pages/NotFound";
 import PhoneInputTest from "./pages/PhoneInputTest";
-import YoungFounderProfile from "./pages/YoungFounderProfile";
 import CrmDashboard from "./pages/admin/CrmDashboard";
 import YffApplicationsPage from "./pages/admin/YffApplicationsPage";
 import MentorApplicationsPage from "./pages/admin/MentorApplicationsPage";
@@ -39,7 +38,6 @@ const App = () => (
             <Route path="/yff/team" element={<YffTeamInformation />} />
             <Route path="/mentor-signup" element={<MentorSignup />} />
             <Route path="/phone-test" element={<PhoneInputTest />} />
-            <Route path="/youngfounderprofile" element={<YoungFounderProfile />} />
             
             {/* Admin Routes */}
             <Route 

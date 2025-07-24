@@ -28,7 +28,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/yff" element={<YffLandingPage />} />
+              <Route path="/yff" element={<YffLandingPage />} />
+              <Route path="/young-founders-floor" element={<YffLandingPage />} />
             <Route path="/yff/apply" element={<YffQuestionnaire />} />
             <Route path="/yff/team" element={<YffTeamInformation />} />
             <Route path="/mentor-signup" element={<MentorSignup />} />

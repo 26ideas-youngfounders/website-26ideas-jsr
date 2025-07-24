@@ -42,6 +42,7 @@ const Navigation = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Individual references for each dropdown to prevent conflicts
   const communityDropdownRef = useRef<HTMLDivElement>(null);
@@ -309,23 +310,134 @@ const Navigation = () => {
 
           {/* Mobile menu button */}
           <div className="md:hidden">
-            <button className="text-gray-700 hover:text-gray-900 p-2">
+            <button 
+              className="text-gray-700 hover:text-gray-900 p-2"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle mobile menu"
+            >
               <svg
                 className="h-6 w-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
+                {isMobileMenuOpen ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                )}
               </svg>
             </button>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden bg-white border-t border-gray-200">
+            <div className="px-4 py-6 space-y-4">
+              {/* Mobile Navigation Items */}
+              {navItems.map((item) => (
+                <div key={item.label} className="space-y-2">
+                  <button
+                    className="flex items-center justify-between w-full text-left text-gray-700 hover:text-gray-900 font-medium py-2"
+                    onClick={() => {
+                      if (item.hasDropdown) {
+                        setActiveDropdown(activeDropdown === item.label ? null : item.label);
+                      }
+                    }}
+                  >
+                    {item.label}
+                    {item.hasDropdown && (
+                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${
+                        activeDropdown === item.label ? 'rotate-180' : ''
+                      }`} />
+                    )}
+                  </button>
+                  
+                  {/* Mobile Dropdown Items */}
+                  {item.hasDropdown && activeDropdown === item.label && item.dropdownItems && (
+                    <div className="pl-4 space-y-2">
+                      {item.dropdownItems.map((dropdownItem) => {
+                        if (needsSpecialNavigation(dropdownItem)) {
+                          return (
+                            <button
+                              key={dropdownItem}
+                              type="button"
+                              className="block w-full text-left py-2 text-sm text-gray-600 hover:text-gray-900"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setIsMobileMenuOpen(false);
+                                handleSpecialNavigation(dropdownItem);
+                              }}
+                            >
+                              {dropdownItem}
+                            </button>
+                          );
+                        }
+                        
+                        return (
+                          <Link
+                            key={dropdownItem}
+                            to={getItemRoute(dropdownItem)}
+                            className="block py-2 text-sm text-gray-600 hover:text-gray-900"
+                            onClick={() => {
+                              setActiveDropdown(null);
+                              setIsMobileMenuOpen(false);
+                            }}
+                          >
+                            {dropdownItem}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Mobile Sign In/Out Section */}
+              <div className="pt-4 border-t border-gray-200">
+                {user ? (
+                  <div className="space-y-3">
+                    <div className="text-sm text-gray-600">
+                      Welcome, {user.email}
+                    </div>
+                    <Button 
+                      onClick={() => {
+                        signOut();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      Sign Out
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    onClick={() => {
+                      setIsSignInModalOpen(true);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full"
+                  >
+                    Sign In
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Sign In Modal */}

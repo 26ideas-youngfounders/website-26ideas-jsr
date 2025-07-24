@@ -1,14 +1,16 @@
+
 /**
  * @fileoverview PhoneInput component with country code dropdown and flags
  * 
  * A comprehensive phone number input component that includes:
  * - Country code selection dropdown with flags
- * - Searchable country list
+ * - Searchable country list loaded from database
  * - Mobile number validation
  * - Default selection to India (+91 🇮🇳)
  * - Responsive design for mobile and desktop
+ * - Error handling and fallbacks for missing flags
  * 
- * @version 1.0.0
+ * @version 2.0.0
  * @author 26ideas Development Team
  */
 
@@ -121,13 +123,29 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
           .order('country_name');
 
         if (error) {
-          console.error('Error fetching country codes:', error);
+          console.error('❌ Error fetching country codes:', error);
           return;
         }
 
-        setCountries(data || []);
+        if (data && data.length > 0) {
+          setCountries(data);
+          console.log(`✅ Loaded ${data.length} countries from database`);
+          
+          // Check for missing flag emojis and log warnings
+          const missingFlags = data.filter(country => 
+            !country.country_flag_emoji || country.country_flag_emoji.trim() === ''
+          );
+          
+          if (missingFlags.length > 0) {
+            console.warn('⚠️ Countries with missing flag emojis:', 
+              missingFlags.map(c => `${c.country_name} (${c.country_code})`).join(', ')
+            );
+          }
+        } else {
+          console.warn('⚠️ No country codes found in database');
+        }
       } catch (error) {
-        console.error('Error fetching country codes:', error);
+        console.error('❌ Error fetching country codes:', error);
       } finally {
         setLoading(false);
       }
@@ -177,6 +195,26 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
     onChange?.(sanitizedValue);
   };
 
+  /**
+   * Renders country flag with fallback
+   * 
+   * @param country - Country object
+   * @returns JSX element with flag or fallback
+   */
+  const renderCountryFlag = (country: CountryCode) => {
+    if (country.country_flag_emoji && country.country_flag_emoji.trim() !== '') {
+      return <span className="text-lg">{country.country_flag_emoji}</span>;
+    } else {
+      // Fallback to country ISO code if flag is missing
+      console.warn(`⚠️ Missing flag emoji for ${country.country_name}, using ISO code fallback`);
+      return (
+        <span className="text-xs font-mono bg-muted px-1 py-0.5 rounded">
+          {country.iso_code}
+        </span>
+      );
+    }
+  };
+
   if (loading) {
     return (
       <div className={cn("space-y-2", className)}>
@@ -212,7 +250,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
               aria-expanded={isOpen}
               aria-label="Select country code"
               className={cn(
-                "w-auto min-w-[120px] justify-between rounded-r-none border-r-0 bg-background",
+                "w-auto min-w-[140px] justify-between rounded-r-none border-r-0 bg-background",
                 error && "border-destructive",
                 disabled && "opacity-50 cursor-not-allowed"
               )}
@@ -221,7 +259,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
               <div className="flex items-center gap-2">
                 {selectedCountry ? (
                   <>
-                    <span className="text-lg">{selectedCountry.country_flag_emoji}</span>
+                    {renderCountryFlag(selectedCountry)}
                     <span className="text-sm font-medium">{selectedCountry.country_code}</span>
                   </>
                 ) : (
@@ -236,7 +274,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
           </PopoverTrigger>
 
           <PopoverContent 
-            className="w-[300px] p-0 bg-background border border-border shadow-lg" 
+            className="w-[320px] p-0 bg-background border border-border shadow-lg z-50" 
             align="start"
           >
             <Command>
@@ -260,10 +298,12 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
                       onSelect={() => handleCountrySelect(country)}
                       className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent"
                     >
-                      <span className="text-lg">{country.country_flag_emoji}</span>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{country.country_name}</span>
-                        <span className="text-xs text-muted-foreground">{country.country_code}</span>
+                      {renderCountryFlag(country)}
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium truncate">{country.country_name}</span>
+                          <span className="text-sm text-muted-foreground ml-2">{country.country_code}</span>
+                        </div>
                       </div>
                     </CommandItem>
                   ))}

@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      country_codes: {
+        Row: {
+          country_code: string
+          country_flag_emoji: string | null
+          country_id: string
+          country_name: string
+          created_at: string
+          is_active: boolean
+          iso_code: string
+          updated_at: string
+        }
+        Insert: {
+          country_code: string
+          country_flag_emoji?: string | null
+          country_id?: string
+          country_name: string
+          created_at?: string
+          is_active?: boolean
+          iso_code: string
+          updated_at?: string
+        }
+        Update: {
+          country_code?: string
+          country_flag_emoji?: string | null
+          country_id?: string
+          country_name?: string
+          created_at?: string
+          is_active?: boolean
+          iso_code?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       individuals: {
         Row: {
           country_code: string | null
@@ -55,6 +88,39 @@ export type Database = {
           is_active?: boolean
           last_name?: string
           privacy_consent?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      mentor_applications: {
+        Row: {
+          application_id: string
+          application_status: string
+          created_at: string
+          individual_id: string
+          reviewed_at: string | null
+          reviewer_notes: string | null
+          submitted_at: string
+          updated_at: string
+        }
+        Insert: {
+          application_id?: string
+          application_status?: string
+          created_at?: string
+          individual_id: string
+          reviewed_at?: string | null
+          reviewer_notes?: string | null
+          submitted_at?: string
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string
+          application_status?: string
+          created_at?: string
+          individual_id?: string
+          reviewed_at?: string | null
+          reviewer_notes?: string | null
+          submitted_at?: string
           updated_at?: string
         }
         Relationships: []
@@ -103,6 +169,7 @@ export type Database = {
           individual_id: string
           reviewer_scores: Json | null
           status: string
+          submitted_at: string | null
           updated_at: string
         }
         Insert: {
@@ -113,6 +180,7 @@ export type Database = {
           individual_id: string
           reviewer_scores?: Json | null
           status?: string
+          submitted_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -123,6 +191,7 @@ export type Database = {
           individual_id?: string
           reviewer_scores?: Json | null
           status?: string
+          submitted_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -140,6 +209,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_or_update_mentor_profile: {
+        Args: { p_email: string; p_first_name?: string; p_last_name?: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _user_id: string

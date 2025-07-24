@@ -9,7 +9,7 @@
  * @author 26ideas Development Team
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Eye, Edit, Calendar, MapPin, Phone, Mail, Linkedin, Instagram } from 'lucide-react';
+import { Search, Eye, Edit, Calendar, MapPin, Phone, Mail, Linkedin, Instagram, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { MentorApplication } from '@/types/mentor-application';
 
@@ -57,15 +57,16 @@ const MentorApplicationsPage: React.FC = () => {
       const transformedData: MentorApplication[] = data?.map(app => ({
         ...app,
         topics_of_interest: Array.isArray(app.topics_of_interest) 
-          ? app.topics_of_interest 
+          ? app.topics_of_interest.map(topic => String(topic))
           : app.topics_of_interest 
-            ? [app.topics_of_interest as string] 
+            ? [String(app.topics_of_interest)] 
             : [],
         availability_days: Array.isArray(app.availability_days) 
-          ? app.availability_days 
+          ? app.availability_days.map(day => String(day))
           : app.availability_days 
-            ? [app.availability_days as string] 
+            ? [String(app.availability_days)] 
             : [],
+        individuals: app.individuals || null,
       })) || [];
 
       return transformedData;
@@ -131,8 +132,13 @@ const MentorApplicationsPage: React.FC = () => {
     return (
       <div className="container mx-auto p-6">
         <Card>
-          <CardContent className="pt-6">
-            <p className="text-red-600">Error loading applications: {error.message}</p>
+          <CardContent className="pt-6 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+            <h3 className="text-lg font-semibold mb-2">Error Loading Applications</h3>
+            <p className="text-red-600 mb-4">
+              {error.message || 'There was an error loading the mentor applications.'}
+            </p>
+            <Button onClick={() => refetch()}>Try Again</Button>
           </CardContent>
         </Card>
       </div>
@@ -142,104 +148,142 @@ const MentorApplicationsPage: React.FC = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Mentor Applications</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Mentor Applications</h1>
+          <p className="text-gray-600 mt-1">Manage and review mentor applications</p>
+        </div>
         <Badge variant="outline" className="text-lg px-3 py-1">
           {applications?.length || 0} Total Applications
         </Badge>
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search by name, email, or city..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="submitted">Submitted</SelectItem>
-            <SelectItem value="under_review">Under Review</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by name, email, or city..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="submitted">Submitted</SelectItem>
+                <SelectItem value="under_review">Under Review</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Applications Table */}
       {filteredApplications.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-gray-500 text-lg">No mentor applications found.</p>
+            <div className="py-12">
+              <Eye className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-lg font-semibold mb-2">No Mentor Applications Found</h3>
+              <p className="text-gray-500">
+                {applications?.length === 0 
+                  ? "There are no mentor applications yet."
+                  : "No applications match your current search criteria."
+                }
+              </p>
+            </div>
           </CardContent>
         </Card>
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>Applications ({filteredApplications.length})</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Applications ({filteredApplications.length})
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Topics</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredApplications.map((app) => (
-                  <TableRow key={app.application_id}>
-                    <TableCell className="font-medium">
-                      {app.individuals?.first_name} {app.individuals?.last_name}
-                    </TableCell>
-                    <TableCell>{app.individuals?.email}</TableCell>
-                    <TableCell>
-                      {app.city && app.country ? `${app.city}, ${app.country}` : app.city || app.country || 'Not specified'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {app.topics_of_interest?.slice(0, 2).map((topic, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            {topic}
-                          </Badge>
-                        ))}
-                        {(app.topics_of_interest?.length || 0) > 2 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{(app.topics_of_interest?.length || 0) - 2} more
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(app.application_status)}>
-                        {app.application_status.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-sm text-gray-500">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(app.submitted_at), 'MMM dd, yyyy')}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <ApplicationDetailDialog application={app} onStatusUpdate={updateApplicationStatus} />
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Topics</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredApplications.map((app) => (
+                    <TableRow key={app.application_id}>
+                      <TableCell className="font-medium">
+                        {app.individuals?.first_name && app.individuals?.last_name 
+                          ? `${app.individuals.first_name} ${app.individuals.last_name}`
+                          : 'Name not available'
+                        }
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Mail className="h-3 w-3 text-gray-400" />
+                          {app.individuals?.email || 'Email not available'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-gray-400" />
+                          {app.city && app.country 
+                            ? `${app.city}, ${app.country}` 
+                            : app.city || app.country || 'Not specified'
+                          }
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {app.topics_of_interest?.slice(0, 2).map((topic, index) => (
+                            <Badge key={index} variant="secondary" className="text-xs">
+                              {topic}
+                            </Badge>
+                          ))}
+                          {(app.topics_of_interest?.length || 0) > 2 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{(app.topics_of_interest?.length || 0) - 2} more
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(app.application_status)}>
+                          {app.application_status.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 text-sm text-gray-500">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(app.submitted_at), 'MMM dd, yyyy')}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <ApplicationDetailDialog 
+                          application={app} 
+                          onStatusUpdate={updateApplicationStatus} 
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -269,13 +313,17 @@ const ApplicationDetailDialog: React.FC<ApplicationDetailDialogProps> = ({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Eye className="h-4 w-4 mr-1" />
-          View
+          View Details
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl">
-            {application.individuals?.first_name} {application.individuals?.last_name}
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <Eye className="h-5 w-5" />
+            {application.individuals?.first_name && application.individuals?.last_name
+              ? `${application.individuals.first_name} ${application.individuals.last_name}`
+              : 'Mentor Application'
+            }
           </DialogTitle>
         </DialogHeader>
         
@@ -288,7 +336,7 @@ const ApplicationDetailDialog: React.FC<ApplicationDetailDialogProps> = ({
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-gray-500" />
                 <span className="text-sm text-gray-600">Email:</span>
-                <span>{application.individuals?.email}</span>
+                <span>{application.individuals?.email || 'Not provided'}</span>
               </div>
               
               {application.phone_number && (
@@ -302,7 +350,12 @@ const ApplicationDetailDialog: React.FC<ApplicationDetailDialogProps> = ({
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-gray-500" />
                 <span className="text-sm text-gray-600">Location:</span>
-                <span>{application.city && application.country ? `${application.city}, ${application.country}` : 'Not specified'}</span>
+                <span>
+                  {application.city && application.country 
+                    ? `${application.city}, ${application.country}` 
+                    : 'Not specified'
+                  }
+                </span>
               </div>
             </div>
             
@@ -337,7 +390,7 @@ const ApplicationDetailDialog: React.FC<ApplicationDetailDialogProps> = ({
                 <div className="flex flex-wrap gap-1">
                   {application.topics_of_interest?.map((topic, index) => (
                     <Badge key={index} variant="secondary">{topic}</Badge>
-                  ))}
+                  )) || <span className="text-sm text-gray-400">No topics specified</span>}
                 </div>
               </div>
               
@@ -346,7 +399,7 @@ const ApplicationDetailDialog: React.FC<ApplicationDetailDialogProps> = ({
                 <div className="flex flex-wrap gap-1">
                   {application.availability_days?.map((day, index) => (
                     <Badge key={index} variant="outline">{day}</Badge>
-                  ))}
+                  )) || <span className="text-sm text-gray-400">No days specified</span>}
                 </div>
               </div>
               
@@ -373,7 +426,7 @@ const ApplicationDetailDialog: React.FC<ApplicationDetailDialogProps> = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-600">Status:</label>
+              <label className="text-sm text-gray-600 block mb-1">Status:</label>
               <Select value={newStatus} onValueChange={setNewStatus}>
                 <SelectTrigger>
                   <SelectValue />

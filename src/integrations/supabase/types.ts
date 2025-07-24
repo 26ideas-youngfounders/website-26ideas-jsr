@@ -162,7 +162,15 @@ export type Database = {
           topics_of_interest?: Json | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_mentor_applications_individual_id"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

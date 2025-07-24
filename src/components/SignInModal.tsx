@@ -16,6 +16,10 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [dataProcessingConsent, setDataProcessingConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signInWithGoogle, signInWithFacebook, signUp, signIn } = useAuth();
 
@@ -27,7 +31,12 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
     
     try {
       if (isSignUp) {
-        const { error } = await signUp(email, password);
+        const { error } = await signUp(email, password, {
+          firstName,
+          lastName,
+          privacyConsent,
+          dataProcessingConsent,
+        });
         if (!error) {
           onSuccess?.();
         }
@@ -137,6 +146,35 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
 
         {/* Email/Password Form */}
         <form onSubmit={handleEmailSubmit} className="space-y-4 mb-6">
+          {isSignUp && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="John"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Doe"
+                    required
+                  />
+                </div>
+              </div>
+            </>
+          )}
+          
           <div>
             <Label htmlFor="email">Email</Label>
             <Input
@@ -160,6 +198,38 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
               required
             />
           </div>
+
+          {isSignUp && (
+            <div className="space-y-3">
+              <div className="flex items-start space-x-3">
+                <input
+                  type="checkbox"
+                  id="privacyConsent"
+                  checked={privacyConsent}
+                  onChange={(e) => setPrivacyConsent(e.target.checked)}
+                  className="mt-1"
+                  required
+                />
+                <Label htmlFor="privacyConsent" className="text-sm leading-relaxed">
+                  I agree to the privacy policy and consent to the processing of my personal data
+                </Label>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <input
+                  type="checkbox"
+                  id="dataProcessingConsent"
+                  checked={dataProcessingConsent}
+                  onChange={(e) => setDataProcessingConsent(e.target.checked)}
+                  className="mt-1"
+                  required
+                />
+                <Label htmlFor="dataProcessingConsent" className="text-sm leading-relaxed">
+                  I consent to the processing of my data for marketing and communication purposes
+                </Label>
+              </div>
+            </div>
+          )}
 
           <Button 
             type="submit" 

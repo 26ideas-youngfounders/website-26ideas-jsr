@@ -43,7 +43,12 @@ interface AuthContextType {
   /** Function to initiate Facebook OAuth sign-in */
   signInWithFacebook: () => Promise<void>;
   /** Function to register a new user with email/password */
-  signUp: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, userInfo?: {
+    firstName: string;
+    lastName: string;
+    privacyConsent: boolean;
+    dataProcessingConsent: boolean;
+  }) => Promise<{ error: any }>;
   /** Function to sign in existing user with email/password */
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   /** Function to sign out the current user */
@@ -215,12 +220,93 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * @function signUp
    * @param {string} email - User's email address
    * @param {string} password - User's chosen password
+   * @param {object} userInfo - Additional user information
    * @returns {Promise<{error: any}>} Promise with error object if sign-up fails
    */
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, userInfo?: {
+    firstName: string;
+    lastName: string;
+    privacyConsent: boolean;
+    dataProcessingConsent: boolean;
+  }) => {
+    // Validate required fields for individuals table
+    if (userInfo) {
+      if (!userInfo.firstName?.trim()) {
+        const error = new Error("First name is required");
+        console.error("❌ Sign-up validation failed:", error.message);
+        toast({
+          title: "Validation Error",
+          description: "First name is required",
+          variant: "destructive",
+        });
+        return { error };
+      }
+
+      if (!userInfo.lastName?.trim()) {
+        const error = new Error("Last name is required");
+        console.error("❌ Sign-up validation failed:", error.message);
+        toast({
+          title: "Validation Error",
+          description: "Last name is required",
+          variant: "destructive",
+        });
+        return { error };
+      }
+
+      if (!userInfo.privacyConsent) {
+        const error = new Error("Privacy consent is required");
+        console.error("❌ Sign-up validation failed:", error.message);
+        toast({
+          title: "Validation Error",
+          description: "You must agree to the privacy policy",
+          variant: "destructive",
+        });
+        return { error };
+      }
+
+      if (!userInfo.dataProcessingConsent) {
+        const error = new Error("Data processing consent is required");
+        console.error("❌ Sign-up validation failed:", error.message);
+        toast({
+          title: "Validation Error",
+          description: "You must consent to data processing",
+          variant: "destructive",
+        });
+        return { error };
+      }
+
+      // Check if email already exists in individuals table
+      const { data: existingIndividual, error: checkError } = await supabase
+        .from('individuals')
+        .select('email')
+        .eq('email', email)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console.error("❌ Error checking existing email:", checkError);
+        toast({
+          title: "Error",
+          description: "Failed to validate email. Please try again.",
+          variant: "destructive",
+        });
+        return { error: checkError };
+      }
+
+      if (existingIndividual) {
+        const error = new Error("Email already exists");
+        console.error("❌ Sign-up failed: Email already exists in individuals table:", email);
+        toast({
+          title: "Registration Error",
+          description: "An account with this email address already exists",
+          variant: "destructive",
+        });
+        return { error };
+      }
+    }
+
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -230,10 +316,58 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Handle sign-up errors
     if (error) {
+      console.error("❌ Supabase auth sign-up failed:", error);
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive",
+      });
+      return { error };
+    }
+
+    // If userInfo is provided, create individuals record
+    if (userInfo && data.user) {
+      const { error: individualError } = await supabase
+        .from('individuals')
+        .insert({
+          first_name: userInfo.firstName.trim(),
+          last_name: userInfo.lastName.trim(),
+          email: email,
+          privacy_consent: userInfo.privacyConsent,
+          data_processing_consent: userInfo.dataProcessingConsent,
+          country_code: '', // Default empty, can be updated later
+          country_iso_code: '', // Default empty, can be updated later
+          is_active: true,
+          email_verified: false, // Will be updated when email is confirmed
+        });
+
+      if (individualError) {
+        console.error("❌ Failed to create individuals record:", {
+          error: individualError,
+          userInfo,
+          email
+        });
+        
+        // Clean up the auth user if individual creation fails
+        await supabase.auth.signOut();
+        
+        toast({
+          title: "Registration Error",
+          description: "Failed to complete registration. Please try again.",
+          variant: "destructive",
+        });
+        return { error: individualError };
+      }
+
+      console.log("✅ Successfully created user and individual record:", {
+        email,
+        firstName: userInfo.firstName,
+        lastName: userInfo.lastName
+      });
+
+      toast({
+        title: "Success",
+        description: "Account created successfully! Please check your email to confirm your account.",
       });
     } else {
       // Success feedback - user needs to check email
@@ -243,7 +377,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
     }
     
-    return { error };
+    return { error: null };
   };
 
   /**

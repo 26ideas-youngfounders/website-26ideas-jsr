@@ -26,6 +26,35 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 /**
+ * User sign-up information interface
+ */
+interface UserSignUpInfo {
+  firstName: string;
+  lastName: string;
+  privacyConsent: boolean;
+  dataProcessingConsent: boolean;
+  countryCode?: string;
+  countryIsoCode?: string;
+  phoneNumber?: string;
+}
+
+/**
+ * User profile data from individuals table
+ */
+interface UserProfile {
+  individual_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  country_code?: string;
+  country_iso_code?: string;
+  privacy_consent: boolean;
+  data_processing_consent: boolean;
+  is_active: boolean;
+  email_verified: boolean;
+}
+
+/**
  * Authentication Context Type Definition
  * 
  * Defines the shape of the authentication context that will be available
@@ -36,6 +65,8 @@ interface AuthContextType {
   user: User | null;
   /** Current session object containing tokens and metadata */
   session: Session | null;
+  /** User profile data from individuals table */
+  userProfile: UserProfile | null;
   /** Loading state during authentication operations */
   loading: boolean;
   /** Function to initiate Google OAuth sign-in */
@@ -43,12 +74,7 @@ interface AuthContextType {
   /** Function to initiate Facebook OAuth sign-in */
   signInWithFacebook: () => Promise<void>;
   /** Function to register a new user with email/password */
-  signUp: (email: string, password: string, userInfo?: {
-    firstName: string;
-    lastName: string;
-    privacyConsent: boolean;
-    dataProcessingConsent: boolean;
-  }) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, userInfo?: UserSignUpInfo) => Promise<{ error: any }>;
   /** Function to sign in existing user with email/password */
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   /** Function to sign out the current user */
@@ -94,10 +120,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Authentication state management
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Toast notifications for user feedback
   const { toast } = useToast();
+
+  /**
+   * Fetch user profile from individuals table
+   */
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('individuals')
+        .select('*')
+        .eq('individual_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("❌ Failed to fetch user profile:", error);
+        return;
+      }
+
+      if (data) {
+        setUserProfile(data);
+        console.log("✅ User profile loaded:", {
+          firstName: data.first_name,
+          lastName: data.last_name,
+          email: data.email
+        });
+      } else {
+        console.log("⚠️ No user profile found for user:", userId);
+        setUserProfile(null);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching user profile:", error);
+      setUserProfile(null);
+    }
+  };
 
   /**
    * Effect hook to initialize authentication state and set up listeners
@@ -114,6 +174,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // Fetch user profile when user signs in
+        if (session?.user) {
+          // Use setTimeout to defer Supabase calls and prevent deadlock
+          setTimeout(() => {
+            fetchUserProfile(session.user.id);
+          }, 0);
+        } else {
+          setUserProfile(null);
+        }
+        
         setLoading(false);
       }
     );
@@ -122,6 +193,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      }
+      
       setLoading(false);
     });
 
@@ -223,12 +299,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * @param {object} userInfo - Additional user information
    * @returns {Promise<{error: any}>} Promise with error object if sign-up fails
    */
-  const signUp = async (email: string, password: string, userInfo?: {
-    firstName: string;
-    lastName: string;
-    privacyConsent: boolean;
-    dataProcessingConsent: boolean;
-  }) => {
+  const signUp = async (email: string, password: string, userInfo?: UserSignUpInfo) => {
     // Validate required fields for individuals table
     if (userInfo) {
       if (!userInfo.firstName?.trim()) {
@@ -330,13 +401,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error: individualError } = await supabase
         .from('individuals')
         .insert({
+          individual_id: data.user.id, // Use auth user ID as individual_id
           first_name: userInfo.firstName.trim(),
           last_name: userInfo.lastName.trim(),
           email: email,
           privacy_consent: userInfo.privacyConsent,
           data_processing_consent: userInfo.dataProcessingConsent,
-          country_code: '', // Default empty, can be updated later
-          country_iso_code: '', // Default empty, can be updated later
+          country_code: userInfo.countryCode || '+91', // Default to India
+          country_iso_code: userInfo.countryIsoCode || 'IN', // Default to India
           is_active: true,
           email_verified: false, // Will be updated when email is confirmed
         });
@@ -441,6 +513,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     user,
     session,
+    userProfile,
     loading,
     signInWithGoogle,
     signInWithFacebook,

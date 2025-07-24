@@ -37,7 +37,7 @@ import { supabase } from "@/integrations/supabase/client";
  * Interface for country code data from the database
  */
 interface CountryCode {
-  country_id: number;
+  country_id: string;
   country_name: string;
   country_code: string;
   iso_code: string;

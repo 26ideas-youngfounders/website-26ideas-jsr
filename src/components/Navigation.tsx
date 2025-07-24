@@ -50,7 +50,7 @@ const Navigation = () => {
   const insightsDropdownRef = useRef<HTMLDivElement>(null);
   
   // Authentication state and functions
-  const { user, signOut } = useAuth();
+  const { user, userProfile, signOut } = useAuth();
   
   // Navigation hook for programmatic routing
   const navigate = useNavigate();
@@ -289,15 +289,15 @@ const Navigation = () => {
           <div className="hidden md:block">
             {user ? (
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-muted-foreground">
-                  Welcome, {user.email}
-                </span>
                 <Button 
                   onClick={signOut}
                   variant="outline"
                   className="px-4 py-2 text-sm font-medium"
                 >
                   Sign Out
+                  {userProfile?.first_name && (
+                    <span className="ml-2 font-normal">| {userProfile.first_name}</span>
+                  )}
                 </Button>
               </div>
             ) : (
@@ -411,9 +411,15 @@ const Navigation = () => {
               <div className="pt-4 border-t border-gray-200">
                 {user ? (
                   <div className="space-y-3">
-                    <div className="text-sm text-gray-600">
-                      Welcome, {user.email}
-                    </div>
+                    {userProfile?.first_name ? (
+                      <div className="text-sm text-gray-600">
+                        Welcome, {userProfile.first_name}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-600">
+                        Welcome!
+                      </div>
+                    )}
                     <Button 
                       onClick={() => {
                         signOut();

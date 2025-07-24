@@ -110,8 +110,11 @@ const YoungFounderProfile: React.FC = () => {
     if (user?.email) {
       fetchUserProfile();
       fetchDashboardStats();
+    } else if (!authLoading) {
+      // No user and auth loading is complete, set loading to false
+      setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   const fetchUserProfile = async () => {
     try {

@@ -1,458 +1,241 @@
 
 /**
- * @fileoverview Main navigation component for the 26ideas Young Founders platform.
+ * @fileoverview Main Navigation Component
  * 
- * Provides the primary navigation interface with dropdown menus for different
- * sections of the platform, user authentication controls, and responsive design
- * for both desktop and mobile devices.
+ * Responsive navigation with authentication state handling,
+ * user profile display, and clean mobile menu functionality.
  * 
- * Features:
- * - Hierarchical dropdown navigation
- * - User authentication integration
- * - Mobile-responsive design
- * - Click-outside-to-close functionality
- * - Dynamic routing based on user state
- * 
- * @version 1.0.0
+ * @version 2.0.0
  * @author 26ideas Development Team
  */
 
-// Icons and UI Components
-import { ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
-
-// React Hooks and Router
-import { useState, useRef, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-
-// Internal Components and Hooks
-import { useAuth } from "@/hooks/useAuth";
-import SignInModal from "@/components/SignInModal";
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Menu, X, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import SignInModal from './SignInModal';
 
 /**
  * Navigation Component
  * 
- * Main navigation bar that appears at the top of every page.
- * Handles user authentication state, dropdown menus, and responsive design.
+ * Provides site-wide navigation with:
+ * - Responsive design for mobile and desktop
+ * - Authentication state management
+ * - User profile display when logged in
+ * - Clean mobile menu with proper accessibility
  * 
- * @returns {JSX.Element} The complete navigation bar component
+ * @returns JSX.Element - The complete navigation component
  */
-const Navigation = () => {
-  // State for dropdown menu management
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Individual references for each dropdown to prevent conflicts
-  const communityDropdownRef = useRef<HTMLDivElement>(null);
-  const eventsDropdownRef = useRef<HTMLDivElement>(null);
-  const insightsDropdownRef = useRef<HTMLDivElement>(null);
-  
-  // Authentication state and functions
+const Navigation: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(false);
+  const location = useLocation();
   const { user, userProfile, signOut } = useAuth();
-  
-  // Navigation hook for programmatic routing
-  const navigate = useNavigate();
+
+  console.log('Navigation - User profile data:', userProfile);
+  console.log('Navigation - First name available:', userProfile?.first_name);
 
   /**
-   * Navigation menu structure configuration
-   * Defines the main navigation items and their dropdown contents
+   * Navigation links configuration
+   * Defines all main navigation items
    */
-  const navItems = [
-    { 
-      label: "Our Community", 
-      hasDropdown: true,
-      dropdownItems: [
-        "Young Founders League",
-        "Chapters", 
-        "Campus Ambassadors",
-        "Alumni",
-        "Mentors", // Links to /community/mentors route
-        "Partners"
-      ],
-      ref: communityDropdownRef
-    },
-    { 
-      label: "Programmes", 
-      hasDropdown: false // Simple navigation item without dropdown
-    },
-    { 
-      label: "Events", 
-      hasDropdown: true,
-      dropdownItems: [
-        "Young Founders Floor",
-        "Annual Retreat",
-        "Women Founders Meetup"
-      ],
-      ref: eventsDropdownRef
-    },
-    { 
-      label: "Insights", 
-      hasDropdown: true,
-      dropdownItems: [
-        "Blogs",
-        "Newsletters",
-        "Articles"
-      ],
-      ref: insightsDropdownRef
-    },
+  const navLinks = [
+    { to: '/', label: 'Home' },
+    { to: '/annual-retreat', label: 'Annual Retreat' },
+    { to: '/mentor-signup', label: 'Become a Mentor' },
+    { to: '/yff', label: 'Young Founders Floor' },
   ];
 
   /**
-   * Effect hook to handle clicking outside dropdown menus
-   * Closes any open dropdown when user clicks outside the navigation area
+   * Checks if a navigation link is currently active
+   * @param path - The path to check
+   * @returns boolean - Whether the path is active
    */
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      
-      // Check if click is outside all dropdown refs
-      const isOutsideAllDropdowns = [
-        communityDropdownRef,
-        eventsDropdownRef,
-        insightsDropdownRef
-      ].every(ref => !ref.current?.contains(target));
-      
-      if (isOutsideAllDropdowns) {
-        setActiveDropdown(null);
-      }
-    };
-
-    // Add event listener for mouse clicks
-    document.addEventListener('mousedown', handleClickOutside);
-    
-    // Cleanup function to remove event listener
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  /**
-   * Closes the active dropdown menu
-   */
-  const closeDropdown = () => {
-    console.log('🔄 Closing dropdown');
-    setActiveDropdown(null);
+  const isActiveLink = (path: string): boolean => {
+    return location.pathname === path;
   };
 
   /**
-   * Handles navigation for special dropdown items with debugging
-   * @param {string} itemName - The name of the dropdown item
+   * Handles user sign out with error handling
    */
-  const handleSpecialNavigation = (itemName: string) => {
-    console.log('🚀 handleSpecialNavigation called with:', itemName);
-    
+  const handleSignOut = async (): Promise<void> => {
     try {
-      // Close dropdown immediately
-      console.log('🔄 Closing dropdown before navigation');
-      setActiveDropdown(null);
-      
-      // Navigate immediately without setTimeout to avoid any timing issues
-      switch (itemName) {
-        case "Young Founders Floor":
-          console.log('📍 Navigating to /young-founders-floor');
-          navigate("/young-founders-floor");
-          console.log('✅ Navigation call completed');
-          break;
-        default:
-          console.log('⚠️ No navigation defined for:', itemName);
-          break;
-      }
+      await signOut();
+      console.log('User signed out successfully');
     } catch (error) {
-      console.error('❌ Navigation error:', error);
-      // Fallback: try using window.location as backup
-      if (itemName === "Young Founders Floor") {
-        console.log('🔄 Fallback: Using window.location');
-        window.location.href = "/young-founders-floor";
-      }
+      console.error('Error signing out:', error);
     }
   };
 
   /**
-   * Route mapping function for dropdown items
-   * Maps specific dropdown items to their corresponding routes
-   * @param {string} itemName - The name of the dropdown item
-   * @returns {string} The route path for the item
+   * Toggles mobile menu visibility
    */
-  const getItemRoute = (itemName: string) => {
-    switch (itemName) {
-      case "Mentors":
-        return "/community/mentors"; // Mentor signup page
-      case "Annual Retreat":
-        return "/events/annual-retreat"; // Annual retreat page
-      default:
-        return "#"; // Placeholder for future routes
-    }
+  const toggleMenu = (): void => {
+    setIsOpen(!isOpen);
   };
 
   /**
-   * Checks if an item needs special navigation handling
-   * @param {string} itemName - The name of the dropdown item
-   * @returns {boolean} True if item needs special handling
+   * Closes mobile menu when link is clicked
    */
-  const needsSpecialNavigation = (itemName: string) => {
-    return itemName === "Young Founders Floor";
+  const closeMobileMenu = (): void => {
+    setIsOpen(false);
   };
 
   return (
-    <nav className="w-full bg-background border-b border-nav-border">
+    <nav className="bg-white shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex-shrink-0">
-            <div className="flex items-center">
-              <img 
-                src="/lovable-uploads/72856c44-6ead-48de-8838-a00fe8990bad.png" 
-                alt="26ideas Young Founders" 
-                className="h-8 w-auto"
-              />
-            </div>
+        <div className="flex justify-between h-16">
+          {/* Logo/Brand */}
+          <div className="flex items-center">
+            <Link 
+              to="/" 
+              className="flex-shrink-0 flex items-center"
+              onClick={closeMobileMenu}
+            >
+              <span className="text-2xl font-bold text-primary">26ideas</span>
+            </Link>
           </div>
 
-          {/* Navigation Items */}
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-8">
-              {navItems.map((item, index) => (
-                <div key={item.label} className="relative group" ref={item.ref || null}>
-                  <button 
-                    className="flex items-center text-gray-700 hover:text-gray-900 transition-colors duration-200 text-sm font-medium py-2"
-                    onClick={() => {
-                      if (item.hasDropdown) {
-                        console.log('📋 Dropdown clicked:', item.label);
-                        setActiveDropdown(activeDropdown === item.label ? null : item.label);
-                      }
-                    }}
-                  >
-                    {item.label}
-                    {item.hasDropdown && (
-                      <ChevronDown className={`ml-1 h-4 w-4 transition-transform duration-200 ${
-                        activeDropdown === item.label ? 'rotate-180' : ''
-                      }`} />
-                    )}
-                  </button>
-                  
-                  {/* Dropdown Menu */}
-                  {item.hasDropdown && activeDropdown === item.label && item.dropdownItems && (
-                    <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                      <div className="py-2">
-                        {item.dropdownItems.map((dropdownItem) => {
-                          if (needsSpecialNavigation(dropdownItem)) {
-                            return (
-                              <button
-                                key={dropdownItem}
-                                type="button"
-                                className="w-full text-left block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150 focus:outline-none focus:bg-gray-100"
-                                onClick={(e) => {
-                                  console.log('🖱️ Special navigation button clicked:', dropdownItem);
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleSpecialNavigation(dropdownItem);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    console.log('⌨️ Special navigation key pressed:', e.key, dropdownItem);
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleSpecialNavigation(dropdownItem);
-                                  }
-                                }}
-                              >
-                                {dropdownItem}
-                              </button>
-                            );
-                          }
-                          
-                          return (
-                            <Link
-                              key={dropdownItem}
-                              to={getItemRoute(dropdownItem)}
-                              className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150"
-                              onClick={() => {
-                                console.log('🔗 Regular link clicked:', dropdownItem);
-                                setActiveDropdown(null);
-                              }}
-                            >
-                              {dropdownItem}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Sign In/Out Button */}
-          <div className="hidden md:block">
-            {user ? (
-              <div className="flex items-center space-x-4">
-                <Button 
-                  onClick={signOut}
-                  variant="outline"
-                  className="px-4 py-2 text-sm font-medium"
-                >
-                  Sign Out
-                  {userProfile?.first_name && (
-                    <span className="ml-2 font-normal">| {userProfile.first_name}</span>
-                  )}
-                </Button>
-              </div>
-            ) : (
-              <Button 
-                onClick={() => setIsSignInModalOpen(true)}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-8">
+            {navLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                  isActiveLink(link.to)
+                    ? 'text-primary bg-primary/10'
+                    : 'text-gray-700 hover:text-primary hover:bg-primary/5'
+                }`}
               >
-                Sign In
-              </Button>
-            )}
+                {link.label}
+              </Link>
+            ))}
+
+            {/* Desktop Authentication */}
+            <div className="flex items-center space-x-4">
+              {user ? (
+                <div className="flex items-center space-x-3">
+                  {userProfile?.first_name ? (
+                    <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Welcome, {userProfile.first_name}
+                    </span>
+                  ) : (
+                    <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Welcome
+                    </span>
+                  )}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleSignOut}
+                  >
+                    Sign Out
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={() => setShowSignIn(true)}
+                >
+                  Sign In
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button 
-              className="text-gray-700 hover:text-gray-900 p-2"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label="Toggle mobile menu"
+          <div className="md:hidden flex items-center">
+            <button
+              onClick={toggleMenu}
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+              aria-expanded={isOpen}
+              aria-label="Toggle navigation menu"
             >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                {isMobileMenuOpen ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                )}
-              </svg>
+              {isOpen ? (
+                <X className="block h-6 w-6" />
+              ) : (
+                <Menu className="block h-6 w-6" />
+              )}
             </button>
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-200">
-            <div className="px-4 py-6 space-y-4">
-              {/* Mobile Navigation Items */}
-              {navItems.map((item) => (
-                <div key={item.label} className="space-y-2">
-                  <button
-                    className="flex items-center justify-between w-full text-left text-gray-700 hover:text-gray-900 font-medium py-2"
-                    onClick={() => {
-                      if (item.hasDropdown) {
-                        setActiveDropdown(activeDropdown === item.label ? null : item.label);
-                      }
-                    }}
-                  >
-                    {item.label}
-                    {item.hasDropdown && (
-                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${
-                        activeDropdown === item.label ? 'rotate-180' : ''
-                      }`} />
-                    )}
-                  </button>
-                  
-                  {/* Mobile Dropdown Items */}
-                  {item.hasDropdown && activeDropdown === item.label && item.dropdownItems && (
-                    <div className="pl-4 space-y-2">
-                      {item.dropdownItems.map((dropdownItem) => {
-                        if (needsSpecialNavigation(dropdownItem)) {
-                          return (
-                            <button
-                              key={dropdownItem}
-                              type="button"
-                              className="block w-full text-left py-2 text-sm text-gray-600 hover:text-gray-900"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setIsMobileMenuOpen(false);
-                                handleSpecialNavigation(dropdownItem);
-                              }}
-                            >
-                              {dropdownItem}
-                            </button>
-                          );
-                        }
-                        
-                        return (
-                          <Link
-                            key={dropdownItem}
-                            to={getItemRoute(dropdownItem)}
-                            className="block py-2 text-sm text-gray-600 hover:text-gray-900"
-                            onClick={() => {
-                              setActiveDropdown(null);
-                              setIsMobileMenuOpen(false);
-                            }}
-                          >
-                            {dropdownItem}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+        {/* Mobile Navigation Menu */}
+        {isOpen && (
+          <div className="md:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={closeMobileMenu}
+                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
+                    isActiveLink(link.to)
+                      ? 'text-primary bg-primary/10'
+                      : 'text-gray-700 hover:text-primary hover:bg-primary/5'
+                  }`}
+                >
+                  {link.label}
+                </Link>
               ))}
 
-              {/* Mobile Sign In/Out Section */}
-              <div className="pt-4 border-t border-gray-200">
+              {/* Mobile Authentication */}
+              <div className="pt-4 pb-3 border-t border-gray-200">
                 {user ? (
                   <div className="space-y-3">
                     {userProfile?.first_name ? (
-                      <div className="text-sm text-gray-600">
+                      <div className="px-3 py-2 text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <User className="h-4 w-4" />
                         Welcome, {userProfile.first_name}
                       </div>
                     ) : (
-                      <div className="text-sm text-gray-600">
-                        Welcome!
+                      <div className="px-3 py-2 text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Welcome
                       </div>
                     )}
-                    <Button 
-                      onClick={() => {
-                        signOut();
-                        setIsMobileMenuOpen(false);
-                      }}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      Sign Out
-                    </Button>
+                    <div className="px-3">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => {
+                          handleSignOut();
+                          closeMobileMenu();
+                        }}
+                      >
+                        Sign Out
+                      </Button>
+                    </div>
                   </div>
                 ) : (
-                  <Button 
-                    onClick={() => {
-                      setIsSignInModalOpen(true);
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="w-full"
-                  >
-                    Sign In
-                  </Button>
+                  <div className="px-3">
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => {
+                        setShowSignIn(true);
+                        closeMobileMenu();
+                      }}
+                    >
+                      Sign In
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
           </div>
         )}
       </div>
-      
+
       {/* Sign In Modal */}
-      <SignInModal 
-        isOpen={isSignInModalOpen}
-        onClose={() => setIsSignInModalOpen(false)}
-      />
+      <SignInModal open={showSignIn} onOpenChange={setShowSignIn} />
     </nav>
   );
 };

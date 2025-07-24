@@ -235,7 +235,14 @@ const Navigation: React.FC = () => {
       </div>
 
       {/* Sign In Modal */}
-      <SignInModal open={showSignIn} onOpenChange={setShowSignIn} />
+      <SignInModal 
+        isOpen={showSignIn} 
+        onClose={() => setShowSignIn(false)}
+        onSuccess={() => {
+          setShowSignIn(false);
+          console.log('✅ Authentication successful - modal closed');
+        }}
+      />
     </nav>
   );
 };

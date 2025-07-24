@@ -14,16 +14,142 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      individuals: {
+        Row: {
+          country_code: string | null
+          country_iso_code: string | null
+          created_at: string
+          data_processing_consent: boolean
+          email: string
+          email_verified: boolean
+          first_name: string
+          individual_id: string
+          is_active: boolean
+          last_name: string
+          privacy_consent: boolean
+          updated_at: string
+        }
+        Insert: {
+          country_code?: string | null
+          country_iso_code?: string | null
+          created_at?: string
+          data_processing_consent?: boolean
+          email: string
+          email_verified?: boolean
+          first_name: string
+          individual_id?: string
+          is_active?: boolean
+          last_name: string
+          privacy_consent?: boolean
+          updated_at?: string
+        }
+        Update: {
+          country_code?: string | null
+          country_iso_code?: string | null
+          created_at?: string
+          data_processing_consent?: boolean
+          email?: string
+          email_verified?: boolean
+          first_name?: string
+          individual_id?: string
+          is_active?: boolean
+          last_name?: string
+          privacy_consent?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          individual_id: string
+          is_active: boolean
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          individual_id: string
+          is_active?: boolean
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          individual_id?: string
+          is_active?: boolean
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+        ]
+      }
+      yff_applications: {
+        Row: {
+          answers: Json
+          application_id: string
+          created_at: string
+          cumulative_score: number | null
+          individual_id: string
+          reviewer_scores: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          application_id?: string
+          created_at?: string
+          cumulative_score?: number | null
+          individual_id: string
+          reviewer_scores?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          application_id?: string
+          created_at?: string
+          cumulative_score?: number | null
+          individual_id?: string
+          reviewer_scores?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "yff_applications_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: false
+            referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _user_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "super_admin" | "yff_admin" | "mentor_admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +276,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "super_admin", "yff_admin", "mentor_admin", "user"],
+    },
   },
 } as const

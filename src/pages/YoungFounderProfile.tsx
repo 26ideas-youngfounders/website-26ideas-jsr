@@ -94,14 +94,15 @@ const YoungFounderProfile: React.FC = () => {
   const [editedProfile, setEditedProfile] = useState<Partial<UserProfile>>({});
   const [loading, setLoading] = useState(true);
 
-  // Redirect if not authenticated
+  // Redirect if not authenticated - TEMPORARILY DISABLED FOR TESTING
   useEffect(() => {
     console.log('YoungFounderProfile: Auth state', { user: !!user, authLoading, email: user?.email });
-    if (!authLoading && !user) {
-      console.log('YoungFounderProfile: Redirecting to home - no user');
-      navigate('/');
-      return;
-    }
+    // Temporarily commented out for testing
+    // if (!authLoading && !user) {
+    //   console.log('YoungFounderProfile: Redirecting to home - no user');
+    //   navigate('/');
+    //   return;
+    // }
   }, [user, authLoading, navigate]);
 
   // Fetch user profile and dashboard data

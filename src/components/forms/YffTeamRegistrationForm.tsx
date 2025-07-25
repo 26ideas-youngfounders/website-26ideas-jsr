@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -13,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Country, getCountries } from 'react-select-country-list';
+import countryList from 'react-select-country-list';
 import { YffAutosaveIndicator } from '@/components/forms/YffAutosaveIndicator';
 import { useAutosave } from '@/hooks/useAutosave';
 
@@ -53,7 +52,7 @@ export type YffRegistration = YffRegistrationFormData & {
   teamMembers: TeamMember[];
 };
 
-// Yup schema for form validation
+// Yup schema for form validation - matching the exact interface
 const schema = yup.object().shape({
   fullName: yup.string().required('Full name is required'),
   email: yup.string().email('Invalid email format').required('Email is required'),
@@ -119,7 +118,7 @@ export const YffTeamRegistrationForm = () => {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [countries, setCountries] = useState<CountryOption[]>([]);
   
-  // Initialize react-hook-form methods
+  // Initialize react-hook-form methods with proper typing
   const methods = useForm<YffRegistrationFormData>({
     resolver: yupResolver(schema),
     defaultValues: {
@@ -138,6 +137,13 @@ export const YffTeamRegistrationForm = () => {
       currentYearOfStudy: '',
       expectedGraduation: new Date(),
       numberOfTeamMembers: 1,
+      ventureName: '',
+      industrySector: '',
+      teamName: '',
+      website: '',
+      linkedinProfile: '',
+      socialMediaHandles: '',
+      referralId: '',
     },
     mode: 'onBlur',
   });
@@ -158,19 +164,18 @@ export const YffTeamRegistrationForm = () => {
 
   // Load countries on component mount
   useEffect(() => {
-    const countryList = getCountries()
-      .getLabels()
-      .map((label) => ({
-        label,
-        value: getCountries().getCode(label) || '',
-      }));
-    setCountries(countryList);
+    const countries = countryList();
+    const countryOptions = countries.getData().map((country) => ({
+      label: country.label,
+      value: country.value,
+    }));
+    setCountries(countryOptions);
   }, []);
 
   /**
    * Handle form submission with automatic redirect to questionnaire
    */
-  const handleFormSubmit = async (data: YffRegistrationFormData) => {
+  const onSubmit = async (data: YffRegistrationFormData) => {
     if (!user) {
       console.error("❌ User not authenticated");
       toast.error("Authentication Error", {
@@ -332,7 +337,7 @@ export const YffTeamRegistrationForm = () => {
       </div>
 
       <FormProvider {...methods}>
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-8">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           {/* Personal Information */}
           <section>
             <h2 className="text-xl font-semibold text-gray-800 mb-4">
@@ -405,9 +410,8 @@ export const YffTeamRegistrationForm = () => {
               <div>
                 <Label htmlFor="dateOfBirth">Date of Birth</Label>
                 <DatePicker
-                  id="dateOfBirth"
-                  onSelect={(date) => setValue('dateOfBirth', date || new Date())}
                   selected={getValues('dateOfBirth')}
+                  onSelect={(date) => setValue('dateOfBirth', date || new Date())}
                 />
                 {errors.dateOfBirth && (
                   <p className="text-red-500 text-sm mt-1">

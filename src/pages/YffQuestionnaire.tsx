@@ -11,7 +11,7 @@ import { toast } from 'sonner';
  * YFF Questionnaire page - accessible only to users with completed registration
  * Handles questionnaire completion for registered YFF applicants
  */
-export const YffQuestionnaire = () => {
+const YffQuestionnaire = () => {
   const { user } = useAuth();
   const [registration, setRegistration] = useState<YffRegistration | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -150,3 +150,5 @@ export const YffQuestionnaire = () => {
     </div>
   );
 };
+
+export default YffQuestionnaire;

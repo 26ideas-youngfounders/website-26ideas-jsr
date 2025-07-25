@@ -77,33 +77,33 @@ interface QuestionnaireFormData {
 /**
  * Questionnaire form schema with word count validation
  * NOTE: All fields are REQUIRED - this enforces consistent typing
- * Schema must produce required string fields to match QuestionnaireFormData interface
+ * Using nonempty() ensures Zod infers required string fields to match QuestionnaireFormData interface
  */
 const questionnaireSchema = z.object({
   whyApplying: z.string()
-    .min(1, 'This field is required')
+    .nonempty('This field is required')
     .refine(text => validateWordCount(text, 300), 'Answer must not exceed 300 words'),
   
   businessIdea: z.string()
-    .min(1, 'This field is required')
+    .nonempty('This field is required')
     .refine(text => validateWordCount(text, 300), 'Answer must not exceed 300 words'),
   
   experience: z.string()
-    .min(1, 'This field is required')
+    .nonempty('This field is required')
     .refine(text => validateWordCount(text, 300), 'Answer must not exceed 300 words'),
   
   challenges: z.string()
-    .min(1, 'This field is required')
+    .nonempty('This field is required')
     .refine(text => validateWordCount(text, 300), 'Answer must not exceed 300 words'),
   
   goals: z.string()
-    .min(1, 'This field is required')
+    .nonempty('This field is required')
     .refine(text => validateWordCount(text, 300), 'Answer must not exceed 300 words'),
   
   commitment: z.string()
-    .min(1, 'This field is required')
+    .nonempty('This field is required')
     .refine(text => validateWordCount(text, 300), 'Answer must not exceed 300 words'),
-}) satisfies z.ZodType<QuestionnaireFormData>;
+});
 
 /**
  * YFF Questionnaire Form Component
@@ -187,11 +187,21 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
         return;
       }
 
+      // Convert QuestionnaireFormData to JSON-compatible format for Supabase
+      const questionnaireAnswers = {
+        whyApplying: data.whyApplying,
+        businessIdea: data.businessIdea,
+        experience: data.experience,
+        challenges: data.challenges,
+        goals: data.goals,
+        commitment: data.commitment,
+      };
+
       // Update registration with questionnaire answers
       const { error } = await supabase
         .from('yff_team_registrations')
         .update({
-          questionnaire_answers: data,
+          questionnaire_answers: questionnaireAnswers,
           questionnaire_completed_at: new Date().toISOString(),
           application_status: 'questionnaire_completed',
           updated_at: new Date().toISOString(),

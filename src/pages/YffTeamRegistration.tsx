@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { YffTeamRegistrationForm } from '@/components/forms/YffTeamRegistrationForm';
@@ -11,14 +11,16 @@ import { YffTeamRegistrationForm } from '@/components/forms/YffTeamRegistrationF
 export const YffTeamRegistration = () => {
   const { user } = useAuth();
 
+  // Ensure page starts at top when mounted
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    console.log("📄 YFF Team Registration page loaded - scrolled to absolute top");
+  }, []);
+
   // Redirect to login if not authenticated
   if (!user) {
     return <Navigate to="/young-founders-floor" replace />;
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <YffTeamRegistrationForm />
-    </div>
-  );
+  return <YffTeamRegistrationForm />;
 };

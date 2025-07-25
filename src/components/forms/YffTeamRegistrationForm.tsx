@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { InferType } from 'yup';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -17,7 +18,7 @@ import countryList from 'react-select-country-list';
 import { YffAutosaveIndicator } from '@/components/forms/YffAutosaveIndicator';
 import { useAutosave } from '@/hooks/useAutosave';
 
-// Define types for form data and team members
+// Define types for team members
 type TeamMember = {
   name: string;
   email: string;
@@ -25,45 +26,15 @@ type TeamMember = {
 };
 
 /**
- * YFF Registration Form Data Interface
- * ALL FIELDS ARE REQUIRED - keep in sync with schema and defaults
- */
-type YffRegistrationFormData = {
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  countryCode: string;
-  dateOfBirth: Date;
-  currentCity: string;
-  state: string;
-  pinCode: string;
-  permanentAddress: string;
-  gender: 'male' | 'female' | 'other';
-  institutionName: string;
-  courseProgram: string;
-  currentYearOfStudy: string;
-  expectedGraduation: Date;
-  numberOfTeamMembers: number;
-  ventureName: string;
-  industrySector: string;
-  teamName: string;
-  website: string;
-  linkedinProfile: string;
-  socialMediaHandles: string;
-  referralId: string;
-};
-
-export type YffRegistration = YffRegistrationFormData & {
-  teamMembers: TeamMember[];
-};
-
-/**
+ * CRITICAL: YffRegistrationFormData type and yffRegistrationSchema must always match exactly
+ * If you change any field to optional/required, update BOTH the schema and the type
+ * Run `tsc --noEmit` before committing to catch type mismatches
+ * 
  * IMPORTANT: All .required() calls must provide a message, or Yup will infer the field as optional in TypeScript.
  * 
- * Yup schema - STRICTLY ALIGNED with YffRegistrationFormData interface
- * All fields must be defined as required with proper error messages to match the interface exactly
+ * Yup schema - Generate TypeScript type from this schema to ensure perfect alignment
  */
-const schema = yup.object({
+const yffRegistrationSchema = yup.object({
   fullName: yup.string().required('Full name is required'),
   email: yup.string().email('Invalid email format').required('Email is required'),
   phoneNumber: yup.string().required('Phone number is required'),
@@ -79,7 +50,6 @@ const schema = yup.object({
   currentYearOfStudy: yup.string().required('Current year of study is required'),
   expectedGraduation: yup.date().required('Expected graduation date is required'),
   numberOfTeamMembers: yup.number().required('Number of team members is required').min(1, 'Must have at least 1 team member'),
-  // Venture fields - required as strings but can be empty for optional sections
   ventureName: yup.string().required('Venture name is required'),
   industrySector: yup.string().required('Industry sector is required'),
   teamName: yup.string().required('Team name is required'),
@@ -87,7 +57,17 @@ const schema = yup.object({
   linkedinProfile: yup.string().required('LinkedIn profile is required'),
   socialMediaHandles: yup.string().required('Social media handles is required'),
   referralId: yup.string().required('Referral ID is required'),
-});
+}).required();
+
+/**
+ * Generate the TypeScript type directly from the Yup schema
+ * This ensures perfect alignment between schema validation and TypeScript types
+ */
+type YffRegistrationFormData = InferType<typeof yffRegistrationSchema>;
+
+export type YffRegistration = YffRegistrationFormData & {
+  teamMembers: TeamMember[];
+};
 
 // Type for country options
 type CountryOption = {
@@ -102,7 +82,7 @@ type CountryOption = {
  */
 const validateRegistrationData = (data: YffRegistrationFormData): { isValid: boolean; errors: string[] } => {
   try {
-    schema.validateSync(data, { abortEarly: false });
+    yffRegistrationSchema.validateSync(data, { abortEarly: false });
     return { isValid: true, errors: [] };
   } catch (error: any) {
     const errors = error.inner.map((err: yup.ValidationError) => err.message);
@@ -131,9 +111,9 @@ export const YffTeamRegistrationForm = () => {
   
   // Initialize react-hook-form methods with proper typing and ALL required defaults
   const methods = useForm<YffRegistrationFormData>({
-    resolver: yupResolver(schema),
+    resolver: yupResolver(yffRegistrationSchema),
     defaultValues: {
-      // All required fields must have default values
+      // All required fields must have default values - matches schema exactly
       fullName: userProfile?.first_name + ' ' + userProfile?.last_name || '',
       email: userProfile?.email || '',
       phoneNumber: '',
@@ -143,13 +123,12 @@ export const YffTeamRegistrationForm = () => {
       state: '',
       pinCode: '',
       permanentAddress: '',
-      gender: 'other',
+      gender: 'other' as const,
       institutionName: '',
       courseProgram: '',
       currentYearOfStudy: '',
       expectedGraduation: new Date(),
       numberOfTeamMembers: 1,
-      // Optional venture fields - but required as strings
       ventureName: '',
       industrySector: '',
       teamName: '',

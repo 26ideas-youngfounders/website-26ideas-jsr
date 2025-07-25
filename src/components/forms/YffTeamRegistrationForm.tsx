@@ -26,7 +26,7 @@ const industryOptions = [
   'Social Impact', 'Media', 'Other'
 ];
 
-// Enhanced form validation schema
+// Enhanced form validation schema (removed ID card validation)
 const teamRegistrationSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters").max(100, "Full name is too long"),
   email: z.string().email("Please enter a valid email address"),
@@ -46,7 +46,7 @@ const teamRegistrationSchema = z.object({
   pinCode: z.string().min(6, "PIN code must be at least 6 digits").max(6, "PIN code must be exactly 6 digits").regex(/^\d{6}$/, "PIN code must contain only numbers"),
   permanentAddress: z.string().min(10, "Permanent address is required").max(500, "Permanent address is too long"),
   
-  // New fields for team, venture, and referral
+  // New fields for team, venture, and referral (removed ID card)
   teamName: z.string().optional(),
   numberOfTeamMembers: z.number().min(1).max(4),
   teamMembers: z.array(z.object({
@@ -54,7 +54,6 @@ const teamRegistrationSchema = z.object({
     email: z.string().email("Valid email is required"),
     linkedinProfile: z.string().optional(),
     socialMediaHandles: z.string().optional(),
-    idCardFile: z.any().optional(),
   })).optional(),
   ventureName: z.string().optional(),
   industrySector: z.string().optional(),
@@ -71,7 +70,6 @@ interface TeamMember {
   email: string;
   linkedinProfile?: string;
   socialMediaHandles?: string;
-  idCardFile?: File | null;
 }
 
 // Interface for autosave data structure
@@ -135,6 +133,7 @@ export const YffTeamRegistrationForm = () => {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [numberOfTeamMembers, setNumberOfTeamMembers] = useState(1);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   // Scroll to top when component mounts
   useEffect(() => {
@@ -172,6 +171,11 @@ export const YffTeamRegistrationForm = () => {
   // Load autosaved data on component mount
   useEffect(() => {
     const loadData = async () => {
+      if (!user) {
+        setProfileError("You must be signed in to register. Please sign in and try again.");
+        return;
+      }
+
       try {
         const savedData = await loadSavedData();
         if (savedData && isAutosaveData(savedData)) {
@@ -201,13 +205,12 @@ export const YffTeamRegistrationForm = () => {
         }
       } catch (error) {
         console.error('❌ Error loading autosaved data:', error);
+        setProfileError("Could not load your profile. Please refresh or contact support.");
         toast.error('Failed to restore previous session data');
       }
     };
     
-    if (user) {
-      loadData();
-    }
+    loadData();
   }, [user, loadSavedData, setValue]);
 
   // Check for existing registration on component mount
@@ -222,12 +225,17 @@ export const YffTeamRegistrationForm = () => {
           .eq('individual_id', user.id)
           .maybeSingle();
 
-        if (data && !error) {
+        if (error) {
+          console.error('❌ Error checking existing registration:', error);
+          return;
+        }
+
+        if (data) {
           setHasExistingRegistration(true);
           console.log("✅ Existing registration found:", data);
         }
       } catch (error) {
-        console.log("📝 No existing registration found, user can register");
+        console.error('❌ Error checking existing registration:', error);
       }
     };
 
@@ -255,7 +263,6 @@ export const YffTeamRegistrationForm = () => {
       email: watch('email') || '',
       linkedinProfile: watch('linkedinProfile') || '',
       socialMediaHandles: watch('socialMediaHandles') || '',
-      idCardFile: null,
     });
     
     // Add additional members
@@ -265,7 +272,6 @@ export const YffTeamRegistrationForm = () => {
         email: '',
         linkedinProfile: '',
         socialMediaHandles: '',
-        idCardFile: null,
       });
     }
     
@@ -290,29 +296,6 @@ export const YffTeamRegistrationForm = () => {
     setValue('numberOfTeamMembers', updatedMembers.length);
   };
 
-  // Upload file to Supabase storage
-  const uploadFile = async (file: File, memberIndex: number): Promise<string | null> => {
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id}/${memberIndex}-${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('yff-id-cards')
-        .upload(fileName, file);
-
-      if (uploadError) {
-        console.error('❌ File upload failed:', uploadError);
-        return null;
-      }
-
-      console.log('✅ File uploaded successfully:', fileName);
-      return fileName;
-    } catch (error) {
-      console.error('❌ File upload error:', error);
-      return null;
-    }
-  };
-
   /**
    * Validates form data and updates validation errors
    */
@@ -331,7 +314,7 @@ export const YffTeamRegistrationForm = () => {
     if (!data.pinCode?.trim()) errors.push("PIN code is required");
     if (!data.permanentAddress?.trim()) errors.push("Permanent address is required");
 
-    // Team validation
+    // Team validation (removed ID card validation)
     if (numberOfTeamMembers > 1) {
       if (!data.teamName?.trim()) errors.push("Team name is required for multi-member teams");
       
@@ -339,7 +322,6 @@ export const YffTeamRegistrationForm = () => {
       teamMembers.forEach((member, index) => {
         if (!member.fullName?.trim()) errors.push(`Team member ${index + 1} name is required`);
         if (!member.email?.trim()) errors.push(`Team member ${index + 1} email is required`);
-        if (!member.idCardFile && index > 0) errors.push(`Team member ${index + 1} ID card is required`);
       });
     }
 
@@ -447,6 +429,12 @@ export const YffTeamRegistrationForm = () => {
       return;
     }
 
+    if (profileError) {
+      setSubmitError(profileError);
+      toast.error(profileError);
+      return;
+    }
+
     // Validate form data
     const formErrors = validateFormData(data);
     if (formErrors.length > 0) {
@@ -472,31 +460,13 @@ export const YffTeamRegistrationForm = () => {
 
       console.log("✅ Using individual_id:", individualId);
 
-      // Upload ID card files and prepare team members data
-      const processedTeamMembers = [];
-      
-      for (let i = 0; i < teamMembers.length; i++) {
-        const member = teamMembers[i];
-        let idCardPath = null;
-        
-        if (member.idCardFile) {
-          idCardPath = await uploadFile(member.idCardFile, i);
-          if (!idCardPath) {
-            const errorMsg = `Failed to upload ID card for ${member.fullName}. Please try again.`;
-            setSubmitError(errorMsg);
-            toast.error(errorMsg);
-            return;
-          }
-        }
-        
-        processedTeamMembers.push({
-          fullName: member.fullName,
-          email: member.email,
-          linkedinProfile: member.linkedinProfile || null,
-          socialMediaHandles: member.socialMediaHandles || null,
-          idCardPath,
-        });
-      }
+      // Prepare team members data (removed ID card processing)
+      const processedTeamMembers = teamMembers.map(member => ({
+        fullName: member.fullName,
+        email: member.email,
+        linkedinProfile: member.linkedinProfile || null,
+        socialMediaHandles: member.socialMediaHandles || null,
+      }));
 
       const registrationData = {
         individual_id: individualId,
@@ -517,7 +487,7 @@ export const YffTeamRegistrationForm = () => {
         pin_code: data.pinCode.trim(),
         permanent_address: data.permanentAddress.trim(),
         
-        // New fields
+        // New fields (removed ID card references)
         team_name: data.teamName?.trim() || null,
         number_of_team_members: numberOfTeamMembers,
         team_members: processedTeamMembers,
@@ -592,6 +562,35 @@ export const YffTeamRegistrationForm = () => {
       setValidationErrors([]);
     }
   };
+
+  // If there's a profile error, show it
+  if (profileError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12">
+        <div className="max-w-2xl mx-auto p-6">
+          <Card className="border-red-200 bg-white shadow-lg">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <AlertCircle className="w-8 h-8 text-red-600" />
+              </div>
+              <CardTitle className="text-2xl font-bold text-red-800">Profile Error</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-red-700 mb-6 text-lg">
+                {profileError}
+              </p>
+              <Button 
+                onClick={() => window.location.reload()}
+                className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 text-lg font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                Refresh Page
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   // If user has already registered, show message with matching design
   if (hasExistingRegistration) {

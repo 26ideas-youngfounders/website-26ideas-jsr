@@ -74,6 +74,52 @@ interface TeamMember {
   idCardFile?: File | null;
 }
 
+// Interface for autosave data structure
+interface AutosaveData {
+  teamMembers?: TeamMember[];
+  numberOfTeamMembers?: number;
+  [key: string]: any;
+}
+
+/**
+ * Type guard to check if a value is a valid autosave data object
+ */
+const isAutosaveData = (value: any): value is AutosaveData => {
+  return value && typeof value === 'object' && value !== null;
+};
+
+/**
+ * Safely extract team members from autosave data
+ */
+const extractTeamMembers = (data: any): TeamMember[] => {
+  if (!isAutosaveData(data)) return [];
+  
+  const teamMembers = data.teamMembers;
+  if (Array.isArray(teamMembers)) {
+    return teamMembers.filter(member => 
+      member && typeof member === 'object' && 
+      typeof member.fullName === 'string' && 
+      typeof member.email === 'string'
+    );
+  }
+  
+  return [];
+};
+
+/**
+ * Safely extract number of team members from autosave data
+ */
+const extractNumberOfTeamMembers = (data: any): number => {
+  if (!isAutosaveData(data)) return 1;
+  
+  const numberOfTeamMembers = data.numberOfTeamMembers;
+  if (typeof numberOfTeamMembers === 'number' && numberOfTeamMembers >= 1 && numberOfTeamMembers <= 4) {
+    return numberOfTeamMembers;
+  }
+  
+  return 1;
+};
+
 /**
  * YFF Team Registration Form component
  * Handles team leader registration with comprehensive validation and error handling
@@ -126,27 +172,36 @@ export const YffTeamRegistrationForm = () => {
   // Load autosaved data on component mount
   useEffect(() => {
     const loadData = async () => {
-      const savedData = await loadSavedData();
-      if (savedData) {
-        console.log('📁 Restoring autosaved data');
-        
-        // Restore form values
-        Object.keys(savedData).forEach(key => {
-          if (key !== 'teamMembers') {
-            setValue(key as keyof TeamRegistrationData, savedData[key]);
+      try {
+        const savedData = await loadSavedData();
+        if (savedData && isAutosaveData(savedData)) {
+          console.log('📁 Restoring autosaved data:', savedData);
+          
+          // Restore form values
+          Object.keys(savedData).forEach(key => {
+            if (key !== 'teamMembers' && key !== 'numberOfTeamMembers') {
+              setValue(key as keyof TeamRegistrationData, savedData[key]);
+            }
+          });
+          
+          // Restore team members with type safety
+          const restoredTeamMembers = extractTeamMembers(savedData);
+          if (restoredTeamMembers.length > 0) {
+            setTeamMembers(restoredTeamMembers);
+            console.log('📁 Restored team members:', restoredTeamMembers);
           }
-        });
-        
-        // Restore team members
-        if (savedData.teamMembers) {
-          setTeamMembers(savedData.teamMembers);
+          
+          // Restore number of team members with type safety
+          const restoredNumberOfTeamMembers = extractNumberOfTeamMembers(savedData);
+          setNumberOfTeamMembers(restoredNumberOfTeamMembers);
+          setValue('numberOfTeamMembers', restoredNumberOfTeamMembers);
+          console.log('📁 Restored number of team members:', restoredNumberOfTeamMembers);
+          
+          toast.success('Form data restored from previous session');
         }
-        
-        if (savedData.numberOfTeamMembers) {
-          setNumberOfTeamMembers(savedData.numberOfTeamMembers);
-        }
-        
-        toast.success('Form data restored from previous session');
+      } catch (error) {
+        console.error('❌ Error loading autosaved data:', error);
+        toast.error('Failed to restore previous session data');
       }
     };
     

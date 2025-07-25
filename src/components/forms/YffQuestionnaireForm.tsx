@@ -56,7 +56,7 @@ interface YffQuestionnaireFormProps {
 
 /**
  * Questionnaire form schema with word count validation
- * NOTE: All fields are REQUIRED to maintain type consistency
+ * NOTE: All fields are REQUIRED - this enforces consistent typing
  */
 const questionnaireSchema = z.object({
   whyApplying: z.string()
@@ -85,9 +85,14 @@ const questionnaireSchema = z.object({
 });
 
 /**
- * QuestionnaireFormData type - all fields are REQUIRED
- * WARNING: Keep this interface in sync with the form schema above.
- * If you make any field optional here, you must also update the schema and default values.
+ * QuestionnaireFormData type - ALL FIELDS ARE REQUIRED
+ * WARNING: Must keep all fields' required/optional status in sync between QuestionnaireFormData,
+ * useForm defaults, and all watch()/submit logic—TS2322 prevention.
+ * 
+ * CRITICAL: If you change any field to optional here, you must also update:
+ * 1. The form schema above
+ * 2. The default values below
+ * 3. The interface in YffFormSections.tsx
  */
 type QuestionnaireFormData = z.infer<typeof questionnaireSchema>;
 
@@ -95,6 +100,7 @@ type QuestionnaireFormData = z.infer<typeof questionnaireSchema>;
  * YFF Questionnaire Form Component
  * 
  * Handles questionnaire submission for registered YFF applicants
+ * NOTE: All fields are REQUIRED - form defaults must provide string values
  */
 export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   registration,
@@ -105,7 +111,8 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   const form = useForm<QuestionnaireFormData>({
     resolver: zodResolver(questionnaireSchema),
     defaultValues: {
-      // All fields have string defaults to match required interface
+      // All fields have required string defaults to match QuestionnaireFormData interface
+      // These must NEVER be undefined to maintain type consistency
       whyApplying: registration.questionnaire_answers?.whyApplying || '',
       businessIdea: registration.questionnaire_answers?.businessIdea || '',
       experience: registration.questionnaire_answers?.experience || '',

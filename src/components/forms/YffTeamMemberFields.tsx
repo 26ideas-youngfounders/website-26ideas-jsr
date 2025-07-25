@@ -96,7 +96,6 @@ export const YffTeamMemberFields: React.FC<YffTeamMemberFieldsProps> = ({
                 <PhoneInput
                   value={field.value}
                   onChange={field.onChange}
-                  defaultCountry="IN"
                   placeholder="Enter phone number"
                 />
               </FormControl>

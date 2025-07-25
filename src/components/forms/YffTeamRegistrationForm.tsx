@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAutosave } from '@/hooks/useAutosave';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
-import { YffFormSections } from './YffFormSections';
+import { YffRegistrationFormSections } from './YffRegistrationFormSections';
 import { YffAutosaveIndicator } from './YffAutosaveIndicator';
 import { useToast } from '@/hooks/use-toast';
 
@@ -346,7 +347,7 @@ export const YffTeamRegistrationForm = () => {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <YffFormSections form={form} />
+          <YffRegistrationFormSections form={form} />
           
           <div className="flex justify-end pt-6">
             <Button 

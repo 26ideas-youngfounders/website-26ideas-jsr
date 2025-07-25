@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
 import Navigation from "./components/Navigation";
 import Footer from "./components/Footer";
 import Index from "./pages/Index";
@@ -27,32 +28,34 @@ const queryClient = new QueryClient();
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <div className="min-h-screen flex flex-col">
-            <Navigation />
-            <main className="flex-grow">
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/young-founders-floor" element={<YffLandingPage />} />
-                <Route path="/yff/team-registration" element={<YffTeamRegistration />} />
-                <Route path="/yff/questionnaire" element={<YffQuestionnaire />} />
-                <Route path="/yff/team-information" element={<YffTeamInformation />} />
-                <Route path="/mentor-signup" element={<MentorSignup />} />
-                <Route path="/annual-retreat" element={<AnnualRetreat />} />
-                <Route path="/admin/crm" element={<CrmDashboard />} />
-                <Route path="/admin/yff-applications" element={<YffApplicationsPage />} />
-                <Route path="/admin/mentor-applications" element={<MentorApplicationsPage />} />
-                <Route path="/phone-input-test" element={<PhoneInputTest />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-            <Footer />
-          </div>
-        </BrowserRouter>
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <div className="min-h-screen flex flex-col">
+              <Navigation />
+              <main className="flex-grow">
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/young-founders-floor" element={<YffLandingPage />} />
+                  <Route path="/yff/team-registration" element={<YffTeamRegistration />} />
+                  <Route path="/yff/questionnaire" element={<YffQuestionnaire />} />
+                  <Route path="/yff/team-information" element={<YffTeamInformation />} />
+                  <Route path="/community/mentors" element={<MentorSignup />} />
+                  <Route path="/events/annual-retreat" element={<AnnualRetreat />} />
+                  <Route path="/admin/crm" element={<CrmDashboard />} />
+                  <Route path="/admin/yff-applications" element={<YffApplicationsPage />} />
+                  <Route path="/admin/mentor-applications" element={<MentorApplicationsPage />} />
+                  <Route path="/phone-input-test" element={<PhoneInputTest />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </main>
+              <Footer />
+            </div>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

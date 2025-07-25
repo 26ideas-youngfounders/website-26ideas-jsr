@@ -1,105 +1,112 @@
 
-import React, { useEffect, useState } from 'react';
+/**
+ * @fileoverview YFF Applications Admin Page
+ * 
+ * Administrative interface for reviewing YFF team registrations
+ * with comprehensive application details, age validation, and word count tracking.
+ * 
+ * @version 2.0.0 - Enhanced with proper type safety and validation
+ * @author 26ideas Development Team
+ */
+
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, User, Users, Building, FileText, Calendar, Phone, Mail, MapPin, GraduationCap, CheckCircle, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
-import { YffRegistration, parseRegistrationData, YffTeamMember } from '@/types/yff-registration';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertCircle, CheckCircle, Clock, Users, Calendar, MapPin, School, Award } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { YffRegistration, parseRegistrationData } from '@/types/yff-registration';
 import { validateAge, countWords } from '@/utils/registration-validation';
 
 /**
- * YFF Applications Admin Page
+ * YFF Applications Admin Page Component
  * 
- * Displays all YFF team registrations with detailed information
- * and proper type safety for all data operations.
+ * Provides comprehensive admin interface for reviewing YFF applications
+ * with proper type safety and validation display.
  */
 const YffApplicationsPage = () => {
   const [applications, setApplications] = useState<YffRegistration[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedApplication, setSelectedApplication] = useState<YffRegistration | null>(null);
 
-  // Load applications with type safety
+  // Load applications on component mount
   useEffect(() => {
-    const loadApplications = async () => {
-      try {
-        console.log('🔍 Loading YFF applications...');
-        
-        const { data, error } = await supabase
-          .from('yff_team_registrations')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('❌ Error loading applications:', error);
-          toast.error('Failed to load applications');
-          return;
-        }
-
-        // Parse all registration data with type safety
-        const parsedApplications = data.map(parseRegistrationData);
-        console.log('✅ Applications loaded and parsed:', parsedApplications);
-        setApplications(parsedApplications);
-        
-      } catch (error) {
-        console.error('❌ Error in loadApplications:', error);
-        toast.error('An unexpected error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadApplications();
   }, []);
+
+  /**
+   * Load all YFF applications from the database
+   */
+  const loadApplications = async () => {
+    try {
+      console.log('📋 Loading YFF applications...');
+      
+      const { data, error } = await supabase
+        .from('yff_team_registrations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error loading applications:', error);
+        setError('Failed to load applications. Please try again.');
+        return;
+      }
+
+      // Parse and validate all registration data
+      const parsedApplications = data.map(app => parseRegistrationData(app));
+      console.log('✅ Loaded applications:', parsedApplications.length);
+      
+      setApplications(parsedApplications);
+    } catch (error) {
+      console.error('❌ Error in loadApplications:', error);
+      setError('An unexpected error occurred while loading applications.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Get status badge variant based on application status
+   */
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'questionnaire_completed':
+        return 'default'; // Use default instead of success
+      case 'registration_completed':
+        return 'secondary';
+      case 'draft':
+        return 'outline';
+      default:
+        return 'secondary';
+    }
+  };
+
+  /**
+   * Get age validation status for display
+   */
+  const getAgeValidationStatus = (dateOfBirth: string) => {
+    const validation = validateAge(dateOfBirth);
+    return {
+      isValid: validation.isValid,
+      age: validation.age,
+      error: validation.error
+    };
+  };
 
   /**
    * Render application status badge
    */
   const renderStatusBadge = (status: string) => {
-    const statusConfig = {
-      'registration_completed': { label: 'Registration Complete', variant: 'default' as const },
-      'questionnaire_completed': { label: 'Application Complete', variant: 'success' as const },
-      'under_review': { label: 'Under Review', variant: 'secondary' as const },
-      'approved': { label: 'Approved', variant: 'success' as const },
-      'rejected': { label: 'Rejected', variant: 'destructive' as const },
-    };
-
-    const config = statusConfig[status as keyof typeof statusConfig] || { label: status, variant: 'default' as const };
-    
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
-  /**
-   * Render age validation indicator
-   */
-  const renderAgeValidation = (dateOfBirth: string) => {
-    const ageValidation = validateAge(dateOfBirth);
-    
-    if (ageValidation.isValid) {
-      return <CheckCircle className="w-4 h-4 text-green-500" />;
-    } else {
-      return (
-        <div className="flex items-center gap-1 text-red-500">
-          <XCircle className="w-4 h-4" />
-          <span className="text-xs">{ageValidation.error}</span>
-        </div>
-      );
-    }
-  };
-
-  /**
-   * Render word count indicator
-   */
-  const renderWordCount = (text: string) => {
-    const wordCount = countWords(text);
-    const isOverLimit = wordCount > 300;
+    const variant = getStatusBadgeVariant(status);
+    const displayStatus = status.replace('_', ' ').toUpperCase();
     
     return (
-      <span className={`text-xs ${isOverLimit ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
-        {wordCount} / 300 words
-        {isOverLimit && ' (OVER LIMIT)'}
-      </span>
+      <Badge variant={variant} className="ml-2">
+        {displayStatus}
+      </Badge>
     );
   };
 
@@ -107,207 +114,232 @@ const YffApplicationsPage = () => {
    * Render detailed application view
    */
   const renderApplicationDetails = (application: YffRegistration) => {
-    const questionnaire = application.questionnaire_answers || {};
+    const leaderAgeStatus = getAgeValidationStatus(application.date_of_birth);
     
     return (
       <div className="space-y-6">
-        {/* Team Leader Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Team Leader Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Full Name</p>
-                <p className="text-sm">{application.full_name}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Email</p>
-                <p className="text-sm">{application.email}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Phone</p>
-                <p className="text-sm">{application.country_code} {application.phone_number}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Date of Birth</p>
-                  <p className="text-sm">{application.date_of_birth}</p>
-                </div>
-                {renderAgeValidation(application.date_of_birth)}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Gender</p>
-                <p className="text-sm">{application.gender}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Location</p>
-                <p className="text-sm">{application.current_city}, {application.state} - {application.pin_code}</p>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Permanent Address</p>
-              <p className="text-sm">{application.permanent_address}</p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Application Header */}
+        <div className="border-b pb-4">
+          <h2 className="text-2xl font-bold">{application.full_name}</h2>
+          <p className="text-gray-600">{application.email}</p>
+          {renderStatusBadge(application.application_status || 'draft')}
+        </div>
 
-        {/* Academic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <GraduationCap className="w-5 h-5" />
-              Academic Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Institution</p>
-                <p className="text-sm">{application.institution_name}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Course/Program</p>
-                <p className="text-sm">{application.course_program}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Current Year</p>
-                <p className="text-sm">{application.current_year_of_study}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Expected Graduation</p>
-                <p className="text-sm">{application.expected_graduation}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="personal" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="personal">Personal Info</TabsTrigger>
+            <TabsTrigger value="team">Team Details</TabsTrigger>
+            <TabsTrigger value="venture">Venture Info</TabsTrigger>
+            <TabsTrigger value="questionnaire">Questionnaire</TabsTrigger>
+          </TabsList>
 
-        {/* Team Members */}
-        {application.team_members && application.team_members.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Team Members ({application.team_members.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {application.team_members.map((member: YffTeamMember, index: number) => (
-                  <div key={index} className="border rounded-lg p-4">
-                    <h4 className="font-medium mb-2">Team Member {index + 1}</h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="font-medium text-gray-500">Name</p>
-                        <p>{member.fullName}</p>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-500">Email</p>
-                        <p>{member.email}</p>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-500">Phone</p>
-                        <p>{member.countryCode} {member.phoneNumber}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <p className="font-medium text-gray-500">Date of Birth</p>
-                          <p>{member.dateOfBirth}</p>
-                        </div>
-                        {renderAgeValidation(member.dateOfBirth)}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-500">Institution</p>
-                        <p>{member.institutionName}</p>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-500">Course</p>
-                        <p>{member.courseProgram}</p>
-                      </div>
+          <TabsContent value="personal" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Personal Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-semibold">Contact Information</h4>
+                    <p><strong>Email:</strong> {application.email}</p>
+                    <p><strong>Phone:</strong> {application.country_code} {application.phone_number}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Age Information
+                    </h4>
+                    <p><strong>Date of Birth:</strong> {application.date_of_birth}</p>
+                    <div className="flex items-center gap-2">
+                      <strong>Age Status:</strong>
+                      {leaderAgeStatus.isValid ? (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                          {leaderAgeStatus.age} years (Valid)
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-red-600">
+                          <AlertCircle className="h-4 w-4" />
+                          {leaderAgeStatus.error}
+                        </span>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Venture Information */}
-        {(application.venture_name || application.team_name || application.industry_sector) && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="w-5 h-5" />
-                Venture Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {application.venture_name && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Venture Name</p>
-                    <p className="text-sm">{application.venture_name}</p>
-                  </div>
-                )}
-                {application.team_name && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Team Name</p>
-                    <p className="text-sm">{application.team_name}</p>
-                  </div>
-                )}
-                {application.industry_sector && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Industry Sector</p>
-                    <p className="text-sm">{application.industry_sector}</p>
-                  </div>
-                )}
-                {application.website && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Website</p>
-                    <p className="text-sm">{application.website}</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Questionnaire Answers */}
-        {Object.keys(questionnaire).length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Questionnaire Answers
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {Object.entries(questionnaire).map(([key, value]) => (
-                <div key={key} className="border-b pb-4">
-                  <p className="font-medium text-gray-700 mb-2">{key}</p>
-                  <p className="text-sm text-gray-600 mb-1">{value as string}</p>
-                  {renderWordCount(value as string)}
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Location
+                    </h4>
+                    <p><strong>Current City:</strong> {application.current_city}</p>
+                    <p><strong>State:</strong> {application.state}</p>
+                    <p><strong>Pin Code:</strong> {application.pin_code}</p>
+                    <p><strong>Permanent Address:</strong> {application.permanent_address}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <School className="h-4 w-4" />
+                      Education
+                    </h4>
+                    <p><strong>Institution:</strong> {application.institution_name}</p>
+                    <p><strong>Course:</strong> {application.course_program}</p>
+                    <p><strong>Year:</strong> {application.current_year_of_study}</p>
+                    <p><strong>Graduation:</strong> {application.expected_graduation}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="team" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Team Information ({application.number_of_team_members} members)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {application.team_members.length > 0 ? (
+                  <div className="space-y-4">
+                    {application.team_members.map((member: any, index: number) => {
+                      const memberAgeStatus = getAgeValidationStatus(member.dateOfBirth);
+                      
+                      return (
+                        <div key={index} className="border rounded-lg p-4">
+                          <h4 className="font-semibold mb-2">Team Member {index + 1}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <p><strong>Name:</strong> {member.fullName}</p>
+                              <p><strong>Email:</strong> {member.email}</p>
+                              <p><strong>Phone:</strong> {member.countryCode} {member.phoneNumber}</p>
+                              <p><strong>Gender:</strong> {member.gender}</p>
+                            </div>
+                            <div>
+                              <p><strong>Date of Birth:</strong> {member.dateOfBirth}</p>
+                              <div className="flex items-center gap-2">
+                                <strong>Age Status:</strong>
+                                {memberAgeStatus.isValid ? (
+                                  <span className="flex items-center gap-1 text-green-600">
+                                    <CheckCircle className="h-4 w-4" />
+                                    {memberAgeStatus.age} years (Valid)
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-red-600">
+                                    <AlertCircle className="h-4 w-4" />
+                                    {memberAgeStatus.error}
+                                  </span>
+                                )}
+                              </div>
+                              <p><strong>City:</strong> {member.currentCity}, {member.state}</p>
+                              <p><strong>Institution:</strong> {member.institutionName}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No additional team members</p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="venture" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="h-5 w-5" />
+                  Venture Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p><strong>Venture Name:</strong> {application.venture_name || 'Not specified'}</p>
+                    <p><strong>Industry Sector:</strong> {application.industry_sector || 'Not specified'}</p>
+                    <p><strong>Team Name:</strong> {application.team_name || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <p><strong>Website:</strong> {application.website || 'Not specified'}</p>
+                    <p><strong>LinkedIn:</strong> {application.linkedin_profile || 'Not specified'}</p>
+                    <p><strong>Social Media:</strong> {application.social_media_handles || 'Not specified'}</p>
+                  </div>
+                </div>
+                {application.referral_id && (
+                  <div>
+                    <p><strong>Referral ID:</strong> {application.referral_id}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="questionnaire" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Questionnaire Responses
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {application.questionnaire_answers ? (
+                  <div className="space-y-6">
+                    {Object.entries(application.questionnaire_answers).map(([key, value]) => {
+                      const wordCount = countWords(value as string);
+                      const isOverLimit = wordCount > 300;
+                      
+                      return (
+                        <div key={key} className="border rounded-lg p-4">
+                          <h4 className="font-semibold mb-2 capitalize">
+                            {key.replace(/([A-Z])/g, ' $1').trim()}
+                          </h4>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`text-sm ${isOverLimit ? 'text-red-600' : 'text-gray-600'}`}>
+                              Word Count: {wordCount} / 300
+                            </span>
+                            {isOverLimit && (
+                              <Badge variant="destructive">Over Limit</Badge>
+                            )}
+                          </div>
+                          <p className="text-gray-700 whitespace-pre-wrap">{value as string}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Questionnaire not yet completed by the applicant.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     );
   };
 
+  // Loading state
   if (loading) {
     return (
       <div className="p-6">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="space-y-3">
+          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
+          <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-gray-200 rounded"></div>
+              <div key={i} className="h-24 bg-gray-200 rounded"></div>
             ))}
           </div>
         </div>
@@ -315,71 +347,79 @@ const YffApplicationsPage = () => {
     );
   }
 
+  // Error state
+  if (error) {
+    return (
+      <div className="p-6">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Main render
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">YFF Applications</h1>
-        <p className="text-gray-600">Manage and review Young Founders Floor applications</p>
+        <h1 className="text-2xl font-bold">YFF Applications</h1>
+        <p className="text-gray-600">Review and manage Young Founders Floor applications</p>
       </div>
 
       {selectedApplication ? (
         <div>
-          <div className="mb-4">
-            <Button 
-              variant="outline" 
-              onClick={() => setSelectedApplication(null)}
-            >
-              ← Back to Applications
-            </Button>
-          </div>
+          <Button 
+            onClick={() => setSelectedApplication(null)}
+            variant="outline"
+            className="mb-4"
+          >
+            ← Back to Applications
+          </Button>
           {renderApplicationDetails(selectedApplication)}
         </div>
       ) : (
         <div className="space-y-4">
-          {applications.map((application) => (
-            <Card key={application.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-lg">{application.full_name}</h3>
-                      {renderStatusBadge(application.application_status || 'registration_completed')}
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span className="flex items-center gap-1">
-                        <Mail className="w-4 h-4" />
-                        {application.email}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-4 h-4" />
-                        {application.country_code} {application.phone_number}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        {application.current_city}, {application.state}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        {application.number_of_team_members} member{application.number_of_team_members !== 1 ? 's' : ''}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(application.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedApplication(application)}
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Details
-                  </Button>
-                </div>
+          {applications.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <p className="text-gray-500">No applications found.</p>
               </CardContent>
             </Card>
-          ))}
+          ) : (
+            applications.map((app) => (
+              <Card key={app.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-lg font-semibold">{app.full_name}</h3>
+                        {renderStatusBadge(app.application_status || 'draft')}
+                      </div>
+                      <p className="text-gray-600 mb-2">{app.email}</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium">Team Size:</span> {app.number_of_team_members}
+                        </div>
+                        <div>
+                          <span className="font-medium">Institution:</span> {app.institution_name}
+                        </div>
+                        <div>
+                          <span className="font-medium">Applied:</span> {new Date(app.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => setSelectedApplication(app)}
+                      variant="outline"
+                    >
+                      View Details
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       )}
     </div>

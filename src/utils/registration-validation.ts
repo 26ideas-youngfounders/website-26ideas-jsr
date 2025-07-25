@@ -117,6 +117,13 @@ export const getWordCountValidation = (text: string, maxWords: number = 300) => 
 };
 
 /**
+ * Validate word limit - alias for validateWordCount for backward compatibility
+ */
+export const validateWordLimit = (text: string, maxWords: number = 300): boolean => {
+  return validateWordCount(text, maxWords);
+};
+
+/**
  * Validate all team members' ages
  */
 export const validateTeamMembersAges = (teamMembers: any[]): { isValid: boolean; errors: string[] } => {
@@ -138,6 +145,13 @@ export const validateTeamMembersAges = (teamMembers: any[]): { isValid: boolean;
 };
 
 /**
+ * Validate team ages - alias for validateTeamMembersAges
+ */
+export const validateTeamAges = (teamMembers: any[]): { isValid: boolean; errors: string[] } => {
+  return validateTeamMembersAges(teamMembers);
+};
+
+/**
  * Validate all questionnaire answers for word count
  */
 export const validateQuestionnaireWordCounts = (answers: Record<string, any>): { isValid: boolean; errors: string[] } => {
@@ -156,4 +170,11 @@ export const validateQuestionnaireWordCounts = (answers: Record<string, any>): {
     isValid: errors.length === 0,
     errors
   };
+};
+
+/**
+ * Validate essay answers - alias for validateQuestionnaireWordCounts
+ */
+export const validateEssayAnswers = (answers: Record<string, any>): { isValid: boolean; errors: string[] } => {
+  return validateQuestionnaireWordCounts(answers);
 };

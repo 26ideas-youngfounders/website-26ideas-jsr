@@ -4,13 +4,22 @@ import { useLocation } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle } from 'lucide-react';
 
+/**
+ * Homepage component that displays the main landing page
+ * Handles success messages and scroll position after form submissions
+ */
 const Index = () => {
   const location = useLocation();
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
+  // Handle success message display and scroll to top after form submission
   useEffect(() => {
     if (location.state?.applicationSubmitted) {
+      console.log('📋 Application submitted - showing success message and scrolling to top');
       setShowSuccessMessage(true);
+      
+      // Immediately scroll to top after successful submission
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       
       // Clear the state and hide message after 10 seconds
       const timer = setTimeout(() => {
@@ -20,6 +29,25 @@ const Index = () => {
       return () => clearTimeout(timer);
     }
   }, [location.state]);
+
+  // General scroll-to-top effect for homepage to ensure consistent behavior
+  useEffect(() => {
+    // Only scroll to top if we're coming from a form submission or initial load
+    // Check if we have applicationSubmitted state or if it's a fresh page load
+    if (location.state?.applicationSubmitted || !document.referrer.includes(window.location.origin)) {
+      console.log('🔝 Scrolling to top of homepage');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Log success for QA purposes
+      setTimeout(() => {
+        if (window.scrollY > 100) {
+          console.error('❌ Homepage scroll-to-top failed - user not at top after redirect');
+        } else {
+          console.log('✅ Homepage scroll-to-top successful');
+        }
+      }, 1000);
+    }
+  }, [location.state, location.pathname]);
 
   return (
     <div className="min-h-screen bg-white">

@@ -11,7 +11,7 @@ import { YffRegistrationFormSections } from './YffRegistrationFormSections';
 import { YffAutosaveIndicator } from './YffAutosaveIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 
 // Define the schema for individual team members
 const teamMemberSchema = z.object({
@@ -107,7 +107,7 @@ const extractNumberOfTeamMembers = (autosavedData: any): number => {
 
 /**
  * YFF Team Registration Form Component
- * Handles team registration with autosave functionality and profile creation
+ * Handles team registration with robust autosave functionality and cross-session persistence
  */
 export const YffTeamRegistrationForm = () => {
   const { user } = useAuth();
@@ -116,6 +116,7 @@ export const YffTeamRegistrationForm = () => {
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showProfileCreation, setShowProfileCreation] = useState(false);
+  const [dataRestored, setDataRestored] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -147,8 +148,9 @@ export const YffTeamRegistrationForm = () => {
   });
 
   const watchedValues = form.watch();
-  const { status: autosaveStatus, loadSavedData, clearSavedData } = useAutosave({
+  const { status: autosaveStatus, loadSavedData, clearSavedData, isLoading: autosaveLoading } = useAutosave({
     formData: watchedValues,
+    formType: 'yff_team_registration',
   });
 
   // Create a basic profile for authenticated users who don't have one
@@ -192,7 +194,7 @@ export const YffTeamRegistrationForm = () => {
     }
   };
 
-  // Load user profile and autosaved data
+  // Enhanced data loading with better cross-session handling
   useEffect(() => {
     const loadData = async () => {
       if (!user?.email) {
@@ -248,24 +250,49 @@ export const YffTeamRegistrationForm = () => {
         form.setValue('email', individual.email);
         form.setValue('countryCode', individual.country_code || '+91');
 
-        // Load autosaved data
+        // Load autosaved data - this is crucial for cross-session persistence
+        console.log('📋 Loading autosaved data...');
         const autosavedData = await loadSavedData();
-        if (autosavedData && isAutosaveData(autosavedData)) {
-          console.log('📋 Restoring autosaved form data');
+        
+        if (autosavedData) {
+          console.log('🔄 Restoring autosaved form data');
           
-          // Restore all form fields from autosaved data
-          Object.keys(autosavedData).forEach((key) => {
-            if (key in form.getValues()) {
-              form.setValue(key as keyof FormValues, autosavedData[key]);
-            }
-          });
+          // Validate and restore autosaved data
+          try {
+            // Safely restore form fields
+            Object.keys(autosavedData).forEach((key) => {
+              if (key in form.getValues() && autosavedData[key] !== undefined) {
+                form.setValue(key as keyof FormValues, autosavedData[key]);
+              }
+            });
 
-          // Handle team members specially
-          const teamMembers = extractTeamMembers(autosavedData);
-          const numberOfTeamMembers = extractNumberOfTeamMembers(autosavedData);
-          
-          form.setValue('teamMembers', teamMembers);
-          form.setValue('numberOfTeamMembers', numberOfTeamMembers);
+            // Handle team members specially
+            if (autosavedData.teamMembers && Array.isArray(autosavedData.teamMembers)) {
+              form.setValue('teamMembers', autosavedData.teamMembers);
+            }
+            
+            if (autosavedData.numberOfTeamMembers && typeof autosavedData.numberOfTeamMembers === 'number') {
+              form.setValue('numberOfTeamMembers', autosavedData.numberOfTeamMembers);
+            }
+
+            setDataRestored(true);
+            
+            // Show restoration message
+            toast({
+              title: 'Progress Restored',
+              description: 'Your previous form progress has been restored. Continue where you left off!',
+              duration: 5000,
+            });
+          } catch (error) {
+            console.error('❌ Error restoring autosaved data:', error);
+            toast({
+              title: 'Restoration Warning',
+              description: 'Some of your previous data could not be restored, but your progress is being saved.',
+              variant: 'destructive',
+            });
+          }
+        } else {
+          console.log('📭 No autosaved data found');
         }
 
         setProfileLoaded(true);
@@ -278,7 +305,7 @@ export const YffTeamRegistrationForm = () => {
     };
 
     loadData();
-  }, [user, form, loadSavedData]);
+  }, [user, form, loadSavedData, toast]);
 
   // Handle profile creation
   const handleCreateProfile = async () => {
@@ -366,6 +393,7 @@ export const YffTeamRegistrationForm = () => {
 
       // Reset form
       form.reset();
+      setDataRestored(false);
     } catch (error) {
       console.error('❌ Submission error:', error);
       
@@ -451,11 +479,13 @@ export const YffTeamRegistrationForm = () => {
   }
 
   // Show loading state while profile is being loaded
-  if (!profileLoaded) {
+  if (!profileLoaded || autosaveLoading) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-          <p className="text-blue-600">Loading your profile...</p>
+          <p className="text-blue-600">
+            {autosaveLoading ? 'Loading your saved progress...' : 'Loading your profile...'}
+          </p>
         </div>
       </div>
     );
@@ -471,6 +501,16 @@ export const YffTeamRegistrationForm = () => {
           Register your team for the Young Founders Fellowship program
         </p>
       </div>
+
+      {/* Show restoration success message */}
+      {dataRestored && (
+        <Alert className="mb-6 bg-green-50 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            Your previous form progress has been restored. All your data is automatically saved as you type.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">

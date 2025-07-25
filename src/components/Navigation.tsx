@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Main navigation component for the 26ideas Young Founders platform.
  * 
@@ -54,6 +53,9 @@ const Navigation = () => {
   
   // Navigation hook for programmatic routing
   const navigate = useNavigate();
+
+  // Debug logging to ensure single navigation render
+  console.log('🧭 Navigation component rendering - should only appear once');
 
   /**
    * Navigation menu structure configuration

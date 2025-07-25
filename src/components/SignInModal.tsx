@@ -26,8 +26,8 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [countryCode, setCountryCode] = useState("+91"); // Default to India
-  const [countryIsoCode, setCountryIsoCode] = useState("IN"); // Default to India
+  const [countryCode, setCountryCode] = useState("+91");
+  const [countryIsoCode, setCountryIsoCode] = useState("IN");
   const [privacyConsent, setPrivacyConsent] = useState(false);
   const [dataProcessingConsent, setDataProcessingConsent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -106,7 +106,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
               // No individual found - account doesn't exist
               console.error("❌ Account not found for email:", email);
               
-              toast({
+              const toastResult = toast({
                 title: "Account Not Found",
                 description: "No account found with this email. Please create an account to continue.",
                 variant: "destructive",
@@ -116,7 +116,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
                     size="sm"
                     onClick={() => {
                       setIsSignUp(true);
-                      toast.dismiss();
+                      // No need to call dismiss on toast result
                     }}
                   >
                     Create Account

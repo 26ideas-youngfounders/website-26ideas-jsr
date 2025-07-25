@@ -50,7 +50,7 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
     if (message.includes('ERROR') || message.includes('CONFLICT')) {
       const errorLog = JSON.parse(localStorage.getItem('yff_autosave_errors') || '[]');
       errorLog.push(logEntry);
-      localStorage.setItem('yff_autosave_errors', JSON.stringify(errorLog.slice(-10))); // Keep last 10 errors
+      localStorage.setItem('yff_autosave_errors', JSON.stringify(errorLog.slice(-10)));
     }
   };
 

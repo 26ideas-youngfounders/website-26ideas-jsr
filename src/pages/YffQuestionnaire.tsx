@@ -1,39 +1,21 @@
 
-/**
- * @fileoverview YFF Questionnaire Page
- * 
- * Conditional questionnaire form that shows different questions based on 
- * the user's selected stage (Idea Stage vs Early Revenue). Integrates with 
- * the unified team registration system for seamless data storage.
- * 
- * @version 1.0.0
- * @author 26ideas Development Team
- */
-
-import React, { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { YffQuestionnaireForm } from '@/components/forms/YffQuestionnaireForm';
 import { supabase } from '@/integrations/supabase/client';
+import { YffQuestionnaireForm } from '@/components/forms/YffQuestionnaireForm';
+import { parseRegistrationData, type YffRegistration } from '@/types/yff-registration';
 import { toast } from 'sonner';
-import { Card, CardContent } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
-import { YffRegistration, parseRegistrationData } from '@/types/yff-registration';
 
 /**
- * YFF Questionnaire Page Component
- * 
- * Protected page that requires authentication and completed team registration.
- * Loads the user's registration data and displays the conditional questionnaire form.
- * 
- * @returns {JSX.Element} The questionnaire page or redirect
+ * YFF Questionnaire page - accessible only to users with completed registration
+ * Handles questionnaire completion for registered YFF applicants
  */
-const YffQuestionnaire = () => {
+export const YffQuestionnaire = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [registration, setRegistration] = useState<YffRegistration | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [hasCompleted, setHasCompleted] = useState(false);
 
   // Ensure page starts at top when mounted
   useEffect(() => {
@@ -41,157 +23,130 @@ const YffQuestionnaire = () => {
     console.log("📄 YFF Questionnaire page loaded - scrolled to absolute top");
   }, []);
 
-  // Load user's registration data
+  // Load registration data on mount
   useEffect(() => {
     const loadRegistration = async () => {
-      if (!user) return;
+      if (!user?.id) {
+        console.log("🔐 No user found - will redirect to landing page");
+        setIsLoading(false);
+        return;
+      }
 
       try {
-        console.log('🔍 Loading registration data for user:', user.id);
+        console.log("📋 Loading registration data for user:", user.id);
         
-        const { data: registrationData, error: regError } = await supabase
+        const { data, error } = await supabase
           .from('yff_team_registrations')
           .select('*')
           .eq('individual_id', user.id)
           .single();
 
-        if (regError) {
-          if (regError.code === 'PGRST116') {
-            // No registration found - redirect to registration page with message
-            console.log('⚠️ No registration found, redirecting to registration');
-            
+        if (error) {
+          if (error.code === 'PGRST116') {
+            console.log("❌ No registration found - redirecting to registration page");
             toast.error('Registration Required', {
-              description: 'You need to complete your team registration before accessing the questionnaire.',
+              description: 'Please complete your team registration first.',
               duration: 5000,
             });
-            
-            navigate('/yff/team-registration');
+            setIsLoading(false);
             return;
           }
-          
-          console.error('❌ Error loading registration:', regError);
-          setError('Failed to load your registration data. Please try again.');
+          console.error("❌ Error loading registration:", error);
+          toast.error('Error Loading Registration', {
+            description: 'Failed to load your registration data. Please try again.',
+            duration: 5000,
+          });
+          setIsLoading(false);
           return;
         }
 
-        if (!registrationData) {
-          console.log('⚠️ No registration data found, redirecting to registration');
-          
+        if (!data) {
+          console.log("❌ No registration data found");
           toast.error('Registration Required', {
-            description: 'You need to complete your team registration before accessing the questionnaire.',
+            description: 'Please complete your team registration first.',
             duration: 5000,
           });
-          
-          navigate('/yff/team-registration');
+          setIsLoading(false);
           return;
         }
 
-        // Check if registration is completed
-        if (registrationData.application_status !== 'registration_completed' && 
-            registrationData.application_status !== 'questionnaire_completed') {
-          console.log('⚠️ Registration not completed, redirecting to registration');
-          
-          toast.error('Complete Registration First', {
-            description: 'Please complete your team registration before proceeding to the questionnaire.',
-            duration: 5000,
-          });
-          
-          navigate('/yff/team-registration');
-          return;
-        }
-
-        // Parse and validate registration data with type safety
-        const parsedRegistration = parseRegistrationData(registrationData);
-        console.log('✅ Registration data loaded and parsed:', parsedRegistration);
+        // Parse and validate registration data
+        const parsedRegistration = parseRegistrationData(data);
         setRegistration(parsedRegistration);
         
+        // Check if questionnaire is already completed
+        if (parsedRegistration.questionnaire_completed_at) {
+          console.log("✅ Questionnaire already completed");
+          setHasCompleted(true);
+        }
+        
+        console.log("✅ Registration data loaded successfully");
+        setIsLoading(false);
       } catch (error) {
-        console.error('❌ Error in loadRegistration:', error);
-        setError('An unexpected error occurred. Please try again.');
-      } finally {
+        console.error("❌ Error in loadRegistration:", error);
+        toast.error('System Error', {
+          description: 'An unexpected error occurred. Please try again.',
+          duration: 5000,
+        });
         setIsLoading(false);
       }
     };
 
     loadRegistration();
-  }, [user, navigate]);
+  }, [user?.id]);
 
-  /**
-   * Handle questionnaire completion
-   * Redirects to home page and shows success message
-   */
-  const handleComplete = () => {
-    console.log('✅ Questionnaire completed successfully');
-    
-    toast.success('Application submitted successfully!', {
-      description: 'Thank you for applying to the Young Founders Floor program.',
+  // Handle questionnaire completion
+  const handleQuestionnaireComplete = () => {
+    console.log("✅ Questionnaire completed successfully");
+    setHasCompleted(true);
+    toast.success('Application Complete!', {
+      description: 'Your YFF application has been submitted successfully.',
       duration: 5000,
     });
-
-    // Redirect to home page
-    navigate('/');
   };
 
-  // Redirect to login if not authenticated
+  // Redirect conditions
   if (!user) {
     return <Navigate to="/young-founders-floor" replace />;
   }
 
-  // Show loading state
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
-        <Card>
-          <CardContent className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading your questionnaire...</p>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  // Show error state
-  if (error) {
+  if (!registration) {
+    return <Navigate to="/yff/team-registration" replace />;
+  }
+
+  if (hasCompleted) {
     return (
       <div className="max-w-4xl mx-auto p-6">
-        <Card>
-          <CardContent className="p-8 text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Questionnaire</h2>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-            >
-              Try Again
-            </button>
-          </CardContent>
-        </Card>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-8 text-center">
+          <h1 className="text-2xl font-bold text-green-800 mb-4">
+            Application Completed!
+          </h1>
+          <p className="text-green-700 mb-6">
+            Thank you for completing your YFF application. We will review your submission and get back to you soon.
+          </p>
+          <div className="text-sm text-green-600">
+            <p>Application Status: <span className="font-semibold">Submitted</span></p>
+            <p>Submitted At: {new Date(registration.questionnaire_completed_at!).toLocaleString()}</p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Show questionnaire form with proper props
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          YFF Application Questionnaire
-        </h1>
-        <p className="text-gray-600">
-          Please complete the following questions to finalize your application.
-        </p>
-      </div>
-
-      {registration && (
-        <YffQuestionnaireForm 
-          registration={registration} 
-          onComplete={handleComplete} 
-        />
-      )}
+    <div className="min-h-screen bg-gray-50 py-8">
+      <YffQuestionnaireForm 
+        registration={registration} 
+        onComplete={handleQuestionnaireComplete}
+      />
     </div>
   );
 };
-
-export default YffQuestionnaire;

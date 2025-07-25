@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -100,6 +101,13 @@ const validateRegistrationData = (data: YffRegistrationFormData): { isValid: boo
 };
 
 /**
+ * Convert Date to ISO string for database storage
+ */
+const formatDateForDatabase = (date: Date): string => {
+  return date instanceof Date ? date.toISOString().split('T')[0] : '';
+};
+
+/**
  * YFF Team Registration Form Component
  * 
  * Enhanced with automatic redirect to questionnaire after successful submission
@@ -110,8 +118,7 @@ export const YffTeamRegistrationForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [countries, setCountries] = useState<CountryOption[]>([]);
-  const { autosaveStatus } = useAutosave();
-
+  
   // Initialize react-hook-form methods
   const methods = useForm<YffRegistrationFormData>({
     resolver: yupResolver(schema),
@@ -119,7 +126,7 @@ export const YffTeamRegistrationForm = () => {
       fullName: userProfile?.first_name + ' ' + userProfile?.last_name || '',
       email: userProfile?.email || '',
       phoneNumber: '',
-      countryCode: userProfile?.country_code || '+91', // Default to India
+      countryCode: userProfile?.country_code || '+91',
       dateOfBirth: new Date(),
       currentCity: '',
       state: '',
@@ -143,6 +150,12 @@ export const YffTeamRegistrationForm = () => {
     formState: { errors },
   } = methods;
 
+  // Autosave setup with proper props
+  const { status: autosaveStatus } = useAutosave({
+    formData: getValues(),
+    formType: 'yff_team_registration',
+  });
+
   // Load countries on component mount
   useEffect(() => {
     const countryList = getCountries()
@@ -154,24 +167,14 @@ export const YffTeamRegistrationForm = () => {
     setCountries(countryList);
   }, []);
 
-  // Autosave setup
-  useAutosave({
-    formId: 'yffTeamRegistrationForm',
-    userId: user?.id,
-    data: getValues(),
-    tableName: 'yff_team_registration_autosave',
-  });
-
   /**
    * Handle form submission with automatic redirect to questionnaire
    */
-  const handleSubmit = async (data: YffRegistrationFormData) => {
+  const handleFormSubmit = async (data: YffRegistrationFormData) => {
     if (!user) {
       console.error("❌ User not authenticated");
-      toast({
-        title: "Error",
+      toast.error("Authentication Error", {
         description: "You must be signed in to submit this form",
-        variant: "destructive",
       });
       return;
     }
@@ -184,10 +187,8 @@ export const YffTeamRegistrationForm = () => {
       const validationResult = validateRegistrationData(data);
       if (!validationResult.isValid) {
         console.error("❌ Form validation failed:", validationResult.errors);
-        toast({
-          title: "Validation Error",
+        toast.error("Validation Error", {
           description: validationResult.errors[0] || "Please check your form data",
-          variant: "destructive",
         });
         return;
       }
@@ -201,22 +202,20 @@ export const YffTeamRegistrationForm = () => {
 
       if (checkError && checkError.code !== 'PGRST116') {
         console.error("❌ Error checking existing registration:", checkError);
-        toast({
-          title: "Error",
+        toast.error("Database Error", {
           description: "Failed to check existing registration. Please try again.",
-          variant: "destructive",
         });
         return;
       }
 
-      // Prepare registration data
+      // Prepare registration data with proper date formatting
       const registrationData = {
         individual_id: user.id,
         full_name: data.fullName,
         email: data.email,
         phone_number: data.phoneNumber,
         country_code: data.countryCode,
-        date_of_birth: data.dateOfBirth,
+        date_of_birth: formatDateForDatabase(data.dateOfBirth),
         current_city: data.currentCity,
         state: data.state,
         pin_code: data.pinCode,
@@ -225,7 +224,7 @@ export const YffTeamRegistrationForm = () => {
         institution_name: data.institutionName,
         course_program: data.courseProgram,
         current_year_of_study: data.currentYearOfStudy,
-        expected_graduation: data.expectedGraduation,
+        expected_graduation: formatDateForDatabase(data.expectedGraduation),
         number_of_team_members: data.numberOfTeamMembers,
         team_members: teamMembers,
         venture_name: data.ventureName || null,
@@ -255,10 +254,8 @@ export const YffTeamRegistrationForm = () => {
 
       if (result.error) {
         console.error("❌ Error saving registration:", result.error);
-        toast({
-          title: "Submission Error",
+        toast.error("Submission Error", {
           description: "Failed to save your registration. Please try again.",
-          variant: "destructive",
         });
         return;
       }
@@ -272,22 +269,19 @@ export const YffTeamRegistrationForm = () => {
       console.log("✅ Registration submitted successfully - redirecting to questionnaire");
       
       // Show success message
-      toast({
-        title: "Registration Submitted!",
+      toast.success("Registration Submitted!", {
         description: "Your team registration has been saved. Redirecting to questionnaire...",
       });
 
       // Automatic redirect to questionnaire after successful submission
       setTimeout(() => {
         navigate('/yff/questionnaire');
-      }, 1500); // Brief delay to show success message
+      }, 1500);
 
     } catch (error) {
       console.error("❌ Error submitting form:", error);
-      toast({
-        title: "Submission Error",
+      toast.error("Submission Error", {
         description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -338,7 +332,7 @@ export const YffTeamRegistrationForm = () => {
       </div>
 
       <FormProvider {...methods}>
-        <form onSubmit={handleSubmit(handleSubmit)} className="space-y-8">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-8">
           {/* Personal Information */}
           <section>
             <h2 className="text-xl font-semibold text-gray-800 mb-4">
@@ -413,6 +407,7 @@ export const YffTeamRegistrationForm = () => {
                 <DatePicker
                   id="dateOfBirth"
                   onSelect={(date) => setValue('dateOfBirth', date || new Date())}
+                  selected={getValues('dateOfBirth')}
                 />
                 {errors.dateOfBirth && (
                   <p className="text-red-500 text-sm mt-1">
@@ -555,6 +550,7 @@ export const YffTeamRegistrationForm = () => {
                 <DatePicker
                   id="expectedGraduation"
                   onSelect={(date) => setValue('expectedGraduation', date || new Date())}
+                  selected={getValues('expectedGraduation')}
                 />
                 {errors.expectedGraduation && (
                   <p className="text-red-500 text-sm mt-1">

@@ -18,6 +18,7 @@ import {
   extractTeamMembers, 
   extractNumberOfTeamMembers 
 } from '@/types/autosave';
+import { validateFormData, sanitizeFormData } from '@/utils/yff-form-validation';
 
 // Define the schema for individual team members
 const teamMemberSchema = z.object({
@@ -72,6 +73,39 @@ export type FormValues = z.infer<typeof formSchema>;
 export type TeamMember = z.infer<typeof teamMemberSchema>;
 
 /**
+ * Handles Supabase error responses and provides user-friendly messages
+ */
+const handleSubmissionError = (error: any, toast: any) => {
+  console.error('❌ Registration submission failed:', error);
+  
+  let userMessage = 'Registration failed. Please try again.';
+  
+  if (error?.message) {
+    // Check for specific database constraint errors
+    if (error.message.includes('duplicate key')) {
+      userMessage = 'A registration with this email already exists.';
+    } else if (error.message.includes('violates not-null constraint')) {
+      userMessage = 'Some required fields are missing. Please review your information and try again.';
+    } else if (error.message.includes('violates check constraint')) {
+      userMessage = 'Some field values are invalid. Please check your entries and try again.';
+    } else if (error.message.includes('invalid input syntax')) {
+      userMessage = 'Some field values have invalid format. Please check your entries and try again.';
+    } else if (error.message.includes('violates foreign key constraint')) {
+      userMessage = 'Invalid reference data. Please contact support.';
+    } else {
+      userMessage = `Registration failed: ${error.message}`;
+    }
+  }
+  
+  // Show user-friendly error
+  toast({
+    title: 'Registration Failed',
+    description: userMessage,
+    variant: 'destructive',
+  });
+};
+
+/**
  * Safely restore autosaved data to form with proper type checking
  */
 const restoreAutosavedData = (
@@ -102,7 +136,7 @@ const restoreAutosavedData = (
 
 /**
  * YFF Team Registration Form Component
- * Handles team registration with robust autosave functionality and cross-session persistence
+ * Handles team registration with robust validation and error handling
  */
 export const YffTeamRegistrationForm = () => {
   const { user } = useAuth();
@@ -112,6 +146,7 @@ export const YffTeamRegistrationForm = () => {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showProfileCreation, setShowProfileCreation] = useState(false);
   const [dataRestored, setDataRestored] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -317,38 +352,24 @@ export const YffTeamRegistrationForm = () => {
     }
 
     setIsSubmitting(true);
+    setValidationErrors([]);
 
     try {
-      // Prepare team members data
-      const teamMembersData = data.teamMembers.slice(0, data.numberOfTeamMembers - 1);
+      // Validate the form data before submission
+      const validation = validateFormData(data);
+      if (!validation.isValid) {
+        setValidationErrors(validation.errors);
+        toast({
+          title: 'Validation Failed',
+          description: 'Please fix the errors below and try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-      const submissionData = {
-        individual_id: user.id,
-        full_name: data.fullName,
-        email: data.email,
-        phone_number: data.phoneNumber,
-        country_code: data.countryCode,
-        date_of_birth: data.dateOfBirth,
-        current_city: data.currentCity,
-        state: data.state,
-        pin_code: data.pinCode,
-        permanent_address: data.permanentAddress,
-        gender: data.gender,
-        institution_name: data.institutionName,
-        course_program: data.courseProgram,
-        current_year_of_study: data.currentYearOfStudy,
-        expected_graduation: data.expectedGraduation,
-        number_of_team_members: data.numberOfTeamMembers,
-        team_members: teamMembersData,
-        venture_name: data.ventureName || null,
-        industry_sector: data.industrySector || null,
-        team_name: data.teamName || null,
-        website: data.website || null,
-        linkedin_profile: data.linkedinProfile || null,
-        social_media_handles: data.socialMediaHandles || null,
-        referral_id: data.referralId || null,
-      };
-
+      // Sanitize and prepare the submission data
+      const submissionData = sanitizeFormData(data, user.id);
+      
       console.log('📤 Submitting registration data:', submissionData);
 
       const { error } = await supabase
@@ -356,8 +377,8 @@ export const YffTeamRegistrationForm = () => {
         .insert(submissionData);
 
       if (error) {
-        console.error('❌ Registration submission failed:', error);
-        throw error;
+        handleSubmissionError(error, toast);
+        return;
       }
 
       console.log('✅ Registration submitted successfully');
@@ -370,22 +391,13 @@ export const YffTeamRegistrationForm = () => {
         description: 'Your team registration has been submitted successfully.',
       });
 
-      // Reset form
+      // Reset form and states
       form.reset();
       setDataRestored(false);
+      setValidationErrors([]);
+      
     } catch (error) {
-      console.error('❌ Submission error:', error);
-      
-      let errorMessage = 'Registration failed. Please try again.';
-      if (error instanceof Error) {
-        errorMessage = `Registration failed: ${error.message}`;
-      }
-      
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      handleSubmissionError(error, toast);
     } finally {
       setIsSubmitting(false);
     }
@@ -487,6 +499,21 @@ export const YffTeamRegistrationForm = () => {
           <CheckCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-800">
             Your previous form progress has been restored. All your data is automatically saved as you type.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Show validation errors */}
+      {validationErrors.length > 0 && (
+        <Alert className="mb-6 bg-red-50 border-red-200">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            <div className="font-semibold mb-2">Please fix the following errors:</div>
+            <ul className="list-disc list-inside space-y-1">
+              {validationErrors.map((error, index) => (
+                <li key={index} className="text-sm">{error}</li>
+              ))}
+            </ul>
           </AlertDescription>
         </Alert>
       )}

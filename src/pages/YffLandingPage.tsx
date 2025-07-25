@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Young Founders Floor (YFF) landing page component
  * 
@@ -222,28 +223,135 @@ const YffLandingPage = () => {
     return value;
   };
 
+  /**
+   * Feature boxes data matching the screenshot layout
+   */
+  const featureBoxes = [
+    {
+      title: "Access to 'Skill Garage'",
+      subtitle: "Curated workshops by industry leading tools",
+      position: "top-left"
+    },
+    {
+      title: "Sponsored Trip to Mumbai",
+      subtitle: "For the Grand Finale",
+      position: "top-right"
+    },
+    {
+      title: "Direct Access to Renowned VCs and Angel Investors",
+      subtitle: "For possible funding opportunities",
+      position: "bottom-left"
+    },
+    {
+      title: "Worthy credits",
+      subtitle: "From premium brands",
+      position: "bottom-right"
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
       <Navigation />
 
-      {/* Hero Section */}
-      <section className="bg-gradient-to-r from-primary/10 to-secondary/10 py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
-            Young Founders Floor—India's First Entrepreneurship Competition Where{" "}
-            <span className="text-primary">EVERYONE</span> Wins
-          </h1>
-          <h3 className="text-xl md:text-2xl text-muted-foreground mb-8">
-            Transform your breakthrough idea into a venture in 5 months.
-          </h3>
-          <Button 
-            size="lg" 
-            className="text-lg px-8 py-3"
-            onClick={handleRegisterClick}
-          >
-            {user ? "Continue Application" : "Register Now"}
-          </Button>
+      {/* Hero Section with Dark Geometric Background */}
+      <section className="relative min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 overflow-hidden">
+        {/* Geometric Background Pattern */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-0 left-0 w-full h-full">
+            <svg width="100%" height="100%" viewBox="0 0 1920 1080" className="absolute inset-0">
+              <defs>
+                <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+                  <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(59, 130, 246, 0.1)" strokeWidth="1"/>
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Light Triangle Effects */}
+        <div className="absolute top-10 right-10 w-32 h-32 bg-blue-500 opacity-20 transform rotate-45 blur-xl"></div>
+        <div className="absolute bottom-20 left-20 w-24 h-24 bg-blue-400 opacity-15 transform rotate-12 blur-lg"></div>
+
+        {/* Main Content Container */}
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-20">
+          
+          {/* Feature Boxes - Positioned around the center */}
+          <div className="absolute inset-0 hidden lg:block">
+            {/* Top Left */}
+            <div className="absolute top-32 left-20 max-w-xs">
+              <div className="bg-blue-600 rounded-2xl p-6 shadow-2xl">
+                <h3 className="text-white font-bold text-lg mb-2">Access to "Skill Garage"</h3>
+                <p className="text-blue-100 text-sm">Curated workshops by industry leading tools</p>
+              </div>
+            </div>
+
+            {/* Top Right */}
+            <div className="absolute top-32 right-20 max-w-xs">
+              <div className="bg-blue-600 rounded-2xl p-6 shadow-2xl">
+                <h3 className="text-white font-bold text-lg mb-2">Sponsored Trip to Mumbai</h3>
+                <p className="text-blue-100 text-sm">For the Grand Finale</p>
+              </div>
+            </div>
+
+            {/* Bottom Left */}
+            <div className="absolute bottom-32 left-20 max-w-xs">
+              <div className="bg-blue-600 rounded-2xl p-6 shadow-2xl">
+                <h3 className="text-white font-bold text-lg mb-2">Direct Access to Renowned VCs and Angel Investors</h3>
+                <p className="text-blue-100 text-sm">For possible funding opportunities</p>
+              </div>
+            </div>
+
+            {/* Bottom Right */}
+            <div className="absolute bottom-32 right-20 max-w-xs">
+              <div className="bg-blue-600 rounded-2xl p-6 shadow-2xl">
+                <h3 className="text-white font-bold text-lg mb-2">Worthy credits</h3>
+                <p className="text-blue-100 text-sm">From premium brands</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Central Hero Content */}
+          <div className="text-center max-w-4xl mx-auto">
+            <h1 className="text-6xl md:text-8xl font-bold text-white mb-4 tracking-tight">
+              Young Founders <span className="italic">Floor</span>
+            </h1>
+            
+            <h2 className="text-xl md:text-2xl text-gray-300 mb-8 font-light">
+              India's First Entrepreneurship Competition<br />
+              Where <span className="font-bold text-white">EVERYONE</span> Wins
+            </h2>
+
+            {/* Prize Pool Display */}
+            <div className="mb-12">
+              <div className="inline-block relative">
+                <h3 className="text-3xl md:text-4xl font-bold text-white mb-2 italic">
+                  INR 10 Lakhs+ of prize pool
+                </h3>
+                <div className="h-1 w-full bg-white mb-4"></div>
+              </div>
+            </div>
+
+            {/* Call to Action Button */}
+            <Button 
+              size="lg" 
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg px-12 py-4 rounded-full shadow-2xl transform hover:scale-105 transition-all duration-200"
+              onClick={handleRegisterClick}
+            >
+              {user ? "Continue Application" : "Register Now"}
+            </Button>
+          </div>
+
+          {/* Mobile Feature Boxes */}
+          <div className="lg:hidden mt-16 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            {featureBoxes.map((box, index) => (
+              <div key={index} className="bg-blue-600 rounded-2xl p-6 shadow-2xl">
+                <h3 className="text-white font-bold text-lg mb-2">{box.title}</h3>
+                <p className="text-blue-100 text-sm">{box.subtitle}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

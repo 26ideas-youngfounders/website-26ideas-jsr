@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Authentication hook and provider for the 26ideas Young Founders platform.
  * 
@@ -7,6 +8,7 @@
  * - Session management
  * - Authentication state persistence
  * - Error handling and user feedback
+ * - Graceful handling of missing profiles
  * 
  * This hook manages the entire authentication flow and provides a consistent
  * interface for all authentication-related operations throughout the application.
@@ -128,17 +130,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Fetch user profile from individuals table
+   * Now handles missing profiles gracefully
    */
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // First try by individual_id
+      let { data, error } = await supabase
         .from('individuals')
         .select('*')
         .eq('individual_id', userId)
         .maybeSingle();
 
-      if (error) {
+      // If not found by individual_id, try by email (for backwards compatibility)
+      if (!data && !error) {
+        const user = await supabase.auth.getUser();
+        if (user.data.user?.email) {
+          const { data: dataByEmail, error: errorByEmail } = await supabase
+            .from('individuals')
+            .select('*')
+            .eq('email', user.data.user.email)
+            .maybeSingle();
+          
+          data = dataByEmail;
+          error = errorByEmail;
+        }
+      }
+
+      if (error && error.code !== 'PGRST116') {
         console.error("❌ Failed to fetch user profile:", error);
+        setUserProfile(null);
         return;
       }
 

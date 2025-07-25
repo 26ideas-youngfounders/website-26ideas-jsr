@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +10,8 @@ import { Form } from '@/components/ui/form';
 import { YffRegistrationFormSections } from './YffRegistrationFormSections';
 import { YffAutosaveIndicator } from './YffAutosaveIndicator';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
 // Define the schema for individual team members
 const teamMemberSchema = z.object({
@@ -106,7 +107,7 @@ const extractNumberOfTeamMembers = (autosavedData: any): number => {
 
 /**
  * YFF Team Registration Form Component
- * Handles team registration with autosave functionality
+ * Handles team registration with autosave functionality and profile creation
  */
 export const YffTeamRegistrationForm = () => {
   const { user } = useAuth();
@@ -114,6 +115,7 @@ export const YffTeamRegistrationForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [showProfileCreation, setShowProfileCreation] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -149,6 +151,47 @@ export const YffTeamRegistrationForm = () => {
     formData: watchedValues,
   });
 
+  // Create a basic profile for authenticated users who don't have one
+  const createBasicProfile = async () => {
+    if (!user?.email) return false;
+
+    try {
+      console.log('📝 Creating basic profile for user:', user.email);
+      
+      // Extract potential name from email
+      const emailUsername = user.email.split('@')[0];
+      const nameParts = emailUsername.split('.');
+      const firstName = nameParts[0] || 'User';
+      const lastName = nameParts[1] || '';
+
+      const { error } = await supabase
+        .from('individuals')
+        .insert({
+          individual_id: user.id,
+          first_name: firstName,
+          last_name: lastName,
+          email: user.email,
+          privacy_consent: true, // Assume consent since they're authenticated
+          data_processing_consent: true,
+          country_code: '+91',
+          country_iso_code: 'IN',
+          is_active: true,
+          email_verified: true, // They're authenticated, so email is verified
+        });
+
+      if (error) {
+        console.error('❌ Error creating basic profile:', error);
+        return false;
+      }
+
+      console.log('✅ Basic profile created successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Error in createBasicProfile:', error);
+      return false;
+    }
+  };
+
   // Load user profile and autosaved data
   useEffect(() => {
     const loadData = async () => {
@@ -160,22 +203,41 @@ export const YffTeamRegistrationForm = () => {
       try {
         console.log('🔍 Loading profile for user:', user.email);
         
-        // Fetch user profile from individuals table
-        const { data: individual, error: individualError } = await supabase
+        // First, try to fetch user profile by email
+        let { data: individual, error: individualError } = await supabase
           .from('individuals')
           .select('*')
           .eq('email', user.email)
           .maybeSingle();
 
-        if (individualError) {
+        // If no profile found by email, try by individual_id
+        if (!individual && !individualError) {
+          console.log('🔍 No profile found by email, trying by individual_id');
+          const { data: individualById, error: individualByIdError } = await supabase
+            .from('individuals')
+            .select('*')
+            .eq('individual_id', user.id)
+            .maybeSingle();
+          
+          individual = individualById;
+          individualError = individualByIdError;
+        }
+
+        if (individualError && individualError.code !== 'PGRST116') {
           console.error('❌ Error fetching individual profile:', individualError);
           setProfileError('Could not load your profile. Please refresh or contact support.');
           return;
         }
 
         if (!individual) {
-          console.error('❌ No individual profile found for email:', user.email);
-          setProfileError('Profile not found. Please complete your profile first.');
+          console.log('⚠️ No individual profile found, offering to create one');
+          setShowProfileCreation(true);
+          setProfileLoaded(true);
+          
+          // Pre-fill with available user data
+          form.setValue('email', user.email);
+          form.setValue('fullName', user.user_metadata?.full_name || '');
+          
           return;
         }
 
@@ -208,6 +270,7 @@ export const YffTeamRegistrationForm = () => {
 
         setProfileLoaded(true);
         setProfileError(null);
+        setShowProfileCreation(false);
       } catch (error) {
         console.error('❌ Error loading data:', error);
         setProfileError('An unexpected error occurred. Please try again.');
@@ -216,6 +279,26 @@ export const YffTeamRegistrationForm = () => {
 
     loadData();
   }, [user, form, loadSavedData]);
+
+  // Handle profile creation
+  const handleCreateProfile = async () => {
+    const success = await createBasicProfile();
+    if (success) {
+      setShowProfileCreation(false);
+      toast({
+        title: 'Profile Created',
+        description: 'Your basic profile has been created. You can now proceed with registration.',
+      });
+      // Reload the page to refresh the profile data
+      window.location.reload();
+    } else {
+      toast({
+        title: 'Error',
+        description: 'Failed to create profile. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const onSubmit = async (data: FormValues) => {
     if (!user || !profileLoaded) {
@@ -300,6 +383,50 @@ export const YffTeamRegistrationForm = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Show profile creation option
+  if (showProfileCreation) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Complete Your Profile
+          </h1>
+          <p className="text-gray-600">
+            We need to create your profile before you can register for the YFF program.
+          </p>
+        </div>
+
+        <Alert className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You're signed in as <strong>{user?.email}</strong>, but we need to create your profile 
+            in our system to continue with the registration process.
+          </AlertDescription>
+        </Alert>
+
+        <div className="space-y-4">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-semibold mb-2">What happens next:</h3>
+            <ul className="space-y-1 text-sm text-gray-600">
+              <li>• We'll create a basic profile with your email address</li>
+              <li>• You can complete the full registration form</li>
+              <li>• Your progress will be automatically saved</li>
+            </ul>
+          </div>
+
+          <div className="flex gap-4">
+            <Button onClick={handleCreateProfile} className="flex-1">
+              Create Profile & Continue
+            </Button>
+            <Button variant="outline" onClick={() => window.location.href = '/'}>
+              Go to Home
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show error state if profile couldn't be loaded
   if (profileError) {

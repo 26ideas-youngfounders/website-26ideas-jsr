@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./hooks/useAuth";
 import Navigation from "./components/Navigation";
 import Footer from "./components/Footer";
 import Index from "./pages/Index";
@@ -31,29 +32,31 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <BrowserRouter>
-          <div className="min-h-screen bg-background flex flex-col">
-            <Navigation />
-            <main className="flex-1">
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/annual-retreat" element={<AnnualRetreat />} />
-                <Route path="/young-founders-floor" element={<YffLandingPage />} />
-                <Route path="/yff/team-registration" element={<YffTeamRegistration />} />
-                <Route path="/yff/questionnaire" element={<YffQuestionnaire />} />
-                <Route path="/yff/team-information" element={<YffTeamInformation />} />
-                <Route path="/mentor-signup" element={<MentorSignup />} />
-                <Route path="/phone-input-test" element={<PhoneInputTest />} />
-                <Route path="/admin/crm" element={<CrmDashboard />} />
-                <Route path="/admin/yff-applications" element={<YffApplicationsPage />} />
-                <Route path="/admin/mentor-applications" element={<MentorApplicationsPage />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-            <Footer />
-          </div>
-          <Toaster />
-        </BrowserRouter>
+        <AuthProvider>
+          <BrowserRouter>
+            <div className="min-h-screen bg-background flex flex-col">
+              <Navigation />
+              <main className="flex-1">
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/events/annual-retreat" element={<AnnualRetreat />} />
+                  <Route path="/young-founders-floor" element={<YffLandingPage />} />
+                  <Route path="/yff/team-registration" element={<YffTeamRegistration />} />
+                  <Route path="/yff/questionnaire" element={<YffQuestionnaire />} />
+                  <Route path="/yff/team-information" element={<YffTeamInformation />} />
+                  <Route path="/community/mentors" element={<MentorSignup />} />
+                  <Route path="/phone-input-test" element={<PhoneInputTest />} />
+                  <Route path="/admin/crm" element={<CrmDashboard />} />
+                  <Route path="/admin/yff-applications" element={<YffApplicationsPage />} />
+                  <Route path="/admin/mentor-applications" element={<MentorApplicationsPage />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </main>
+              <Footer />
+            </div>
+            <Toaster />
+          </BrowserRouter>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

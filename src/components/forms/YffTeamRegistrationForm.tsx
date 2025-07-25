@@ -44,7 +44,7 @@ type TeamRegistrationData = z.infer<typeof teamRegistrationSchema>;
  * Handles team leader registration with comprehensive validation and error handling
  */
 export const YffTeamRegistrationForm = () => {
-  const { user, userProfile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasExistingRegistration, setHasExistingRegistration] = useState(false);
@@ -145,6 +145,68 @@ export const YffTeamRegistrationForm = () => {
   };
 
   /**
+   * Ensures user has an individual record, creates one if needed
+   */
+  const ensureIndividualRecord = async (user: any): Promise<string | null> => {
+    try {
+      // First check if individual record exists
+      const { data: existingIndividual, error: checkError } = await supabase
+        .from('individuals')
+        .select('individual_id')
+        .eq('individual_id', user.id)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error("❌ Error checking for existing individual:", checkError);
+        return null;
+      }
+
+      // If individual record exists, return the ID
+      if (existingIndividual) {
+        console.log("✅ Found existing individual record:", existingIndividual.individual_id);
+        return existingIndividual.individual_id;
+      }
+
+      // If no individual record exists, create one
+      console.log("📝 Creating new individual record for authenticated user");
+      
+      // Extract name from user metadata or use defaults
+      const userMetadata = user.user_metadata || {};
+      const firstName = userMetadata.first_name || userMetadata.name?.split(' ')[0] || 'User';
+      const lastName = userMetadata.last_name || userMetadata.name?.split(' ').slice(1).join(' ') || 'Name';
+
+      const { data: newIndividual, error: createError } = await supabase
+        .from('individuals')
+        .insert({
+          individual_id: user.id,
+          first_name: firstName,
+          last_name: lastName,
+          email: user.email,
+          privacy_consent: true, // Assume consent for authenticated users
+          data_processing_consent: true, // Assume consent for authenticated users
+          country_code: '+91',
+          country_iso_code: 'IN',
+          is_active: true,
+          email_verified: user.email_confirmed_at ? true : false,
+        })
+        .select('individual_id')
+        .single();
+
+      if (createError) {
+        console.error("❌ Failed to create individual record:", createError);
+        return null;
+      }
+
+      console.log("✅ Created new individual record:", newIndividual.individual_id);
+      return newIndividual.individual_id;
+
+    } catch (error) {
+      console.error("❌ Error ensuring individual record:", error);
+      return null;
+    }
+  };
+
+  /**
    * Handles form submission with enhanced error handling
    */
   const onSubmit = async (data: TeamRegistrationData) => {
@@ -152,15 +214,6 @@ export const YffTeamRegistrationForm = () => {
       const errorMsg = "You must be signed in to register. Please sign in and try again.";
       setSubmitError(errorMsg);
       toast.error(errorMsg);
-      return;
-    }
-
-    // Check if user profile exists - this should exist for authenticated users
-    if (!userProfile) {
-      const errorMsg = "User profile not found. Please contact support.";
-      setSubmitError(errorMsg);
-      toast.error(errorMsg);
-      console.error("❌ User profile not found for authenticated user:", user.id);
       return;
     }
 
@@ -184,9 +237,17 @@ export const YffTeamRegistrationForm = () => {
     setValidationErrors([]);
 
     try {
-      // Use existing individual_id from authenticated user's profile
-      const individualId = userProfile.individual_id;
-      console.log("✅ Using existing individual_id:", individualId);
+      // Ensure individual record exists
+      const individualId = await ensureIndividualRecord(user);
+      
+      if (!individualId) {
+        const errorMsg = "Failed to create or find user profile. Please try again or contact support.";
+        setSubmitError(errorMsg);
+        toast.error(errorMsg);
+        return;
+      }
+
+      console.log("✅ Using individual_id:", individualId);
 
       const registrationData = {
         individual_id: individualId,

@@ -16,8 +16,7 @@ interface SignInModalProps {
 }
 
 /**
- * SignInModal component for user authentication
- * Provides sign-in and sign-up functionality with social login options
+ * Enhanced SignInModal with immediate error feedback and account existence checking
  */
 const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -33,15 +32,17 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
   const [loading, setLoading] = useState(false);
   const { signInWithGoogle, signInWithFacebook, signUp, signIn } = useAuth();
 
-  // Console warning for text readability
   useEffect(() => {
     if (isOpen) {
-      console.warn("🔍 SignInModal: Ensuring all text elements use dark colors for readability on light background");
+      console.log("🔍 SignInModal: Enhanced error handling and feedback system active");
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
+  /**
+   * Enhanced email/password authentication with immediate error feedback
+   */
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -51,21 +52,41 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
         // Validate required fields for sign-up
         if (!firstName.trim()) {
           console.error("❌ Sign-up validation failed: Missing first name");
+          toast({
+            title: "Validation Error",
+            description: "First name is required",
+            variant: "destructive",
+          });
           return;
         }
         
         if (!lastName.trim()) {
           console.error("❌ Sign-up validation failed: Missing last name");
+          toast({
+            title: "Validation Error", 
+            description: "Last name is required",
+            variant: "destructive",
+          });
           return;
         }
         
         if (!privacyConsent) {
           console.error("❌ Sign-up validation failed: Privacy consent not given");
+          toast({
+            title: "Validation Error",
+            description: "You must agree to the privacy policy",
+            variant: "destructive",
+          });
           return;
         }
         
         if (!dataProcessingConsent) {
           console.error("❌ Sign-up validation failed: Data processing consent not given");
+          toast({
+            title: "Validation Error",
+            description: "You must consent to data processing",
+            variant: "destructive",
+          });
           return;
         }
 
@@ -80,75 +101,87 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
         });
 
         if (!error) {
-          console.log("✅ Sign-up successful - closing modal and showing home page");
+          console.log("✅ Sign-up successful - closing modal");
           onClose();
           onSuccess?.();
         }
       } else {
-        // Enhanced sign-in with proper error handling for unregistered accounts
-        console.log("🔐 Attempting sign-in for:", email);
+        // Enhanced sign-in with immediate account existence checking
+        console.log("🔐 Attempting sign-in with enhanced error handling:", { email });
         
+        // First check if the email exists in our individuals table
+        const { data: individual, error: checkError } = await supabase
+          .from('individuals')
+          .select('email, first_name, last_name')
+          .eq('email', email)
+          .maybeSingle();
+        
+        if (checkError && checkError.code !== 'PGRST116') {
+          console.error("❌ Error checking account existence:", checkError);
+          toast({
+            title: "Connection Error",
+            description: "Unable to verify account. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (!individual) {
+          // Account doesn't exist - immediate feedback with sign-up prompt
+          console.log("❌ Account not found for email:", email);
+          
+          toast({
+            title: "Account Not Found",
+            description: "No account exists with this email address. Please create an account to continue.",
+            variant: "destructive",
+            action: (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsSignUp(true);
+                  setEmail(email); // Pre-fill the email in sign-up form
+                }}
+              >
+                Create Account
+              </Button>
+            ),
+          });
+          return;
+        }
+
+        // Account exists, attempt sign-in
         const { error } = await signIn(email, password);
         
         if (error) {
-          console.error("❌ Sign-in failed:", error.message);
+          console.error("❌ Sign-in failed for existing account:", error.message);
           
-          // Check if it's an invalid credentials error (could be unregistered email)
           if (error.message.includes('Invalid login credentials')) {
-            // Check if the email exists in our individuals table
-            const { data: individual, error: checkError } = await supabase
-              .from('individuals')
-              .select('email')
-              .eq('email', email)
-              .single();
-            
-            if (checkError && checkError.code === 'PGRST116') {
-              // No individual found - account doesn't exist
-              console.error("❌ Account not found for email:", email);
-              
-              const toastResult = toast({
-                title: "Account Not Found",
-                description: "No account found with this email. Please create an account to continue.",
-                variant: "destructive",
-                action: (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsSignUp(true);
-                      // No need to call dismiss on toast result
-                    }}
-                  >
-                    Create Account
-                  </Button>
-                ),
-              });
-              return;
-            } else if (individual) {
-              // Individual exists but wrong password
-              console.error("❌ Incorrect password for existing account:", email);
-              
-              toast({
-                title: "Incorrect Password",
-                description: "The password you entered is incorrect. Please try again.",
-                variant: "destructive",
-              });
-              return;
-            }
+            toast({
+              title: "Invalid Password",
+              description: "The password you entered is incorrect. Please try again or reset your password.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Sign In Failed",
+              description: error.message,
+              variant: "destructive",
+            });
           }
-          
-          // For other errors, show generic message
-          toast({
-            title: "Sign In Failed",
-            description: error.message,
-            variant: "destructive",
-          });
         } else {
-          console.log("✅ Sign-in successful - closing modal and showing home page");
+          console.log("✅ Sign-in successful - closing modal");
           onClose();
           onSuccess?.();
         }
       }
+    } catch (error) {
+      console.error("❌ Unexpected error during authentication:", error);
+      toast({
+        title: "Authentication Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -166,6 +199,11 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
       onSuccess?.();
     } catch (error) {
       console.error(`❌ ${provider} sign-in failed:`, error);
+      toast({
+        title: "Social Login Error",
+        description: `Failed to sign in with ${provider}. Please try again.`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -183,9 +221,9 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
         onClick={onClose}
       />
       
-      {/* Modal - with explicit white background and dark text */}
+      {/* Modal */}
       <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
-        {/* Close button - dark color for visibility */}
+        {/* Close button */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-600 hover:text-gray-900 transition-colors z-10"
@@ -194,7 +232,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
         </button>
 
         <div className="p-5">
-          {/* Content - dark text colors */}
+          {/* Header */}
           <div className="text-center mb-4">
             <h2 className="text-xl font-bold text-gray-900 mb-1">
               {isSignUp ? "Create Account" : "Welcome Back"}
@@ -207,12 +245,13 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
             </p>
           </div>
 
-          {/* Social Login Buttons - with dark text */}
+          {/* Social Login Buttons */}
           <div className="space-y-2 mb-4">
             <Button
               onClick={() => handleSocialLogin('google')}
               variant="outline"
               className="w-full flex items-center justify-center gap-2 py-2 text-sm bg-white border-gray-300 text-gray-900 hover:bg-gray-50 hover:text-gray-900"
+              disabled={loading}
             >
               <svg width="16" height="16" viewBox="0 0 24 24">
                 <path
@@ -239,6 +278,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
               onClick={() => handleSocialLogin('facebook')}
               variant="outline"
               className="w-full flex items-center justify-center gap-2 py-2 text-sm bg-white border-gray-300 text-gray-900 hover:bg-gray-50 hover:text-gray-900"
+              disabled={loading}
             >
               <svg width="16" height="16" viewBox="0 0 24 24">
                 <path
@@ -250,7 +290,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
             </Button>
           </div>
 
-          {/* Divider - dark text */}
+          {/* Divider */}
           <div className="relative mb-4">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300" />
@@ -260,7 +300,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
             </div>
           </div>
 
-          {/* Email/Password Form - dark text and proper input styling */}
+          {/* Email/Password Form */}
           <form onSubmit={handleEmailSubmit} className="space-y-3 mb-4">
             {isSignUp && (
               <>
@@ -275,6 +315,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
                       placeholder="First name"
                       required
                       className="h-9 text-sm bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:border-gray-500 focus:ring-gray-500"
+                      disabled={loading}
                     />
                   </div>
                   <div>
@@ -287,11 +328,11 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
                       placeholder="Last name"
                       required
                       className="h-9 text-sm bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:border-gray-500 focus:ring-gray-500"
+                      disabled={loading}
                     />
                   </div>
                 </div>
 
-                {/* Phone number with country code */}
                 <div>
                   <PhoneInput
                     label="Phone Number"
@@ -302,6 +343,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
                     onCountryChange={handleCountryChange}
                     placeholder="Enter phone number"
                     className="text-sm [&_label]:text-gray-900 [&_input]:bg-white [&_input]:border-gray-300 [&_input]:text-gray-900 [&_input]:placeholder:text-gray-500"
+                    disabled={loading}
                   />
                 </div>
               </>
@@ -317,6 +359,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
                 placeholder="Enter your email"
                 required
                 className="h-9 text-sm bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:border-gray-500 focus:ring-gray-500"
+                disabled={loading}
               />
             </div>
             
@@ -330,6 +373,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
                 placeholder="Enter password"
                 required
                 className="h-9 text-sm bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:border-gray-500 focus:ring-gray-500"
+                disabled={loading}
               />
             </div>
 
@@ -343,6 +387,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
                     onChange={(e) => setPrivacyConsent(e.target.checked)}
                     className="mt-0.5 accent-gray-900"
                     required
+                    disabled={loading}
                   />
                   <Label htmlFor="privacyConsent" className="text-xs leading-tight text-gray-900">
                     I agree to the privacy policy and terms of service *
@@ -357,6 +402,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
                     onChange={(e) => setDataProcessingConsent(e.target.checked)}
                     className="mt-0.5 accent-gray-900"
                     required
+                    disabled={loading}
                   />
                   <Label htmlFor="dataProcessingConsent" className="text-xs leading-tight text-gray-900">
                     I consent to data processing for community engagement *
@@ -367,20 +413,21 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
 
             <Button 
               type="submit" 
-              className="w-full py-2 text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 focus:bg-gray-800" 
+              className="w-full py-2 text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 focus:bg-gray-800 disabled:opacity-50" 
               disabled={loading}
             >
               {loading ? "Please wait..." : (isSignUp ? "Create Account" : "Sign In")}
             </Button>
           </form>
 
-          {/* Toggle Sign Up/Sign In - dark text */}
+          {/* Toggle Sign Up/Sign In */}
           <div className="text-center">
             <p className="text-xs text-gray-600">
               {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
               <button
                 onClick={() => setIsSignUp(!isSignUp)}
                 className="text-gray-900 hover:text-gray-700 underline font-medium"
+                disabled={loading}
               >
                 {isSignUp ? "Sign in" : "Sign up"}
               </button>

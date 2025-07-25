@@ -18,22 +18,14 @@ import countryList from 'react-select-country-list';
 import { YffAutosaveIndicator } from '@/components/forms/YffAutosaveIndicator';
 import { useAutosave } from '@/hooks/useAutosave';
 
-// Define types for team members
+// Team member type with validation
 type TeamMember = {
   name: string;
   email: string;
   linkedin?: string;
 };
 
-/**
- * CRITICAL: YffRegistrationFormData type and yffRegistrationSchema must always match exactly
- * If you change any field to optional/required, update BOTH the schema and the type
- * Run `tsc --noEmit` before committing to catch type mismatches
- * 
- * IMPORTANT: All .required() calls must provide a message, or Yup will infer the field as optional in TypeScript.
- * 
- * Yup schema - Generate TypeScript type from this schema to ensure perfect alignment
- */
+// IMPORTANT: All .required() calls must provide a message, or Yup will infer the field as optional in TypeScript.
 const yffRegistrationSchema = yup.object({
   fullName: yup.string().required('Full name is required'),
   email: yup.string().email('Invalid email format').required('Email is required'),
@@ -49,7 +41,7 @@ const yffRegistrationSchema = yup.object({
   courseProgram: yup.string().required('Course/Program is required'),
   currentYearOfStudy: yup.string().required('Current year of study is required'),
   expectedGraduation: yup.date().required('Expected graduation date is required'),
-  numberOfTeamMembers: yup.number().required('Number of team members is required').min(1, 'Must have at least 1 team member'),
+  numberOfTeamMembers: yup.number().required('Number of team members is required').min(1, 'Must have at least 1 team member').max(4, 'Maximum 4 team members allowed'),
   ventureName: yup.string().required('Venture name is required'),
   industrySector: yup.string().required('Industry sector is required'),
   teamName: yup.string().required('Team name is required'),
@@ -59,48 +51,16 @@ const yffRegistrationSchema = yup.object({
   referralId: yup.string().required('Referral ID is required'),
 }).required();
 
-/**
- * Generate the TypeScript type directly from the Yup schema
- * This ensures perfect alignment between schema validation and TypeScript types
- */
+// Generate TypeScript type from Yup schema
 type YffRegistrationFormData = InferType<typeof yffRegistrationSchema>;
 
-export type YffRegistration = YffRegistrationFormData & {
-  teamMembers: TeamMember[];
-};
-
-// Type for country options
 type CountryOption = {
   label: string;
   value: string;
 };
 
 /**
- * Validate registration data against the schema
- * @param {YffRegistrationFormData} data - The registration data to validate
- * @returns {{ isValid: boolean; errors: string[] }} - An object containing the validation result and any errors
- */
-const validateRegistrationData = (data: YffRegistrationFormData): { isValid: boolean; errors: string[] } => {
-  try {
-    yffRegistrationSchema.validateSync(data, { abortEarly: false });
-    return { isValid: true, errors: [] };
-  } catch (error: any) {
-    const errors = error.inner.map((err: yup.ValidationError) => err.message);
-    return { isValid: false, errors: errors };
-  }
-};
-
-/**
- * Convert Date to ISO string for database storage
- */
-const formatDateForDatabase = (date: Date): string => {
-  return date instanceof Date ? date.toISOString().split('T')[0] : '';
-};
-
-/**
- * YFF Team Registration Form Component
- * 
- * Enhanced with automatic redirect to questionnaire after successful submission
+ * Enhanced YFF Team Registration Form with auto-resume and profile data integration
  */
 export const YffTeamRegistrationForm = () => {
   const { user, userProfile } = useAuth();
@@ -108,13 +68,16 @@ export const YffTeamRegistrationForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [countries, setCountries] = useState<CountryOption[]>([]);
+  const [hasAutoFilled, setHasAutoFilled] = useState(false);
   
-  // Initialize react-hook-form methods with proper typing and ALL required defaults
-  const methods = useForm<YffRegistrationFormData>({
-    resolver: yupResolver(yffRegistrationSchema),
-    defaultValues: {
-      // All required fields must have default values - matches schema exactly
-      fullName: userProfile?.first_name + ' ' + userProfile?.last_name || '',
+  // Auto-fill profile data from user profile
+  const getAutoFilledDefaults = useCallback(() => {
+    const firstName = userProfile?.first_name || '';
+    const lastName = userProfile?.last_name || '';
+    const fullName = firstName && lastName ? `${firstName} ${lastName}` : '';
+    
+    return {
+      fullName: fullName,
       email: userProfile?.email || '',
       phoneNumber: '',
       countryCode: userProfile?.country_code || '+91',
@@ -136,7 +99,13 @@ export const YffTeamRegistrationForm = () => {
       linkedinProfile: '',
       socialMediaHandles: '',
       referralId: '',
-    },
+    };
+  }, [userProfile]);
+
+  // Initialize react-hook-form
+  const methods = useForm<YffRegistrationFormData>({
+    resolver: yupResolver(yffRegistrationSchema),
+    defaultValues: getAutoFilledDefaults(),
     mode: 'onBlur',
   });
 
@@ -145,16 +114,20 @@ export const YffTeamRegistrationForm = () => {
     register,
     setValue,
     getValues,
+    watch,
     formState: { errors },
   } = methods;
 
-  // Autosave setup with proper props
-  const { status: autosaveStatus } = useAutosave({
+  // Watch numberOfTeamMembers for dynamic field generation
+  const numberOfTeamMembers = watch('numberOfTeamMembers');
+
+  // Autosave setup
+  const { status: autosaveStatus, loadSavedData } = useAutosave({
     formData: getValues(),
     formType: 'yff_team_registration',
   });
 
-  // Load countries on component mount
+  // Load countries on mount
   useEffect(() => {
     const countries = countryList();
     const countryOptions = countries.getData().map((country) => ({
@@ -164,9 +137,90 @@ export const YffTeamRegistrationForm = () => {
     setCountries(countryOptions);
   }, []);
 
-  /**
-   * Handle form submission with automatic redirect to questionnaire
-   */
+  // Auto-fill profile data on mount and when userProfile changes
+  useEffect(() => {
+    if (userProfile && !hasAutoFilled) {
+      const autoFilledData = getAutoFilledDefaults();
+      
+      // Only auto-fill if the fields are currently empty
+      const currentValues = getValues();
+      Object.entries(autoFilledData).forEach(([key, value]) => {
+        if (value && (!currentValues[key] || currentValues[key] === '')) {
+          setValue(key as keyof YffRegistrationFormData, value);
+        }
+      });
+      
+      setHasAutoFilled(true);
+      console.log('✅ Auto-filled profile data:', {
+        fullName: autoFilledData.fullName,
+        email: autoFilledData.email,
+        countryCode: autoFilledData.countryCode
+      });
+    }
+  }, [userProfile, hasAutoFilled, getAutoFilledDefaults, getValues, setValue]);
+
+  // Auto-resume saved draft
+  useEffect(() => {
+    if (user?.id && !hasAutoFilled) {
+      const loadDraft = async () => {
+        const savedData = await loadSavedData();
+        if (savedData) {
+          console.log('🔄 Auto-resuming form from saved draft');
+          Object.entries(savedData).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+              setValue(key as keyof YffRegistrationFormData, value);
+            }
+          });
+          
+          // Also restore team members if they exist
+          if (savedData.teamMembers && Array.isArray(savedData.teamMembers)) {
+            setTeamMembers(savedData.teamMembers);
+          }
+          
+          toast.success('Form progress restored', {
+            description: 'Your previous work has been recovered'
+          });
+        }
+      };
+      
+      loadDraft();
+    }
+  }, [user?.id, hasAutoFilled, loadSavedData, setValue]);
+
+  // Dynamic team member fields based on numberOfTeamMembers
+  useEffect(() => {
+    const memberCount = Math.max(1, Math.min(4, numberOfTeamMembers || 1));
+    
+    setTeamMembers(prevMembers => {
+      const newMembers = [...prevMembers];
+      
+      // Add missing team member slots
+      while (newMembers.length < memberCount - 1) { // -1 because leader is separate
+        newMembers.push({ name: '', email: '', linkedin: '' });
+      }
+      
+      // Remove excess team member slots
+      while (newMembers.length > memberCount - 1) {
+        newMembers.pop();
+      }
+      
+      console.log(`📊 Updated team members: ${memberCount} total (${newMembers.length} additional members)`);
+      return newMembers;
+    });
+  }, [numberOfTeamMembers]);
+
+  // Team member management functions
+  const updateTeamMember = useCallback((index: number, field: keyof TeamMember, value: string) => {
+    setTeamMembers(prevMembers => {
+      const newMembers = [...prevMembers];
+      if (newMembers[index]) {
+        newMembers[index][field] = value;
+      }
+      return newMembers;
+    });
+  }, []);
+
+  // Form submission with validation
   const onSubmit = async (data: YffRegistrationFormData) => {
     if (!user) {
       console.error("❌ User not authenticated");
@@ -177,19 +231,13 @@ export const YffTeamRegistrationForm = () => {
     }
 
     setIsSubmitting(true);
-    console.log("📝 Submitting YFF team registration form:", { userId: user.id, dataKeys: Object.keys(data) });
+    console.log("📝 Submitting enhanced YFF registration:", { 
+      userId: user.id, 
+      dataKeys: Object.keys(data),
+      teamMemberCount: teamMembers.length 
+    });
 
     try {
-      // Validate required fields
-      const validationResult = validateRegistrationData(data);
-      if (!validationResult.isValid) {
-        console.error("❌ Form validation failed:", validationResult.errors);
-        toast.error("Validation Error", {
-          description: validationResult.errors[0] || "Please check your form data",
-        });
-        return;
-      }
-
       // Check for existing registration
       const { data: existingRegistration, error: checkError } = await supabase
         .from('yff_team_registrations')
@@ -205,7 +253,12 @@ export const YffTeamRegistrationForm = () => {
         return;
       }
 
-      // Prepare registration data with proper date formatting
+      // Format dates properly
+      const formatDateForDatabase = (date: Date): string => {
+        return date instanceof Date ? date.toISOString().split('T')[0] : '';
+      };
+
+      // Prepare registration data
       const registrationData = {
         individual_id: user.id,
         full_name: data.fullName,
@@ -224,26 +277,24 @@ export const YffTeamRegistrationForm = () => {
         expected_graduation: formatDateForDatabase(data.expectedGraduation),
         number_of_team_members: data.numberOfTeamMembers,
         team_members: teamMembers,
-        venture_name: data.ventureName || null,
-        industry_sector: data.industrySector || null,
-        team_name: data.teamName || null,
-        website: data.website || null,
-        linkedin_profile: data.linkedinProfile || null,
-        social_media_handles: data.socialMediaHandles || null,
-        referral_id: data.referralId || null,
+        venture_name: data.ventureName,
+        industry_sector: data.industrySector,
+        team_name: data.teamName,
+        website: data.website,
+        linkedin_profile: data.linkedinProfile,
+        social_media_handles: data.socialMediaHandles,
+        referral_id: data.referralId,
         application_status: 'registration_completed',
         updated_at: new Date().toISOString(),
       };
 
       let result;
       if (existingRegistration) {
-        // Update existing registration
         result = await supabase
           .from('yff_team_registrations')
           .update(registrationData)
           .eq('individual_id', user.id);
       } else {
-        // Insert new registration
         result = await supabase
           .from('yff_team_registrations')
           .insert(registrationData);
@@ -265,12 +316,11 @@ export const YffTeamRegistrationForm = () => {
 
       console.log("✅ Registration submitted successfully - redirecting to questionnaire");
       
-      // Show success message
       toast.success("Registration Submitted!", {
         description: "Your team registration has been saved. Redirecting to questionnaire...",
       });
 
-      // Automatic redirect to questionnaire after successful submission
+      // Redirect to questionnaire
       setTimeout(() => {
         navigate('/yff/questionnaire');
       }, 1500);
@@ -284,38 +334,6 @@ export const YffTeamRegistrationForm = () => {
       setIsSubmitting(false);
     }
   };
-
-  // Add team member
-  const addTeamMember = useCallback(() => {
-    setTeamMembers((prevMembers) => [
-      ...prevMembers,
-      { name: '', email: '', linkedin: '' },
-    ]);
-  }, []);
-
-  // Update team member
-  const updateTeamMember = useCallback(
-    (index: number, field: string, value: string) => {
-      setTeamMembers((prevMembers) => {
-        const newMembers = [...prevMembers];
-        newMembers[index][field] = value;
-        return newMembers;
-      });
-    },
-    []
-  );
-
-  // Delete team member
-  const deleteTeamMember = useCallback(
-    (index: number) => {
-      setTeamMembers((prevMembers) => {
-        const newMembers = [...prevMembers];
-        newMembers.splice(index, 1);
-        return newMembers;
-      });
-    },
-    []
-  );
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
@@ -557,92 +575,87 @@ export const YffTeamRegistrationForm = () => {
             </div>
           </section>
 
-          {/* Team Information */}
+          {/* Enhanced Team Information with Dynamic Fields */}
           <section>
             <h2 className="text-xl font-semibold text-gray-800 mb-4">
               Team Information
             </h2>
-            <div>
-              <Label htmlFor="numberOfTeamMembers">Number of Team Members</Label>
-              <Input
-                id="numberOfTeamMembers"
-                type="number"
-                placeholder="Enter the number of team members"
-                {...register('numberOfTeamMembers', { valueAsNumber: true })}
-              />
-              {errors.numberOfTeamMembers && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.numberOfTeamMembers.message}
-                </p>
-              )}
-            </div>
-
-            {/* Team Members List */}
-            <div className="mt-4">
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                Team Members
-              </h3>
-              {teamMembers.map((member, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="numberOfTeamMembers">Number of Team Members (Max 4)</Label>
+                <Select
+                  onValueChange={(value) => setValue('numberOfTeamMembers', parseInt(value))}
+                  defaultValue={getValues('numberOfTeamMembers').toString()}
                 >
-                  <div>
-                    <Label htmlFor={`teamMemberName-${index}`}>Name</Label>
-                    <Input
-                      id={`teamMemberName-${index}`}
-                      placeholder="Enter team member name"
-                      value={member.name}
-                      onChange={(e) =>
-                        updateTeamMember(index, 'name', e.target.value)
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor={`teamMemberEmail-${index}`}>Email</Label>
-                    <Input
-                      id={`teamMemberEmail-${index}`}
-                      type="email"
-                      placeholder="Enter team member email"
-                      value={member.email}
-                      onChange={(e) =>
-                        updateTeamMember(index, 'email', e.target.value)
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor={`teamMemberLinkedIn-${index}`}>
-                      LinkedIn (Optional)
-                    </Label>
-                    <Input
-                      id={`teamMemberLinkedIn-${index}`}
-                      placeholder="Enter LinkedIn profile URL"
-                      value={member.linkedin || ''}
-                      onChange={(e) =>
-                        updateTeamMember(index, 'linkedin', e.target.value)
-                      }
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => deleteTeamMember(index)}
-                  >
-                    Remove
-                  </Button>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select number of team members" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 (Solo)</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                    <SelectItem value="4">4</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.numberOfTeamMembers && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.numberOfTeamMembers.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Dynamic Team Member Fields */}
+              {teamMembers.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                    Additional Team Members
+                  </h3>
+                  {teamMembers.map((member, index) => (
+                    <div key={index} className="border rounded-lg p-4 mb-4 bg-gray-50">
+                      <h4 className="font-medium text-gray-800 mb-3">
+                        Team Member {index + 2}
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor={`teamMember-${index}-name`}>Full Name</Label>
+                          <Input
+                            id={`teamMember-${index}-name`}
+                            placeholder="Enter team member name"
+                            value={member.name}
+                            onChange={(e) => updateTeamMember(index, 'name', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`teamMember-${index}-email`}>Email</Label>
+                          <Input
+                            id={`teamMember-${index}-email`}
+                            type="email"
+                            placeholder="Enter team member email"
+                            value={member.email}
+                            onChange={(e) => updateTeamMember(index, 'email', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-full">
+                          <Label htmlFor={`teamMember-${index}-linkedin`}>LinkedIn (Optional)</Label>
+                          <Input
+                            id={`teamMember-${index}-linkedin`}
+                            placeholder="Enter LinkedIn profile URL"
+                            value={member.linkedin || ''}
+                            onChange={(e) => updateTeamMember(index, 'linkedin', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-              <Button type="button" variant="secondary" onClick={addTeamMember}>
-                Add Team Member
-              </Button>
+              )}
             </div>
           </section>
 
-          {/* Venture Information (Optional) */}
+          {/* Venture Information */}
           <section>
             <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Venture Information (Optional)
+              Venture Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -652,6 +665,11 @@ export const YffTeamRegistrationForm = () => {
                   placeholder="Enter your venture name"
                   {...register('ventureName')}
                 />
+                {errors.ventureName && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.ventureName.message}
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="industrySector">Industry Sector</Label>
@@ -660,6 +678,11 @@ export const YffTeamRegistrationForm = () => {
                   placeholder="Enter your industry sector"
                   {...register('industrySector')}
                 />
+                {errors.industrySector && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.industrySector.message}
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="teamName">Team Name</Label>
@@ -668,6 +691,11 @@ export const YffTeamRegistrationForm = () => {
                   placeholder="Enter your team name"
                   {...register('teamName')}
                 />
+                {errors.teamName && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.teamName.message}
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="website">Website</Label>
@@ -677,6 +705,11 @@ export const YffTeamRegistrationForm = () => {
                   placeholder="Enter your website URL"
                   {...register('website')}
                 />
+                {errors.website && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.website.message}
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="linkedinProfile">LinkedIn Profile</Label>
@@ -686,24 +719,32 @@ export const YffTeamRegistrationForm = () => {
                   placeholder="Enter your LinkedIn profile URL"
                   {...register('linkedinProfile')}
                 />
+                {errors.linkedinProfile && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.linkedinProfile.message}
+                  </p>
+                )}
               </div>
               <div>
-                <Label htmlFor="socialMediaHandles">
-                  Social Media Handles
-                </Label>
+                <Label htmlFor="socialMediaHandles">Social Media Handles</Label>
                 <Input
                   id="socialMediaHandles"
                   placeholder="Enter your social media handles"
                   {...register('socialMediaHandles')}
                 />
+                {errors.socialMediaHandles && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.socialMediaHandles.message}
+                  </p>
+                )}
               </div>
             </div>
           </section>
 
-          {/* Referral Information (Optional) */}
+          {/* Referral Information */}
           <section>
             <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Referral Information (Optional)
+              Referral Information
             </h2>
             <div>
               <Label htmlFor="referralId">Referral ID</Label>
@@ -712,6 +753,11 @@ export const YffTeamRegistrationForm = () => {
                 placeholder="Enter referral ID"
                 {...register('referralId')}
               />
+              {errors.referralId && (
+                <p className="text-red-500 text-sm mt-1">
+                  {errors.referralId.message}
+                </p>
+              )}
             </div>
           </section>
 
@@ -728,7 +774,7 @@ export const YffTeamRegistrationForm = () => {
         </form>
       </FormProvider>
 
-      {/* Autosave Status */}
+      {/* Enhanced Autosave Status */}
       <YffAutosaveIndicator status={autosaveStatus} />
     </div>
   );

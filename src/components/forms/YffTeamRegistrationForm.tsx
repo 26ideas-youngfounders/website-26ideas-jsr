@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -58,9 +59,9 @@ export type YffRegistration = YffRegistrationFormData & {
 
 /**
  * Yup schema - STRICTLY ALIGNED with YffRegistrationFormData interface
- * All fields must be defined as required to match the interface exactly
+ * All fields must be defined as required with proper error messages to match the interface exactly
  */
-const schema = yup.object().shape({
+const schema: yup.ObjectSchema<YffRegistrationFormData> = yup.object().shape({
   fullName: yup.string().required('Full name is required'),
   email: yup.string().email('Invalid email format').required('Email is required'),
   phoneNumber: yup.string().required('Phone number is required'),
@@ -77,13 +78,13 @@ const schema = yup.object().shape({
   expectedGraduation: yup.date().required('Expected graduation date is required'),
   numberOfTeamMembers: yup.number().required('Number of team members is required').min(1, 'Must have at least 1 team member'),
   // Venture fields - required as strings but can be empty for optional sections
-  ventureName: yup.string().required(),
-  industrySector: yup.string().required(),
-  teamName: yup.string().required(),
-  website: yup.string().required(),
-  linkedinProfile: yup.string().required(),
-  socialMediaHandles: yup.string().required(),
-  referralId: yup.string().required(),
+  ventureName: yup.string().required('Venture name is required'),
+  industrySector: yup.string().required('Industry sector is required'),
+  teamName: yup.string().required('Team name is required'),
+  website: yup.string().required('Website is required'),
+  linkedinProfile: yup.string().required('LinkedIn profile is required'),
+  socialMediaHandles: yup.string().required('Social media handles is required'),
+  referralId: yup.string().required('Referral ID is required'),
 });
 
 // Type for country options

@@ -36,6 +36,13 @@ const questionnaireSchema = z.object({
 
 type QuestionnaireFormData = z.infer<typeof questionnaireSchema>;
 
+/**
+ * Props interface for YffQuestionnaireForm
+ * 
+ * @interface YffQuestionnaireFormProps
+ * @property {any} registration - The user's registration data from yff_team_registrations table
+ * @property {() => void} onComplete - Callback function called when questionnaire is successfully submitted
+ */
 interface YffQuestionnaireFormProps {
   registration: any;
   onComplete: () => void;
@@ -43,6 +50,12 @@ interface YffQuestionnaireFormProps {
 
 /**
  * YFF Questionnaire Form with conditional questions
+ * 
+ * Displays different question sets based on the user's selected product stage.
+ * Includes autosave functionality and proper validation for all fields.
+ * 
+ * @param {YffQuestionnaireFormProps} props - Component props
+ * @returns {JSX.Element} The questionnaire form component
  */
 export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   registration,
@@ -51,6 +64,20 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [productStage, setProductStage] = useState<string>('');
+
+  // Validate required props at runtime in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      if (!registration) {
+        console.error('❌ YffQuestionnaireForm: Missing required prop "registration"');
+        toast.error('Developer Error: Missing registration data');
+      }
+      if (!onComplete || typeof onComplete !== 'function') {
+        console.error('❌ YffQuestionnaireForm: Missing required prop "onComplete" or it is not a function');
+        toast.error('Developer Error: Missing onComplete callback');
+      }
+    }
+  }, [registration, onComplete]);
 
   const form = useForm<QuestionnaireFormData>({
     resolver: zodResolver(questionnaireSchema),
@@ -82,6 +109,8 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   useEffect(() => {
     if (registration?.questionnaire_answers) {
       const answers = registration.questionnaire_answers;
+      console.log('🔄 Loading existing questionnaire answers:', answers);
+      
       Object.keys(answers).forEach(key => {
         if (key in form.getValues()) {
           form.setValue(key as keyof QuestionnaireFormData, answers[key]);
@@ -125,8 +154,10 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
               updated_at: new Date().toISOString(),
             })
             .eq('id', registration.id);
+          
+          console.log('💾 Autosaved questionnaire data');
         } catch (error) {
-          console.error('Autosave failed:', error);
+          console.error('❌ Autosave failed:', error);
         }
       }
     }, 2000);
@@ -145,11 +176,14 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
     try {
       // Validate required fields based on product stage
       if (data.productStage === 'Early Revenue') {
-        if (!data.currentRevenue || !data.payingCustomers || !data.workingDuration) {
+        if (!data.payingCustomers || !data.workingDuration) {
           toast.error('Please fill in all required fields for Early Revenue stage');
+          setIsSubmitting(false);
           return;
         }
       }
+
+      console.log('📤 Submitting questionnaire data:', data);
 
       // Update the registration with questionnaire answers
       const { error } = await supabase
@@ -163,14 +197,15 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
         .eq('id', registration.id);
 
       if (error) {
-        console.error('Submission error:', error);
+        console.error('❌ Submission error:', error);
         toast.error('Failed to submit questionnaire. Please try again.');
         return;
       }
 
+      console.log('✅ Questionnaire submitted successfully');
       onComplete();
     } catch (error) {
-      console.error('Submission error:', error);
+      console.error('❌ Submission error:', error);
       toast.error('An unexpected error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);

@@ -105,6 +105,9 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
     formType: 'yff_questionnaire',
   });
 
+  // Don't show conflict status for questionnaire - it's expected to have a registration
+  const displayStatus = autosaveStatus === 'conflict' ? 'idle' : autosaveStatus;
+
   // Load existing questionnaire answers
   useEffect(() => {
     if (registration?.questionnaire_answers) {
@@ -133,7 +136,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
     return () => subscription.unsubscribe();
   }, [form]);
 
-  // Auto-save functionality
+  // Auto-save functionality - save directly to the registration record
   useEffect(() => {
     if (!registration?.id) return;
 
@@ -451,7 +454,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
         </form>
       </Form>
 
-      <YffAutosaveIndicator status={autosaveStatus} />
+      <YffAutosaveIndicator status={displayStatus} />
     </div>
   );
 };

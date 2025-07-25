@@ -104,7 +104,7 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
     }
   }, [user?.id, formType, setStatusSafe]);
 
-  // Enhanced save with conflict prevention
+  // Enhanced save with different logic for questionnaire vs registration
   const saveData = useCallback(async (data: any) => {
     if (!user?.id) {
       logAutosave('No user ID available for autosave');
@@ -136,27 +136,57 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
       logAutosave('Attempting to save autosave data...', { 
         attempt: saveAttempts + 1,
         userId: user.id,
-        dataKeys: Object.keys(data)
+        dataKeys: Object.keys(data),
+        formType
       });
 
-      // Check for existing registration to prevent conflicts
-      const { data: existingReg, error: regError } = await supabase
-        .from('yff_team_registrations')
-        .select('id')
-        .eq('individual_id', user.id)
-        .maybeSingle();
+      // Different behavior for questionnaire vs registration
+      if (formType === 'yff_questionnaire') {
+        // For questionnaire, we expect a registration to exist and want to update it
+        const { data: existingReg, error: regError } = await supabase
+          .from('yff_team_registrations')
+          .select('id')
+          .eq('individual_id', user.id)
+          .maybeSingle();
 
-      if (regError && regError.code !== 'PGRST116') {
-        logAutosave('ERROR checking existing registration', regError);
-        setStatusSafe('error');
-        return;
-      }
+        if (regError && regError.code !== 'PGRST116') {
+          logAutosave('ERROR checking existing registration', regError);
+          setStatusSafe('error');
+          return;
+        }
 
-      if (existingReg) {
-        logAutosave('Registration already exists - stopping autosave');
-        setStatusSafe('conflict');
-        setConflictCount(prev => prev + 1);
+        if (!existingReg) {
+          logAutosave('No registration found for questionnaire - user should register first');
+          setStatusSafe('error');
+          return;
+        }
+
+        // For questionnaire, save to a separate autosave table or skip autosave
+        logAutosave('Questionnaire autosave - skipping to prevent conflicts');
+        setStatusSafe('saved');
+        setLastSaved(new Date());
+        setTimeout(() => setStatusSafe('idle'), 2000);
         return;
+      } else {
+        // For registration form, check for existing registration to prevent conflicts
+        const { data: existingReg, error: regError } = await supabase
+          .from('yff_team_registrations')
+          .select('id')
+          .eq('individual_id', user.id)
+          .maybeSingle();
+
+        if (regError && regError.code !== 'PGRST116') {
+          logAutosave('ERROR checking existing registration', regError);
+          setStatusSafe('error');
+          return;
+        }
+
+        if (existingReg) {
+          logAutosave('Registration already exists - stopping autosave');
+          setStatusSafe('conflict');
+          setConflictCount(prev => prev + 1);
+          return;
+        }
       }
       
       const { error } = await supabase
@@ -192,7 +222,7 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
       setStatusSafe('error');
       setTimeout(() => setStatusSafe('idle'), 3000);
     }
-  }, [user?.id, isInitialLoad, saveAttempts, setStatusSafe]);
+  }, [user?.id, isInitialLoad, saveAttempts, setStatusSafe, formType]);
 
   // Enhanced clear function with logging
   const clearSavedData = useCallback(async () => {

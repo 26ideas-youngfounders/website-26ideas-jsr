@@ -254,6 +254,83 @@ export type Database = {
           },
         ]
       }
+      yff_team_registrations: {
+        Row: {
+          country_code: string
+          course_program: string
+          created_at: string
+          current_city: string
+          current_year_of_study: string
+          date_of_birth: string
+          email: string
+          expected_graduation: string
+          full_name: string
+          gender: string
+          id: string
+          individual_id: string
+          institution_name: string
+          linkedin_profile: string | null
+          permanent_address: string
+          phone_number: string
+          pin_code: string
+          social_media_handles: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          country_code?: string
+          course_program: string
+          created_at?: string
+          current_city: string
+          current_year_of_study: string
+          date_of_birth: string
+          email: string
+          expected_graduation: string
+          full_name: string
+          gender: string
+          id?: string
+          individual_id: string
+          institution_name: string
+          linkedin_profile?: string | null
+          permanent_address: string
+          phone_number: string
+          pin_code: string
+          social_media_handles?: string | null
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          country_code?: string
+          course_program?: string
+          created_at?: string
+          current_city?: string
+          current_year_of_study?: string
+          date_of_birth?: string
+          email?: string
+          expected_graduation?: string
+          full_name?: string
+          gender?: string
+          id?: string
+          individual_id?: string
+          institution_name?: string
+          linkedin_profile?: string | null
+          permanent_address?: string
+          phone_number?: string
+          pin_code?: string
+          social_media_handles?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "yff_team_registrations_individual_id_fkey"
+            columns: ["individual_id"]
+            isOneToOne: true
+            referencedRelation: "individuals"
+            referencedColumns: ["individual_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

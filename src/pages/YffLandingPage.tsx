@@ -1,494 +1,211 @@
 
-/**
- * @fileoverview Young Founders Floor (YFF) landing page component
- * 
- * This page serves as the main landing page for the Young Founders Floor competition,
- * India's first entrepreneurship competition where everyone wins. It includes all
- * the essential information about the program, timeline, benefits, and registration.
- * 
- * @version 1.0.0
- * @author 26ideas Development Team
- */
-
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
-import SignInModal from "@/components/SignInModal";
-import { useAuth } from "@/hooks/useAuth";
-import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { SignInModal } from '@/components/SignInModal';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Users, Trophy, BookOpen, MapPin, CreditCard, Plane, Network, Star } from 'lucide-react';
 
 /**
- * Young Founders Floor Landing Page Component
- * 
- * Contains all sections for the YFF competition including hero, benefits,
- * timeline, rules, and registration information.
- * 
- * @returns {JSX.Element} Complete YFF landing page
+ * Young Founders Floor landing page with authentication-based registration access
+ * Features prize pool, benefits, and conditional registration button
  */
-const YffLandingPage = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { toast } = useToast();
-  const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
+export const YffLandingPage = () => {
+  const { user, isLoading } = useAuth();
 
-  // Show success message if redirected after submission
-  useEffect(() => {
-    if (location.state?.showSuccess) {
-      toast({
-        title: "Success!",
-        description: location.state.message || "Application submitted successfully!",
-        variant: "default",
-      });
-    }
-  }, [location.state, toast]);
-
-  /**
-   * Handle registration button click
-   * Check authentication status and redirect accordingly
-   */
-  const handleRegisterClick = () => {
-    if (user) {
-      // User authenticated, go to team information form
-      navigate('/yff/team-information');
-    } else {
-      // User not authenticated, show sign in modal
-      setIsSignInModalOpen(true);
-    }
-  };
-
-  /**
-   * Handle successful authentication from modal
-   */
-  const handleAuthSuccess = () => {
-    setIsSignInModalOpen(false);
-    toast({
-      title: "Welcome!",
-      description: "Please complete your team information to proceed.",
-    });
-    // Redirect to team information after successful auth
-    setTimeout(() => {
-      navigate('/yff/team-information');
-    }, 1000);
-  };
-
-  /**
-   * Benefits data structure for the comparison table
-   * Shows what participants get in each round of the competition
-   */
-  const benefitsData = [
+  // Feature boxes data matching the screenshot
+  const features = [
     {
-      benefit: "Digital appreciation certificate",
-      round1: true,
-      round2: true,
-      round3: true,
-    },
-    {
-      benefit: "YFP Digital access",
-      round1: true,
-      round2: true,
-      round3: true,
-    },
-    {
-      benefit: "Skill Garage workshops",
-      round1: true,
-      round2: "2.0",
-      round3: "2.0",
-    },
-    {
-      benefit: "Cloud / SaaS credits",
-      round1: false,
-      round2: true,
-      round3: true,
-    },
-    {
-      benefit: "Cash reward",
-      round1: false,
-      round2: "₹10,000/team",
-      round3: "₹10 lakh pool",
-    },
-    {
-      benefit: "Sponsored travel (Mumbai)",
-      round1: false,
-      round2: false,
-      round3: true,
-    },
-    {
-      benefit: "League membership",
-      round1: false,
-      round2: true,
-      round3: true,
-    },
-    {
-      benefit: "VC networking",
-      round1: false,
-      round2: false,
-      round3: true,
-    },
-    {
-      benefit: "Internship/mentorship offers",
-      round1: false,
-      round2: true,
-      round3: true,
-    },
-    {
-      benefit: "Media visibility",
-      round1: false,
-      round2: true,
-      round3: true,
-    },
-    {
-      benefit: "Alumni mentorship",
-      round1: false,
-      round2: true,
-      round3: true,
-    },
-  ];
-
-  /**
-   * Incentive categories with brief descriptions
-   */
-  const incentiveCategories = [
-    {
-      title: "Mentoring",
-      description: "Get guidance from successful entrepreneurs and industry experts.",
-    },
-    {
-      title: "Networking",
-      description: "Connect with fellow founders, investors, and business leaders.",
-    },
-    {
-      title: "Prizes",
-      description: "Win cash rewards and valuable resources for your startup.",
-    },
-    {
-      title: "Workshops",
-      description: "Access exclusive skill-building sessions and masterclasses.",
-    },
-    {
-      title: "Fundraising",
-      description: "Get exposure to VCs and potential investors for your venture.",
-    },
-    {
-      title: "Benefits",
-      description: "Enjoy cloud credits, SaaS tools, and other business resources.",
-    },
-  ];
-
-  /**
-   * Timeline milestones for the competition
-   */
-  const timelineEvents = [
-    { date: "15 Aug 2025", event: "Applications Open" },
-    { date: "1 Nov 2025", event: "Applications Close" },
-    { date: "8–9 Nov 2025", event: "Skill Garage 1.0" },
-    { date: "19 Nov 2025", event: "Top 32 Announced" },
-    { date: "22–23 Nov 2025", event: "Skill Garage 2.0" },
-    { date: "26–29 Nov 2025", event: "Online Pitch Rounds" },
-    { date: "21 Dec 2025", event: "Mumbai Grand Finale" },
-  ];
-
-  /**
-   * Competition rules and guidelines
-   */
-  const rules = [
-    "Open to all students, recent graduates, and young professionals aged 18-30",
-    "Teams of 1-4 members are allowed; individual participation is also welcome",
-    "One application fee of ₹5,000 per team (non-refundable)",
-    "All ideas must be original and not previously funded by other accelerators",
-    "Participants must be available for all scheduled events and workshops",
-    "Final decisions by the judging panel are binding and non-negotiable"
-  ];
-
-  /**
-   * Utility function to render table cell content based on data type
-   * @param {boolean|string} value - The value to display in the cell
-   * @returns {string} Formatted display value
-   */
-  const renderTableCell = (value: boolean | string) => {
-    if (typeof value === "boolean") {
-      return value ? "✓" : "✗";
-    }
-    return value;
-  };
-
-  /**
-   * Feature boxes data matching the screenshot layout
-   */
-  const featureBoxes = [
-    {
+      icon: BookOpen,
       title: "Access to 'Skill Garage'",
-      subtitle: "Curated workshops by industry leading tools",
-      position: "top-left"
+      description: "Comprehensive skill development platform"
     },
     {
-      title: "Sponsored Trip to Mumbai",
-      subtitle: "For the Grand Finale",
-      position: "top-right"
-    },
-    {
-      title: "Direct Access to Renowned VCs and Angel Investors",
-      subtitle: "For possible funding opportunities",
-      position: "bottom-left"
-    },
-    {
+      icon: CreditCard,
       title: "Worthy credits",
-      subtitle: "From premium brands",
-      position: "bottom-right"
+      description: "Earn valuable credits for your achievements"
+    },
+    {
+      icon: Plane,
+      title: "Sponsored Trip to Mumbai",
+      description: "All-expenses-paid trip to Mumbai for winners"
+    },
+    {
+      icon: Network,
+      title: "Networking Opportunities",
+      description: "Connect with industry leaders and peers"
+    },
+    {
+      icon: Users,
+      title: "Mentorship Program",
+      description: "Get guidance from experienced entrepreneurs"
+    },
+    {
+      icon: Star,
+      title: "Recognition & Awards",
+      description: "Gain recognition for your innovative ideas"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <Navigation />
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white relative overflow-hidden">
+      {/* Geometric Background Effects */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl transform translate-x-1/2 translate-y-1/2"></div>
+        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-cyan-500/5 rounded-full blur-2xl transform -translate-x-1/2 -translate-y-1/2"></div>
+      </div>
 
-      {/* Hero Section with Dark Geometric Background */}
-      <section className="relative min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 overflow-hidden">
-        {/* Geometric Background Pattern */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-0 left-0 w-full h-full">
-            <svg width="100%" height="100%" viewBox="0 0 1920 1080" className="absolute inset-0">
-              <defs>
-                <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
-                  <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(59, 130, 246, 0.1)" strokeWidth="1"/>
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-            </svg>
+      {/* Geometric Triangles */}
+      <div className="absolute top-20 left-20 w-0 h-0 border-l-[30px] border-r-[30px] border-b-[52px] border-l-transparent border-r-transparent border-b-blue-400/20"></div>
+      <div className="absolute bottom-40 right-32 w-0 h-0 border-l-[20px] border-r-[20px] border-b-[35px] border-l-transparent border-r-transparent border-b-purple-400/20"></div>
+      <div className="absolute top-1/3 right-20 w-0 h-0 border-l-[25px] border-r-[25px] border-b-[43px] border-l-transparent border-r-transparent border-b-cyan-400/20"></div>
+
+      <div className="relative z-10 container mx-auto px-4 py-12">
+        {/* Header Section */}
+        <div className="text-center mb-16">
+          <div className="flex justify-center items-center gap-3 mb-4">
+            <Trophy className="h-8 w-8 text-yellow-400" />
+            <Badge variant="secondary" className="bg-blue-600/20 text-blue-300 border-blue-400/30">
+              Young Founders Floor
+            </Badge>
           </div>
-        </div>
-
-        {/* Light Triangle Effects */}
-        <div className="absolute top-10 right-10 w-32 h-32 bg-blue-500 opacity-20 transform rotate-45 blur-xl"></div>
-        <div className="absolute bottom-20 left-20 w-24 h-24 bg-blue-400 opacity-15 transform rotate-12 blur-lg"></div>
-
-        {/* Main Content Container */}
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-20">
-          
-          {/* Feature Boxes - Positioned around the center */}
-          <div className="absolute inset-0 hidden lg:block">
-            {/* Top Left */}
-            <div className="absolute top-32 left-20 max-w-xs">
-              <div className="bg-blue-600 rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-white font-bold text-lg mb-2">Access to "Skill Garage"</h3>
-                <p className="text-blue-100 text-sm">Curated workshops by industry leading tools</p>
-              </div>
-            </div>
-
-            {/* Top Right */}
-            <div className="absolute top-32 right-20 max-w-xs">
-              <div className="bg-blue-600 rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-white font-bold text-lg mb-2">Sponsored Trip to Mumbai</h3>
-                <p className="text-blue-100 text-sm">For the Grand Finale</p>
-              </div>
-            </div>
-
-            {/* Bottom Left */}
-            <div className="absolute bottom-32 left-20 max-w-xs">
-              <div className="bg-blue-600 rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-white font-bold text-lg mb-2">Direct Access to Renowned VCs and Angel Investors</h3>
-                <p className="text-blue-100 text-sm">For possible funding opportunities</p>
-              </div>
-            </div>
-
-            {/* Bottom Right */}
-            <div className="absolute bottom-32 right-20 max-w-xs">
-              <div className="bg-blue-600 rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-white font-bold text-lg mb-2">Worthy credits</h3>
-                <p className="text-blue-100 text-sm">From premium brands</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Central Hero Content */}
-          <div className="text-center max-w-4xl mx-auto">
-            <h1 className="text-6xl md:text-8xl font-bold text-white mb-4 tracking-tight">
-              Young Founders <span className="italic">Floor</span>
-            </h1>
-            
-            <h2 className="text-xl md:text-2xl text-gray-300 mb-8 font-light">
-              India's First Entrepreneurship Competition<br />
-              Where <span className="font-bold text-white">EVERYONE</span> Wins
-            </h2>
-
-            {/* Prize Pool Display */}
-            <div className="mb-12">
-              <div className="inline-block relative">
-                <h3 className="text-3xl md:text-4xl font-bold text-white mb-2 italic">
-                  INR 10 Lakhs+ of prize pool
-                </h3>
-                <div className="h-1 w-full bg-white mb-4"></div>
-              </div>
-            </div>
-
-            {/* Call to Action Button */}
-            <Button 
-              size="lg" 
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg px-12 py-4 rounded-full shadow-2xl transform hover:scale-105 transition-all duration-200"
-              onClick={handleRegisterClick}
-            >
-              {user ? "Continue Application" : "Register Now"}
-            </Button>
-          </div>
-
-          {/* Mobile Feature Boxes */}
-          <div className="lg:hidden mt-16 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {featureBoxes.map((box, index) => (
-              <div key={index} className="bg-blue-600 rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-white font-bold text-lg mb-2">{box.title}</h3>
-                <p className="text-blue-100 text-sm">{box.subtitle}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Why Section - Benefits Table */}
-      <section className="py-16 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Your Unfair Advantage Starts Here
-          </h2>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[200px]">Benefit / Resource</TableHead>
-                  <TableHead className="text-center">Round 1 (All)</TableHead>
-                  <TableHead className="text-center">Round 2 (Top 32)</TableHead>
-                  <TableHead className="text-center">Round 3 (Top 8)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {benefitsData.map((row, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{row.benefit}</TableCell>
-                    <TableCell className="text-center">
-                      {renderTableCell(row.round1)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {renderTableCell(row.round2)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {renderTableCell(row.round3)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      </section>
-
-      {/* Incentives Section */}
-      <section className="py-16 bg-muted/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            What You'll Gain
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {incentiveCategories.map((category, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <CardTitle className="text-xl">{category.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">{category.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Investment Banner */}
-      <section className="py-12 bg-primary text-primary-foreground">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-lg md:text-xl font-semibold">
-            ₹5,000 Application Fee unlocks ₹50K+ training for all, ₹1L package for Top 32,
-            and ₹10L+ exposure for finalists.
+          <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+            Young Founders Floor
+          </h1>
+          <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
+            Empowering the next generation of entrepreneurs with innovation, mentorship, and opportunities
           </p>
         </div>
-      </section>
 
-      {/* Timeline Section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Your Journey to Success
-          </h2>
-          <div className="space-y-6">
-            {timelineEvents.map((milestone, index) => (
-              <div key={index} className="flex items-center space-x-4">
-                <div className="flex-shrink-0 w-4 h-4 bg-primary rounded-full"></div>
-                <div className="flex-grow border-l-2 border-muted pl-6 pb-6">
-                  <div className="font-semibold text-lg">{milestone.date}</div>
-                  <div className="text-muted-foreground">{milestone.event}</div>
+        {/* Prize Pool Section */}
+        <div className="text-center mb-16">
+          <div className="relative inline-block">
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-orange-400/20 rounded-2xl blur-xl"></div>
+            <div className="relative bg-gradient-to-r from-yellow-500/10 to-orange-500/10 backdrop-blur-sm border border-yellow-400/30 rounded-2xl p-8 md:p-12">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <Trophy className="h-10 w-10 text-yellow-400" />
+                <span className="text-yellow-400 text-lg font-semibold">Prize Pool</span>
+              </div>
+              <h2 className="text-4xl md:text-6xl font-bold text-yellow-400 mb-2">
+                INR 10 Lakhs+
+              </h2>
+              <p className="text-gray-300 text-lg">of prize pool awaits the winners</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Features Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+          {features.map((feature, index) => (
+            <Card key={index} className="bg-blue-900/20 backdrop-blur-sm border-blue-400/30 hover:bg-blue-900/30 transition-all duration-300 group">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="bg-blue-500/20 p-3 rounded-lg group-hover:bg-blue-500/30 transition-colors">
+                    <feature.icon className="h-6 w-6 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white mb-2">{feature.title}</h3>
+                    <p className="text-gray-300 text-sm">{feature.description}</p>
+                  </div>
                 </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Additional Benefits */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+          <Card className="bg-purple-900/20 backdrop-blur-sm border-purple-400/30">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <MapPin className="h-6 w-6 text-purple-400" />
+                <h3 className="text-xl font-semibold text-white">Location Benefits</h3>
               </div>
-            ))}
+              <ul className="space-y-2 text-gray-300">
+                <li className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  Premium venue access in Mumbai
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  Networking events with industry leaders
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  Exclusive startup ecosystem exposure
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-cyan-900/20 backdrop-blur-sm border-cyan-400/30">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Users className="h-6 w-6 text-cyan-400" />
+                <h3 className="text-xl font-semibold text-white">Community Benefits</h3>
+              </div>
+              <ul className="space-y-2 text-gray-300">
+                <li className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
+                  Lifetime access to founder community
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
+                  Monthly skill development workshops
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
+                  Continuous mentorship support
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Call to Action */}
+        <div className="text-center">
+          <div className="max-w-2xl mx-auto mb-8">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
+              Ready to Transform Your Ideas?
+            </h2>
+            <p className="text-gray-300 text-lg">
+              Join the Young Founders Floor and take your entrepreneurial journey to the next level
+            </p>
           </div>
-        </div>
-      </section>
 
-      {/* Rules Section */}
-      <section className="py-16 bg-muted/50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Competition Rules
-          </h2>
-          <ul className="space-y-4">
-            {rules.map((rule, index) => (
-              <li key={index} className="flex items-start space-x-3">
-                <span className="flex-shrink-0 w-2 h-2 bg-primary rounded-full mt-2"></span>
-                <span className="text-lg">{rule}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+          {/* Authentication-based Registration Button */}
+          <div className="flex justify-center">
+            {isLoading ? (
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+            ) : user ? (
+              <Link to="/yff/team-registration">
+                <Button 
+                  size="lg" 
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-8 py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  Register Now
+                </Button>
+              </Link>
+            ) : (
+              <SignInModal>
+                <Button 
+                  size="lg" 
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-8 py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  Sign In to Register
+                </Button>
+              </SignInModal>
+            )}
+          </div>
 
-      {/* Call to Action */}
-      <section className="py-16 bg-primary text-primary-foreground text-center">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold mb-6">Ready to Transform Your Idea?</h2>
-          <p className="text-xl mb-8">
-            Join hundreds of young entrepreneurs on their journey to success.
+          <p className="text-gray-400 text-sm mt-4">
+            {user ? 'Complete your team registration to participate' : 'You must be signed in to register for the program'}
           </p>
-          <Button 
-            size="lg" 
-            variant="secondary" 
-            className="text-lg px-8 py-3"
-            onClick={handleRegisterClick}
-          >
-            {user ? "Continue Application" : "Register Now"}
-          </Button>
         </div>
-      </section>
-
-      {/* Footer */}
-      <Footer />
-
-      {/* Sign In Modal */}
-      <SignInModal 
-        isOpen={isSignInModalOpen}
-        onClose={() => setIsSignInModalOpen(false)}
-        onSuccess={handleAuthSuccess}
-      />
+      </div>
     </div>
   );
 };
-
-export default YffLandingPage;

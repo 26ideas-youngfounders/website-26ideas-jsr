@@ -79,6 +79,7 @@ const handleSubmissionError = (error: any, toast: any) => {
   console.error('❌ Registration submission failed:', error);
   
   let userMessage = 'Registration failed. Please try again.';
+  let specificField = '';
   
   if (error?.message) {
     // Check for specific database constraint errors
@@ -87,7 +88,18 @@ const handleSubmissionError = (error: any, toast: any) => {
     } else if (error.message.includes('violates not-null constraint')) {
       userMessage = 'Some required fields are missing. Please review your information and try again.';
     } else if (error.message.includes('violates check constraint')) {
-      userMessage = 'Some field values are invalid. Please check your entries and try again.';
+      if (error.message.includes('gender_check')) {
+        userMessage = 'Gender field contains an invalid value. Please select Male, Female, or Other.';
+        specificField = 'Please check the Gender field and ensure it has a valid selection.';
+      } else if (error.message.includes('email_check')) {
+        userMessage = 'Email format is invalid. Please check your email address.';
+        specificField = 'Please check the Email field format.';
+      } else if (error.message.includes('phone_check')) {
+        userMessage = 'Phone number format is invalid. Please check your phone number.';
+        specificField = 'Please check the Phone Number field format.';
+      } else {
+        userMessage = 'Some field values are invalid. Please check your entries and try again.';
+      }
     } else if (error.message.includes('invalid input syntax')) {
       userMessage = 'Some field values have invalid format. Please check your entries and try again.';
     } else if (error.message.includes('violates foreign key constraint')) {
@@ -97,10 +109,10 @@ const handleSubmissionError = (error: any, toast: any) => {
     }
   }
   
-  // Show user-friendly error
+  // Show user-friendly error with specific field information
   toast({
     title: 'Registration Failed',
-    description: userMessage,
+    description: specificField ? `${userMessage} ${specificField}` : userMessage,
     variant: 'destructive',
   });
 };
@@ -147,6 +159,7 @@ export const YffTeamRegistrationForm = () => {
   const [showProfileCreation, setShowProfileCreation] = useState(false);
   const [dataRestored, setDataRestored] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -353,15 +366,23 @@ export const YffTeamRegistrationForm = () => {
 
     setIsSubmitting(true);
     setValidationErrors([]);
+    setFieldErrors({});
 
     try {
       // Validate the form data before submission
       const validation = validateFormData(data);
       if (!validation.isValid) {
         setValidationErrors(validation.errors);
+        setFieldErrors(validation.fieldErrors);
+        
+        // Show specific field errors
+        const fieldErrorMessages = Object.entries(validation.fieldErrors)
+          .map(([field, error]) => `${field}: ${error}`)
+          .join(', ');
+        
         toast({
           title: 'Validation Failed',
-          description: 'Please fix the errors below and try again.',
+          description: `Please fix the following errors: ${fieldErrorMessages}`,
           variant: 'destructive',
         });
         return;
@@ -395,6 +416,7 @@ export const YffTeamRegistrationForm = () => {
       form.reset();
       setDataRestored(false);
       setValidationErrors([]);
+      setFieldErrors({});
       
     } catch (error) {
       handleSubmissionError(error, toast);
@@ -503,7 +525,7 @@ export const YffTeamRegistrationForm = () => {
         </Alert>
       )}
 
-      {/* Show validation errors */}
+      {/* Show validation errors with field-specific details */}
       {validationErrors.length > 0 && (
         <Alert className="mb-6 bg-red-50 border-red-200">
           <AlertCircle className="h-4 w-4 text-red-600" />
@@ -514,6 +536,16 @@ export const YffTeamRegistrationForm = () => {
                 <li key={index} className="text-sm">{error}</li>
               ))}
             </ul>
+            {Object.keys(fieldErrors).length > 0 && (
+              <div className="mt-3 p-3 bg-red-100 rounded">
+                <div className="font-medium text-sm mb-1">Field-specific errors:</div>
+                <ul className="text-xs space-y-1">
+                  {Object.entries(fieldErrors).map(([field, error]) => (
+                    <li key={field}><strong>{field}:</strong> {error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </AlertDescription>
         </Alert>
       )}

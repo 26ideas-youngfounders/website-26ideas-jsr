@@ -9,13 +9,15 @@ import { FormValues, TeamMember } from '@/components/forms/YffTeamRegistrationFo
 interface ValidationResult {
   isValid: boolean;
   errors: string[];
+  fieldErrors: { [key: string]: string };
 }
 
 /**
  * Validates required fields for the team leader
  */
-export const validateLeaderData = (data: FormValues): string[] => {
+export const validateLeaderData = (data: FormValues): { errors: string[]; fieldErrors: { [key: string]: string } } => {
   const errors: string[] = [];
+  const fieldErrors: { [key: string]: string } = {};
   
   const requiredFields = {
     fullName: 'Full name',
@@ -36,18 +38,21 @@ export const validateLeaderData = (data: FormValues): string[] => {
   Object.entries(requiredFields).forEach(([key, label]) => {
     const value = data[key as keyof FormValues];
     if (!value || (typeof value === 'string' && !value.trim())) {
-      errors.push(`${label} is required`);
+      const error = `${label} is required`;
+      errors.push(error);
+      fieldErrors[key] = error;
     }
   });
 
-  return errors;
+  return { errors, fieldErrors };
 };
 
 /**
  * Validates team member data
  */
-export const validateTeamMemberData = (member: TeamMember, index: number): string[] => {
+export const validateTeamMemberData = (member: TeamMember, index: number): { errors: string[]; fieldErrors: { [key: string]: string } } => {
   const errors: string[] = [];
+  const fieldErrors: { [key: string]: string } = {};
   const memberNum = index + 1;
   
   const requiredFields = {
@@ -69,11 +74,13 @@ export const validateTeamMemberData = (member: TeamMember, index: number): strin
   Object.entries(requiredFields).forEach(([key, label]) => {
     const value = member[key as keyof TeamMember];
     if (!value || (typeof value === 'string' && !value.trim())) {
-      errors.push(`Team member ${memberNum}: ${label} is required`);
+      const error = `Team member ${memberNum}: ${label} is required`;
+      errors.push(error);
+      fieldErrors[`teamMembers.${index}.${key}`] = error;
     }
   });
 
-  return errors;
+  return { errors, fieldErrors };
 };
 
 /**
@@ -113,17 +120,61 @@ export const validateUrl = (url: string): boolean => {
 };
 
 /**
+ * Validates and normalizes gender field
+ */
+export const validateAndNormalizeGender = (gender: string): { isValid: boolean; normalizedValue: string; error?: string } => {
+  if (!gender || !gender.trim()) {
+    return { isValid: false, normalizedValue: '', error: 'Gender is required' };
+  }
+
+  // Normalize gender values to match database constraints
+  const normalizedGender = gender.toLowerCase().trim();
+  
+  switch (normalizedGender) {
+    case 'male':
+    case 'm':
+      return { isValid: true, normalizedValue: 'Male' };
+    case 'female':
+    case 'f':
+      return { isValid: true, normalizedValue: 'Female' };
+    case 'other':
+    case 'o':
+    case 'prefer not to say':
+    case 'non-binary':
+      return { isValid: true, normalizedValue: 'Other' };
+    default:
+      return { 
+        isValid: false, 
+        normalizedValue: gender, 
+        error: 'Gender must be Male, Female, or Other' 
+      };
+  }
+};
+
+/**
  * Main validation function that checks all form data
  */
 export const validateFormData = (data: FormValues): ValidationResult => {
   const errors: string[] = [];
+  const fieldErrors: { [key: string]: string } = {};
   
   // Validate leader data
-  errors.push(...validateLeaderData(data));
+  const leaderValidation = validateLeaderData(data);
+  errors.push(...leaderValidation.errors);
+  Object.assign(fieldErrors, leaderValidation.fieldErrors);
+  
+  // Validate gender specifically
+  const genderValidation = validateAndNormalizeGender(data.gender || '');
+  if (!genderValidation.isValid) {
+    errors.push(genderValidation.error || 'Invalid gender value');
+    fieldErrors.gender = genderValidation.error || 'Invalid gender value';
+  }
   
   // Validate number of team members
   if (data.numberOfTeamMembers < 1 || data.numberOfTeamMembers > 5) {
-    errors.push('Number of team members must be between 1 and 5');
+    const error = 'Number of team members must be between 1 and 5';
+    errors.push(error);
+    fieldErrors.numberOfTeamMembers = error;
   }
   
   // Validate team members if more than 1 member
@@ -131,66 +182,97 @@ export const validateFormData = (data: FormValues): ValidationResult => {
     const requiredMembers = data.numberOfTeamMembers - 1;
     
     if (!data.teamMembers || data.teamMembers.length < requiredMembers) {
-      errors.push(`Please provide information for all ${requiredMembers} team member(s)`);
+      const error = `Please provide information for all ${requiredMembers} team member(s)`;
+      errors.push(error);
+      fieldErrors.teamMembers = error;
     } else {
       // Validate each team member
       data.teamMembers.slice(0, requiredMembers).forEach((member, index) => {
-        errors.push(...validateTeamMemberData(member, index));
+        const memberValidation = validateTeamMemberData(member, index);
+        errors.push(...memberValidation.errors);
+        Object.assign(fieldErrors, memberValidation.fieldErrors);
+        
+        // Validate team member gender
+        const memberGenderValidation = validateAndNormalizeGender(member.gender || '');
+        if (!memberGenderValidation.isValid) {
+          const error = `Team member ${index + 1}: ${memberGenderValidation.error || 'Invalid gender value'}`;
+          errors.push(error);
+          fieldErrors[`teamMembers.${index}.gender`] = error;
+        }
       });
     }
   }
   
   // Validate email formats
   if (data.email && !validateEmail(data.email)) {
-    errors.push('Invalid email format');
+    const error = 'Invalid email format';
+    errors.push(error);
+    fieldErrors.email = error;
   }
   
   data.teamMembers?.forEach((member, index) => {
     if (member.email && !validateEmail(member.email)) {
-      errors.push(`Team member ${index + 1}: Invalid email format`);
+      const error = `Team member ${index + 1}: Invalid email format`;
+      errors.push(error);
+      fieldErrors[`teamMembers.${index}.email`] = error;
     }
   });
   
   // Validate phone numbers
   if (data.phoneNumber && !validatePhoneNumber(data.phoneNumber)) {
-    errors.push('Invalid phone number format');
+    const error = 'Invalid phone number format';
+    errors.push(error);
+    fieldErrors.phoneNumber = error;
   }
   
   data.teamMembers?.forEach((member, index) => {
     if (member.phoneNumber && !validatePhoneNumber(member.phoneNumber)) {
-      errors.push(`Team member ${index + 1}: Invalid phone number format`);
+      const error = `Team member ${index + 1}: Invalid phone number format`;
+      errors.push(error);
+      fieldErrors[`teamMembers.${index}.phoneNumber`] = error;
     }
   });
   
   // Validate pin codes
   if (data.pinCode && !validatePinCode(data.pinCode)) {
-    errors.push('Pin code must be 6 digits');
+    const error = 'Pin code must be 6 digits';
+    errors.push(error);
+    fieldErrors.pinCode = error;
   }
   
   data.teamMembers?.forEach((member, index) => {
     if (member.pinCode && !validatePinCode(member.pinCode)) {
-      errors.push(`Team member ${index + 1}: Pin code must be 6 digits`);
+      const error = `Team member ${index + 1}: Pin code must be 6 digits`;
+      errors.push(error);
+      fieldErrors[`teamMembers.${index}.pinCode`] = error;
     }
   });
   
   // Validate URLs if provided
   if (data.website && !validateUrl(data.website)) {
-    errors.push('Invalid website URL format');
+    const error = 'Invalid website URL format';
+    errors.push(error);
+    fieldErrors.website = error;
   }
   
   if (data.linkedinProfile && !validateUrl(data.linkedinProfile)) {
-    errors.push('Invalid LinkedIn URL format');
+    const error = 'Invalid LinkedIn URL format';
+    errors.push(error);
+    fieldErrors.linkedinProfile = error;
   }
   
   data.teamMembers?.forEach((member, index) => {
     if (member.linkedinProfile && !validateUrl(member.linkedinProfile)) {
-      errors.push(`Team member ${index + 1}: Invalid LinkedIn URL format`);
+      const error = `Team member ${index + 1}: Invalid LinkedIn URL format`;
+      errors.push(error);
+      fieldErrors[`teamMembers.${index}.linkedinProfile`] = error;
     }
   });
   
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
+    fieldErrors
   };
 };
 
@@ -198,29 +280,38 @@ export const validateFormData = (data: FormValues): ValidationResult => {
  * Sanitizes and prepares data for database submission
  */
 export const sanitizeFormData = (data: FormValues, userId: string) => {
+  // Normalize gender for leader
+  const genderValidation = validateAndNormalizeGender(data.gender || '');
+  const normalizedGender = genderValidation.isValid ? genderValidation.normalizedValue : data.gender;
+
   // Prepare team members data (exclude the leader)
   const teamMembersData = data.numberOfTeamMembers > 1 
     ? data.teamMembers.slice(0, data.numberOfTeamMembers - 1)
     : [];
 
   // Sanitize team members data
-  const sanitizedTeamMembers = teamMembersData.map(member => ({
-    fullName: member.fullName?.trim() || '',
-    email: member.email?.trim() || '',
-    phoneNumber: member.phoneNumber?.trim() || '',
-    countryCode: member.countryCode || '+91',
-    dateOfBirth: member.dateOfBirth?.trim() || '',
-    currentCity: member.currentCity?.trim() || '',
-    state: member.state?.trim() || '',
-    pinCode: member.pinCode?.trim() || '',
-    permanentAddress: member.permanentAddress?.trim() || '',
-    gender: member.gender?.trim() || '',
-    institutionName: member.institutionName?.trim() || '',
-    courseProgram: member.courseProgram?.trim() || '',
-    currentYearOfStudy: member.currentYearOfStudy?.trim() || '',
-    expectedGraduation: member.expectedGraduation?.trim() || '',
-    linkedinProfile: member.linkedinProfile?.trim() || null,
-  }));
+  const sanitizedTeamMembers = teamMembersData.map(member => {
+    const memberGenderValidation = validateAndNormalizeGender(member.gender || '');
+    const normalizedMemberGender = memberGenderValidation.isValid ? memberGenderValidation.normalizedValue : member.gender;
+
+    return {
+      fullName: member.fullName?.trim() || '',
+      email: member.email?.trim() || '',
+      phoneNumber: member.phoneNumber?.trim() || '',
+      countryCode: member.countryCode || '+91',
+      dateOfBirth: member.dateOfBirth?.trim() || '',
+      currentCity: member.currentCity?.trim() || '',
+      state: member.state?.trim() || '',
+      pinCode: member.pinCode?.trim() || '',
+      permanentAddress: member.permanentAddress?.trim() || '',
+      gender: normalizedMemberGender,
+      institutionName: member.institutionName?.trim() || '',
+      courseProgram: member.courseProgram?.trim() || '',
+      currentYearOfStudy: member.currentYearOfStudy?.trim() || '',
+      expectedGraduation: member.expectedGraduation?.trim() || '',
+      linkedinProfile: member.linkedinProfile?.trim() || null,
+    };
+  });
 
   // Return sanitized data matching the database schema
   return {
@@ -234,7 +325,7 @@ export const sanitizeFormData = (data: FormValues, userId: string) => {
     state: data.state?.trim() || '',
     pin_code: data.pinCode?.trim() || '',
     permanent_address: data.permanentAddress?.trim() || '',
-    gender: data.gender?.trim() || '',
+    gender: normalizedGender,
     institution_name: data.institutionName?.trim() || '',
     course_program: data.courseProgram?.trim() || '',
     current_year_of_study: data.currentYearOfStudy?.trim() || '',

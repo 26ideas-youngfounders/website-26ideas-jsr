@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -79,15 +81,72 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
 
         if (!error) {
           console.log("✅ Sign-up successful - closing modal and showing home page");
-          onClose(); // Close modal immediately
-          onSuccess?.(); // Trigger any success callbacks
+          onClose();
+          onSuccess?.();
         }
       } else {
+        // Enhanced sign-in with proper error handling for unregistered accounts
+        console.log("🔐 Attempting sign-in for:", email);
+        
         const { error } = await signIn(email, password);
-        if (!error) {
+        
+        if (error) {
+          console.error("❌ Sign-in failed:", error.message);
+          
+          // Check if it's an invalid credentials error (could be unregistered email)
+          if (error.message.includes('Invalid login credentials')) {
+            // Check if the email exists in our individuals table
+            const { data: individual, error: checkError } = await supabase
+              .from('individuals')
+              .select('email')
+              .eq('email', email)
+              .single();
+            
+            if (checkError && checkError.code === 'PGRST116') {
+              // No individual found - account doesn't exist
+              console.error("❌ Account not found for email:", email);
+              
+              toast({
+                title: "Account Not Found",
+                description: "No account found with this email. Please create an account to continue.",
+                variant: "destructive",
+                action: (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsSignUp(true);
+                      toast.dismiss();
+                    }}
+                  >
+                    Create Account
+                  </Button>
+                ),
+              });
+              return;
+            } else if (individual) {
+              // Individual exists but wrong password
+              console.error("❌ Incorrect password for existing account:", email);
+              
+              toast({
+                title: "Incorrect Password",
+                description: "The password you entered is incorrect. Please try again.",
+                variant: "destructive",
+              });
+              return;
+            }
+          }
+          
+          // For other errors, show generic message
+          toast({
+            title: "Sign In Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
           console.log("✅ Sign-in successful - closing modal and showing home page");
-          onClose(); // Close modal immediately
-          onSuccess?.(); // Trigger any success callbacks
+          onClose();
+          onSuccess?.();
         }
       }
     } finally {
@@ -103,8 +162,8 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
         await signInWithFacebook();
       }
       console.log(`✅ ${provider} sign-in initiated - closing modal`);
-      onClose(); // Close modal immediately
-      onSuccess?.(); // Trigger any success callbacks
+      onClose();
+      onSuccess?.();
     } catch (error) {
       console.error(`❌ ${provider} sign-in failed:`, error);
     }

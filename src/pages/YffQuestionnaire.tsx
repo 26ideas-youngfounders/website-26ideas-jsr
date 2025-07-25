@@ -57,8 +57,14 @@ const YffQuestionnaire = () => {
 
         if (regError) {
           if (regError.code === 'PGRST116') {
-            // No registration found - redirect to registration page
+            // No registration found - redirect to registration page with message
             console.log('⚠️ No registration found, redirecting to registration');
+            
+            toast.error('Registration Required', {
+              description: 'You need to complete your team registration before accessing the questionnaire.',
+              duration: 5000,
+            });
+            
             navigate('/yff/team-registration');
             return;
           }
@@ -70,6 +76,26 @@ const YffQuestionnaire = () => {
 
         if (!registrationData) {
           console.log('⚠️ No registration data found, redirecting to registration');
+          
+          toast.error('Registration Required', {
+            description: 'You need to complete your team registration before accessing the questionnaire.',
+            duration: 5000,
+          });
+          
+          navigate('/yff/team-registration');
+          return;
+        }
+
+        // Check if registration is completed
+        if (registrationData.application_status !== 'registration_completed' && 
+            registrationData.application_status !== 'questionnaire_completed') {
+          console.log('⚠️ Registration not completed, redirecting to registration');
+          
+          toast.error('Complete Registration First', {
+            description: 'Please complete your team registration before proceeding to the questionnaire.',
+            duration: 5000,
+          });
+          
           navigate('/yff/team-registration');
           return;
         }

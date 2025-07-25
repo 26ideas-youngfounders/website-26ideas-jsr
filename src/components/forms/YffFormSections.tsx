@@ -5,7 +5,7 @@
  * Extracted form sections for better maintainability and reusability.
  * Each section handles specific parts of the YFF application form.
  * 
- * @version 1.4.0 - Fixed type consistency for required fields
+ * @version 1.5.0 - Fixed type consistency for required fields (TS2322 prevention)
  * @author 26ideas Development Team
  */
 
@@ -18,8 +18,14 @@ import { WordCounter } from '@/components/ui/word-counter';
 
 /**
  * Interface for questionnaire form data - ALL FIELDS ARE REQUIRED
- * WARNING: Keep this interface in sync with QuestionnaireFormData in YffQuestionnaireForm.tsx
- * If you make any field optional here, you must also update the parent form and default values.
+ * WARNING: Must keep all fields' required/optional status in sync between QuestionnaireFormData,
+ * useForm defaults, and all watch()/submit logic—TS2322 prevention.
+ * 
+ * CRITICAL: This interface must exactly match QuestionnaireFormData in YffQuestionnaireForm.tsx
+ * If you change any field to optional here, you must also update:
+ * 1. The parent form's QuestionnaireFormData type
+ * 2. The form schema in the parent component
+ * 3. The default values in the parent component
  */
 interface QuestionnaireFormData {
   whyApplying: string;

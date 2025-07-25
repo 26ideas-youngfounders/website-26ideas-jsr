@@ -5,7 +5,7 @@
  * Extracted form sections for better maintainability and reusability.
  * Each section handles specific parts of the YFF application form.
  * 
- * @version 1.3.0 - Fixed form prop handling
+ * @version 1.4.0 - Fixed type consistency for required fields
  * @author 26ideas Development Team
  */
 
@@ -17,7 +17,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WordCounter } from '@/components/ui/word-counter';
 
 /**
- * Interface for questionnaire form data
+ * Interface for questionnaire form data - ALL FIELDS ARE REQUIRED
+ * WARNING: Keep this interface in sync with QuestionnaireFormData in YffQuestionnaireForm.tsx
+ * If you make any field optional here, you must also update the parent form and default values.
  */
 interface QuestionnaireFormData {
   whyApplying: string;
@@ -38,6 +40,7 @@ interface YffFormSectionsProps {
 /**
  * Main YFF Form Sections Component
  * Handles all questionnaire form sections with proper form integration
+ * NOTE: All fields are REQUIRED - form defaults must provide string values
  */
 export const YffFormSections: React.FC<YffFormSectionsProps> = ({ form }) => {
   return (

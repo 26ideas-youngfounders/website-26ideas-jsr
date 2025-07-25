@@ -58,7 +58,7 @@ export type YffRegistration = YffRegistrationFormData & {
 
 /**
  * Yup schema - STRICTLY ALIGNED with YffRegistrationFormData interface
- * Required fields use .required(), optional venture fields use .default('')
+ * All fields must be defined as required to match the interface exactly
  */
 const schema = yup.object().shape({
   fullName: yup.string().required('Full name is required'),
@@ -76,14 +76,14 @@ const schema = yup.object().shape({
   currentYearOfStudy: yup.string().required('Current year of study is required'),
   expectedGraduation: yup.date().required('Expected graduation date is required'),
   numberOfTeamMembers: yup.number().required('Number of team members is required').min(1, 'Must have at least 1 team member'),
-  // Optional venture fields - but still required as strings for type consistency
-  ventureName: yup.string().required('').default(''),
-  industrySector: yup.string().required('').default(''),
-  teamName: yup.string().required('').default(''),
-  website: yup.string().required('').default(''),
-  linkedinProfile: yup.string().required('').default(''),
-  socialMediaHandles: yup.string().required('').default(''),
-  referralId: yup.string().required('').default(''),
+  // Venture fields - required as strings but can be empty for optional sections
+  ventureName: yup.string().required(),
+  industrySector: yup.string().required(),
+  teamName: yup.string().required(),
+  website: yup.string().required(),
+  linkedinProfile: yup.string().required(),
+  socialMediaHandles: yup.string().required(),
+  referralId: yup.string().required(),
 });
 
 // Type for country options

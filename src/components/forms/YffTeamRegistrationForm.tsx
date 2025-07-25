@@ -17,6 +17,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import countryList from 'react-select-country-list';
 import { YffAutosaveIndicator } from '@/components/forms/YffAutosaveIndicator';
 import { useAutosave } from '@/hooks/useAutosave';
+import { AutosaveTeamMember, extractTeamMembers } from '@/types/autosave';
 
 // Team member type with validation
 type TeamMember = {
@@ -58,6 +59,24 @@ type CountryOption = {
   label: string;
   value: string;
 };
+
+/**
+ * Convert AutosaveTeamMember to TeamMember format
+ */
+const convertAutosaveToTeamMember = (autosaveMember: AutosaveTeamMember): TeamMember => ({
+  name: autosaveMember.fullName || '',
+  email: autosaveMember.email || '',
+  linkedin: autosaveMember.linkedinProfile || '',
+});
+
+/**
+ * Convert TeamMember to AutosaveTeamMember format for saving
+ */
+const convertTeamMemberToAutosave = (teamMember: TeamMember): AutosaveTeamMember => ({
+  fullName: teamMember.name,
+  email: teamMember.email,
+  linkedinProfile: teamMember.linkedin || '',
+});
 
 /**
  * Enhanced YFF Team Registration Form with auto-resume and profile data integration
@@ -121,9 +140,18 @@ export const YffTeamRegistrationForm = () => {
   // Watch numberOfTeamMembers for dynamic field generation
   const numberOfTeamMembers = watch('numberOfTeamMembers');
 
+  // Prepare form data for autosave with team members
+  const getFormDataForAutosave = useCallback(() => {
+    const formData = getValues();
+    return {
+      ...formData,
+      teamMembers: teamMembers.map(convertTeamMemberToAutosave),
+    };
+  }, [getValues, teamMembers]);
+
   // Autosave setup
   const { status: autosaveStatus, loadSavedData } = useAutosave({
-    formData: getValues(),
+    formData: getFormDataForAutosave(),
     formType: 'yff_team_registration',
   });
 
@@ -167,14 +195,15 @@ export const YffTeamRegistrationForm = () => {
         if (savedData) {
           console.log('🔄 Auto-resuming form from saved draft');
           Object.entries(savedData).forEach(([key, value]) => {
-            if (value !== undefined && value !== null) {
+            if (value !== undefined && value !== null && key !== 'teamMembers') {
               setValue(key as keyof YffRegistrationFormData, value);
             }
           });
           
-          // Also restore team members if they exist
+          // Handle team members with type conversion
           if (savedData.teamMembers && Array.isArray(savedData.teamMembers)) {
-            setTeamMembers(savedData.teamMembers);
+            const convertedTeamMembers = savedData.teamMembers.map(convertAutosaveToTeamMember);
+            setTeamMembers(convertedTeamMembers);
           }
           
           toast.success('Form progress restored', {
@@ -219,6 +248,15 @@ export const YffTeamRegistrationForm = () => {
       return newMembers;
     });
   }, []);
+
+  // Convert team members to format expected by database
+  const convertTeamMembersForDatabase = (members: TeamMember[]) => {
+    return members.map(member => ({
+      fullName: member.name,
+      email: member.email,
+      linkedinProfile: member.linkedin || '',
+    }));
+  };
 
   // Form submission with validation
   const onSubmit = async (data: YffRegistrationFormData) => {
@@ -276,7 +314,7 @@ export const YffTeamRegistrationForm = () => {
         current_year_of_study: data.currentYearOfStudy,
         expected_graduation: formatDateForDatabase(data.expectedGraduation),
         number_of_team_members: data.numberOfTeamMembers,
-        team_members: teamMembers,
+        team_members: convertTeamMembersForDatabase(teamMembers),
         venture_name: data.ventureName,
         industry_sector: data.industrySector,
         team_name: data.teamName,

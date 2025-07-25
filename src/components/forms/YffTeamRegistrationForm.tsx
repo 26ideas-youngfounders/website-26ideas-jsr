@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,6 +13,7 @@ import { YffAutosaveIndicator } from './YffAutosaveIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { 
   AutosaveFormData, 
   isAutosaveFormData, 
@@ -153,6 +155,7 @@ const restoreAutosavedData = (
 export const YffTeamRegistrationForm = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -417,6 +420,9 @@ export const YffTeamRegistrationForm = () => {
       setDataRestored(false);
       setValidationErrors([]);
       setFieldErrors({});
+      
+      // Redirect to questionnaire
+      navigate('/yff/questionnaire');
       
     } catch (error) {
       handleSubmissionError(error, toast);

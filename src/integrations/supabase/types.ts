@@ -280,6 +280,7 @@ export type Database = {
       }
       yff_team_registrations: {
         Row: {
+          application_status: string | null
           country_code: string
           course_program: string
           created_at: string
@@ -299,6 +300,8 @@ export type Database = {
           permanent_address: string
           phone_number: string
           pin_code: string
+          questionnaire_answers: Json | null
+          questionnaire_completed_at: string | null
           referral_id: string | null
           social_media_handles: string | null
           state: string
@@ -309,6 +312,7 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          application_status?: string | null
           country_code?: string
           course_program: string
           created_at?: string
@@ -328,6 +332,8 @@ export type Database = {
           permanent_address: string
           phone_number: string
           pin_code: string
+          questionnaire_answers?: Json | null
+          questionnaire_completed_at?: string | null
           referral_id?: string | null
           social_media_handles?: string | null
           state: string
@@ -338,6 +344,7 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          application_status?: string | null
           country_code?: string
           course_program?: string
           created_at?: string
@@ -357,6 +364,8 @@ export type Database = {
           permanent_address?: string
           phone_number?: string
           pin_code?: string
+          questionnaire_answers?: Json | null
+          questionnaire_completed_at?: string | null
           referral_id?: string | null
           social_media_handles?: string | null
           state?: string

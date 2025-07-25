@@ -1,10 +1,25 @@
 
+
 /**
  * @fileoverview Autosave Data Types
  * 
  * Strict type definitions for autosave data to prevent TypeScript errors
  * and ensure type safety across all form data operations.
  */
+
+/**
+ * Autosave status types with clear documentation
+ * 
+ * @type {AutosaveStatus}
+ * @description Valid status values for autosave operations
+ * - idle: No autosave operation in progress
+ * - loading: Loading previously saved data
+ * - saving: Currently saving form data
+ * - saved: Data successfully saved
+ * - error: Save operation failed (recoverable)
+ * - conflict: Registration already exists (non-recoverable)
+ */
+export type AutosaveStatus = 'idle' | 'loading' | 'saving' | 'saved' | 'error' | 'conflict';
 
 /**
  * Team Member interface for autosave data
@@ -99,4 +114,24 @@ export const extractNumberOfTeamMembers = (data: any): number => {
   }
   
   return Math.max(1, Math.min(5, data.numberOfTeamMembers));
+};
+
+/**
+ * Validate autosave status to prevent invalid assignments
+ */
+export const isValidAutosaveStatus = (status: string): status is AutosaveStatus => {
+  return ['idle', 'loading', 'saving', 'saved', 'error', 'conflict'].includes(status);
+};
+
+/**
+ * Type-safe status setter function
+ */
+export const validateAndSetStatus = (status: string, setter: (status: AutosaveStatus) => void): boolean => {
+  if (isValidAutosaveStatus(status)) {
+    setter(status);
+    return true;
+  }
+  
+  console.error(`❌ Invalid autosave status attempted: ${status}`);
+  return false;
 };

@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { Check, Loader2, AlertCircle, Cloud } from 'lucide-react';
+import { Check, Loader2, AlertCircle, Cloud, AlertTriangle } from 'lucide-react';
 
 interface YffAutosaveIndicatorProps {
-  status: 'idle' | 'saving' | 'saved' | 'error' | 'loading';
+  status: 'idle' | 'saving' | 'saved' | 'error' | 'loading' | 'conflict';
 }
 
 /**
@@ -36,6 +36,12 @@ export const YffAutosaveIndicator: React.FC<YffAutosaveIndicatorProps> = ({ stat
           icon: <AlertCircle className="w-4 h-4" />,
           text: 'Auto-save failed - your data is still preserved',
           className: 'text-red-600 bg-red-50 border-red-200',
+        };
+      case 'conflict':
+        return {
+          icon: <AlertTriangle className="w-4 h-4" />,
+          text: 'Registration already exists - cannot save changes',
+          className: 'text-amber-600 bg-amber-50 border-amber-200',
         };
       default:
         return null;

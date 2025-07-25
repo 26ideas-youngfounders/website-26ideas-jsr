@@ -2,9 +2,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { AutosaveFormData, isAutosaveFormData } from '@/types/autosave';
-
-export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'loading' | 'conflict';
+import { 
+  AutosaveFormData, 
+  AutosaveStatus,
+  isAutosaveFormData,
+  validateAndSetStatus 
+} from '@/types/autosave';
 
 interface UseAutosaveProps {
   formData: any;
@@ -22,6 +25,13 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [conflictCount, setConflictCount] = useState(0);
   const [saveAttempts, setSaveAttempts] = useState(0);
+
+  // Type-safe status setter
+  const setStatusSafe = useCallback((newStatus: AutosaveStatus) => {
+    if (validateAndSetStatus(newStatus, setStatus)) {
+      console.log('💾 [AUTOSAVE] Status changed:', newStatus);
+    }
+  }, []);
 
   // Enhanced logging with detailed context
   const logAutosave = (message: string, data?: any) => {
@@ -52,7 +62,7 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
     }
 
     try {
-      setStatus('loading');
+      setStatusSafe('loading');
       logAutosave('Loading autosave data...', { userId: user.id });
       
       const { data, error } = await supabase
@@ -63,7 +73,7 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
 
       if (error && error.code !== 'PGRST116') {
         logAutosave('ERROR loading autosave data', error);
-        setStatus('error');
+        setStatusSafe('error');
         return null;
       }
 
@@ -75,24 +85,24 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
         
         if (isAutosaveFormData(data.form_data)) {
           setLastSaved(new Date(data.updated_at));
-          setStatus('saved');
+          setStatusSafe('saved');
           return data.form_data as AutosaveFormData;
         } else {
           logAutosave('Invalid autosave data structure detected');
-          setStatus('error');
+          setStatusSafe('error');
           return null;
         }
       }
 
       logAutosave('No autosave data found');
-      setStatus('idle');
+      setStatusSafe('idle');
       return null;
     } catch (error) {
       logAutosave('ERROR in loadSavedData', error);
-      setStatus('error');
+      setStatusSafe('error');
       return null;
     }
-  }, [user?.id, formType]);
+  }, [user?.id, formType, setStatusSafe]);
 
   // Enhanced save with conflict prevention
   const saveData = useCallback(async (data: any) => {
@@ -119,7 +129,7 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
       return;
     }
 
-    setStatus('saving');
+    setStatusSafe('saving');
     setSaveAttempts(prev => prev + 1);
     
     try {
@@ -138,13 +148,13 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
 
       if (regError && regError.code !== 'PGRST116') {
         logAutosave('ERROR checking existing registration', regError);
-        setStatus('error');
+        setStatusSafe('error');
         return;
       }
 
       if (existingReg) {
         logAutosave('Registration already exists - stopping autosave');
-        setStatus('conflict');
+        setStatusSafe('conflict');
         setConflictCount(prev => prev + 1);
         return;
       }
@@ -161,28 +171,28 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
 
       if (error) {
         logAutosave('ERROR saving autosave data', error);
-        setStatus('error');
+        setStatusSafe('error');
         
         // Exponential backoff for retries
         const retryDelay = Math.min(1000 * Math.pow(2, saveAttempts), 30000);
-        setTimeout(() => setStatus('idle'), retryDelay);
+        setTimeout(() => setStatusSafe('idle'), retryDelay);
       } else {
         logAutosave('Autosave successful', { 
           userId: user.id,
           dataSize: JSON.stringify(data).length 
         });
-        setStatus('saved');
+        setStatusSafe('saved');
         setLastSaved(new Date());
         setSaveAttempts(0);
         
-        setTimeout(() => setStatus('idle'), 2000);
+        setTimeout(() => setStatusSafe('idle'), 2000);
       }
     } catch (error) {
       logAutosave('ERROR in saveData', error);
-      setStatus('error');
-      setTimeout(() => setStatus('idle'), 3000);
+      setStatusSafe('error');
+      setTimeout(() => setStatusSafe('idle'), 3000);
     }
-  }, [user?.id, isInitialLoad, saveAttempts]);
+  }, [user?.id, isInitialLoad, saveAttempts, setStatusSafe]);
 
   // Enhanced clear function with logging
   const clearSavedData = useCallback(async () => {
@@ -201,14 +211,14 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
       } else {
         logAutosave('Autosave data cleared successfully');
         setLastSaved(null);
-        setStatus('idle');
+        setStatusSafe('idle');
         setSaveAttempts(0);
         setConflictCount(0);
       }
     } catch (error) {
       logAutosave('ERROR in clearSavedData', error);
     }
-  }, [user?.id]);
+  }, [user?.id, setStatusSafe]);
 
   // Debounced save with conflict checking
   useEffect(() => {

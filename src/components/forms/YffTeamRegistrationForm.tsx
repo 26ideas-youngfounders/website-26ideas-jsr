@@ -58,10 +58,12 @@ export type YffRegistration = YffRegistrationFormData & {
 };
 
 /**
+ * IMPORTANT: All .required() calls must provide a message, or Yup will infer the field as optional in TypeScript.
+ * 
  * Yup schema - STRICTLY ALIGNED with YffRegistrationFormData interface
  * All fields must be defined as required with proper error messages to match the interface exactly
  */
-const schema: yup.ObjectSchema<YffRegistrationFormData> = yup.object().shape({
+const schema = yup.object({
   fullName: yup.string().required('Full name is required'),
   email: yup.string().email('Invalid email format').required('Email is required'),
   phoneNumber: yup.string().required('Phone number is required'),
@@ -71,7 +73,7 @@ const schema: yup.ObjectSchema<YffRegistrationFormData> = yup.object().shape({
   state: yup.string().required('State is required'),
   pinCode: yup.string().required('PIN code is required'),
   permanentAddress: yup.string().required('Permanent address is required'),
-  gender: yup.string().required('Gender is required').oneOf(['male', 'female', 'other']),
+  gender: yup.string().required('Gender is required').oneOf(['male', 'female', 'other'], 'Gender must be male, female, or other'),
   institutionName: yup.string().required('Institution name is required'),
   courseProgram: yup.string().required('Course/Program is required'),
   currentYearOfStudy: yup.string().required('Current year of study is required'),

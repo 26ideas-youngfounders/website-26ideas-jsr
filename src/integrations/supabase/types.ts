@@ -254,6 +254,30 @@ export type Database = {
           },
         ]
       }
+      yff_team_registration_autosave: {
+        Row: {
+          created_at: string | null
+          form_data: Json
+          id: string
+          individual_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          form_data?: Json
+          id?: string
+          individual_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          form_data?: Json
+          id?: string
+          individual_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       yff_team_registrations: {
         Row: {
           country_code: string
@@ -268,14 +292,21 @@ export type Database = {
           gender: string
           id: string
           individual_id: string
+          industry_sector: string | null
           institution_name: string
           linkedin_profile: string | null
+          number_of_team_members: number | null
           permanent_address: string
           phone_number: string
           pin_code: string
+          referral_id: string | null
           social_media_handles: string | null
           state: string
+          team_members: Json | null
+          team_name: string | null
           updated_at: string
+          venture_name: string | null
+          website: string | null
         }
         Insert: {
           country_code?: string
@@ -290,14 +321,21 @@ export type Database = {
           gender: string
           id?: string
           individual_id: string
+          industry_sector?: string | null
           institution_name: string
           linkedin_profile?: string | null
+          number_of_team_members?: number | null
           permanent_address: string
           phone_number: string
           pin_code: string
+          referral_id?: string | null
           social_media_handles?: string | null
           state: string
+          team_members?: Json | null
+          team_name?: string | null
           updated_at?: string
+          venture_name?: string | null
+          website?: string | null
         }
         Update: {
           country_code?: string
@@ -312,14 +350,21 @@ export type Database = {
           gender?: string
           id?: string
           individual_id?: string
+          industry_sector?: string | null
           institution_name?: string
           linkedin_profile?: string | null
+          number_of_team_members?: number | null
           permanent_address?: string
           phone_number?: string
           pin_code?: string
+          referral_id?: string | null
           social_media_handles?: string | null
           state?: string
+          team_members?: Json | null
+          team_name?: string | null
           updated_at?: string
+          venture_name?: string | null
+          website?: string | null
         }
         Relationships: [
           {

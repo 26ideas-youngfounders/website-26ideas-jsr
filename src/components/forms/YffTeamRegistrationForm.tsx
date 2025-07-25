@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,11 +11,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { YffTeamMemberFields } from './YffTeamMemberFields';
+import { YffAutosaveIndicator } from './YffAutosaveIndicator';
+import { useAutosave } from '@/hooks/useAutosave';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, GraduationCap, MapPin, Users, AlertCircle } from 'lucide-react';
+import { User, GraduationCap, MapPin, Users, AlertCircle, Building, Briefcase, UserPlus } from 'lucide-react';
 
-// Enhanced form validation schema with better error messages
+// Industry options for dropdown
+const industryOptions = [
+  'Technology', 'Healthcare', 'Finance', 'Education', 'E-commerce', 'Manufacturing',
+  'Agriculture', 'Food & Beverage', 'Retail', 'Transportation', 'Real Estate',
+  'Entertainment', 'Sports', 'Fashion', 'Tourism', 'Energy', 'Environment',
+  'Social Impact', 'Media', 'Other'
+];
+
+// Enhanced form validation schema
 const teamRegistrationSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters").max(100, "Full name is too long"),
   email: z.string().email("Please enter a valid email address"),
@@ -35,9 +45,34 @@ const teamRegistrationSchema = z.object({
   state: z.string().min(2, "State is required").max(100, "State is too long"),
   pinCode: z.string().min(6, "PIN code must be at least 6 digits").max(6, "PIN code must be exactly 6 digits").regex(/^\d{6}$/, "PIN code must contain only numbers"),
   permanentAddress: z.string().min(10, "Permanent address is required").max(500, "Permanent address is too long"),
+  
+  // New fields for team, venture, and referral
+  teamName: z.string().optional(),
+  numberOfTeamMembers: z.number().min(1).max(4),
+  teamMembers: z.array(z.object({
+    fullName: z.string().min(2, "Full name is required"),
+    email: z.string().email("Valid email is required"),
+    linkedinProfile: z.string().optional(),
+    socialMediaHandles: z.string().optional(),
+    idCardFile: z.any().optional(),
+  })).optional(),
+  ventureName: z.string().optional(),
+  industrySector: z.string().optional(),
+  website: z.string().optional().refine((val) => !val || /^https?:\/\/.+/.test(val), {
+    message: "Please enter a valid website URL (https://...)"
+  }),
+  referralId: z.string().optional(),
 });
 
 type TeamRegistrationData = z.infer<typeof teamRegistrationSchema>;
+
+interface TeamMember {
+  fullName: string;
+  email: string;
+  linkedinProfile?: string;
+  socialMediaHandles?: string;
+  idCardFile?: File | null;
+}
 
 /**
  * YFF Team Registration Form component
@@ -52,6 +87,8 @@ export const YffTeamRegistrationForm = () => {
   const [countryIsoCode, setCountryIsoCode] = useState("IN");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [numberOfTeamMembers, setNumberOfTeamMembers] = useState(1);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
   // Scroll to top when component mounts
   useEffect(() => {
@@ -73,11 +110,53 @@ export const YffTeamRegistrationForm = () => {
       email: user?.email || "",
       gender: "Male",
       currentYearOfStudy: "1st Year",
+      numberOfTeamMembers: 1,
     },
   });
 
+  // Watch all form values for autosave
+  const formValues = watch();
+  
+  // Autosave functionality
+  const { status: autosaveStatus, loadSavedData, clearSavedData } = useAutosave({
+    formData: { ...formValues, teamMembers },
+    debounceMs: 1000,
+  });
+
+  // Load autosaved data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      const savedData = await loadSavedData();
+      if (savedData) {
+        console.log('📁 Restoring autosaved data');
+        
+        // Restore form values
+        Object.keys(savedData).forEach(key => {
+          if (key !== 'teamMembers') {
+            setValue(key as keyof TeamRegistrationData, savedData[key]);
+          }
+        });
+        
+        // Restore team members
+        if (savedData.teamMembers) {
+          setTeamMembers(savedData.teamMembers);
+        }
+        
+        if (savedData.numberOfTeamMembers) {
+          setNumberOfTeamMembers(savedData.numberOfTeamMembers);
+        }
+        
+        toast.success('Form data restored from previous session');
+      }
+    };
+    
+    if (user) {
+      loadData();
+    }
+  }, [user, loadSavedData, setValue]);
+
   // Check for existing registration on component mount
-  React.useEffect(() => {
+  useEffect(() => {
     const checkExistingRegistration = async () => {
       if (!user) return;
 
@@ -100,10 +179,83 @@ export const YffTeamRegistrationForm = () => {
     checkExistingRegistration();
   }, [user]);
 
+  // Handle country code change
   const handleCountryChange = (newCountryCode: string, newIsoCode: string) => {
     setCountryCode(newCountryCode);
     setCountryIsoCode(newIsoCode);
     console.log("📱 Country selection changed:", { countryCode: newCountryCode, isoCode: newIsoCode });
+  };
+
+  // Handle number of team members change
+  const handleTeamMembersChange = (count: number) => {
+    setNumberOfTeamMembers(count);
+    setValue('numberOfTeamMembers', count);
+    
+    // Initialize team members array with leader info
+    const newTeamMembers: TeamMember[] = [];
+    
+    // Add team leader (always first)
+    newTeamMembers.push({
+      fullName: watch('fullName') || '',
+      email: watch('email') || '',
+      linkedinProfile: watch('linkedinProfile') || '',
+      socialMediaHandles: watch('socialMediaHandles') || '',
+      idCardFile: null,
+    });
+    
+    // Add additional members
+    for (let i = 1; i < count; i++) {
+      newTeamMembers.push({
+        fullName: '',
+        email: '',
+        linkedinProfile: '',
+        socialMediaHandles: '',
+        idCardFile: null,
+      });
+    }
+    
+    setTeamMembers(newTeamMembers);
+    console.log(`👥 Team size changed to ${count} members`);
+  };
+
+  // Handle team member data change
+  const handleTeamMemberChange = (index: number, field: keyof TeamMember, value: any) => {
+    const updatedMembers = [...teamMembers];
+    updatedMembers[index] = { ...updatedMembers[index], [field]: value };
+    setTeamMembers(updatedMembers);
+  };
+
+  // Handle remove team member
+  const handleRemoveTeamMember = (index: number) => {
+    if (index === 0) return; // Can't remove team leader
+    
+    const updatedMembers = teamMembers.filter((_, i) => i !== index);
+    setTeamMembers(updatedMembers);
+    setNumberOfTeamMembers(updatedMembers.length);
+    setValue('numberOfTeamMembers', updatedMembers.length);
+  };
+
+  // Upload file to Supabase storage
+  const uploadFile = async (file: File, memberIndex: number): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user?.id}/${memberIndex}-${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('yff-id-cards')
+        .upload(fileName, file);
+
+      if (uploadError) {
+        console.error('❌ File upload failed:', uploadError);
+        return null;
+      }
+
+      console.log('✅ File uploaded successfully:', fileName);
+      return fileName;
+    } catch (error) {
+      console.error('❌ File upload error:', error);
+      return null;
+    }
   };
 
   /**
@@ -124,6 +276,18 @@ export const YffTeamRegistrationForm = () => {
     if (!data.pinCode?.trim()) errors.push("PIN code is required");
     if (!data.permanentAddress?.trim()) errors.push("Permanent address is required");
 
+    // Team validation
+    if (numberOfTeamMembers > 1) {
+      if (!data.teamName?.trim()) errors.push("Team name is required for multi-member teams");
+      
+      // Validate team members
+      teamMembers.forEach((member, index) => {
+        if (!member.fullName?.trim()) errors.push(`Team member ${index + 1} name is required`);
+        if (!member.email?.trim()) errors.push(`Team member ${index + 1} email is required`);
+        if (!member.idCardFile && index > 0) errors.push(`Team member ${index + 1} ID card is required`);
+      });
+    }
+
     // Validate formats
     if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
       errors.push("Please enter a valid email address");
@@ -139,6 +303,10 @@ export const YffTeamRegistrationForm = () => {
 
     if (data.pinCode && (data.pinCode.length !== 6 || !/^\d{6}$/.test(data.pinCode))) {
       errors.push("PIN code must be exactly 6 digits");
+    }
+
+    if (data.website && !/^https?:\/\/.+/.test(data.website)) {
+      errors.push("Please enter a valid website URL");
     }
 
     return errors;
@@ -249,6 +417,32 @@ export const YffTeamRegistrationForm = () => {
 
       console.log("✅ Using individual_id:", individualId);
 
+      // Upload ID card files and prepare team members data
+      const processedTeamMembers = [];
+      
+      for (let i = 0; i < teamMembers.length; i++) {
+        const member = teamMembers[i];
+        let idCardPath = null;
+        
+        if (member.idCardFile) {
+          idCardPath = await uploadFile(member.idCardFile, i);
+          if (!idCardPath) {
+            const errorMsg = `Failed to upload ID card for ${member.fullName}. Please try again.`;
+            setSubmitError(errorMsg);
+            toast.error(errorMsg);
+            return;
+          }
+        }
+        
+        processedTeamMembers.push({
+          fullName: member.fullName,
+          email: member.email,
+          linkedinProfile: member.linkedinProfile || null,
+          socialMediaHandles: member.socialMediaHandles || null,
+          idCardPath,
+        });
+      }
+
       const registrationData = {
         individual_id: individualId,
         full_name: data.fullName.trim(),
@@ -267,6 +461,15 @@ export const YffTeamRegistrationForm = () => {
         state: data.state.trim(),
         pin_code: data.pinCode.trim(),
         permanent_address: data.permanentAddress.trim(),
+        
+        // New fields
+        team_name: data.teamName?.trim() || null,
+        number_of_team_members: numberOfTeamMembers,
+        team_members: processedTeamMembers,
+        venture_name: data.ventureName?.trim() || null,
+        industry_sector: data.industrySector || null,
+        website: data.website?.trim() || null,
+        referral_id: data.referralId?.trim() || null,
       };
 
       console.log("📤 Submitting registration data:", registrationData);
@@ -306,6 +509,10 @@ export const YffTeamRegistrationForm = () => {
       }
 
       console.log("✅ Registration successful");
+      
+      // Clear autosaved data after successful submission
+      await clearSavedData();
+      
       toast.success("Registration submitted successfully! Welcome to the Young Founders Floor program.");
       
       // Redirect to questionnaire or next step
@@ -427,6 +634,10 @@ export const YffTeamRegistrationForm = () => {
                     onChange={(e) => {
                       register("fullName").onChange(e);
                       handleInputChange();
+                      // Update team leader info if it's a team
+                      if (teamMembers.length > 0) {
+                        handleTeamMemberChange(0, 'fullName', e.target.value);
+                      }
                     }}
                   />
                   {errors.fullName && (
@@ -464,6 +675,10 @@ export const YffTeamRegistrationForm = () => {
                   onChange={(e) => {
                     register("linkedinProfile").onChange(e);
                     handleInputChange();
+                    // Update team leader info if it's a team
+                    if (teamMembers.length > 0) {
+                      handleTeamMemberChange(0, 'linkedinProfile', e.target.value);
+                    }
                   }}
                 />
                 {errors.linkedinProfile && (
@@ -552,6 +767,10 @@ export const YffTeamRegistrationForm = () => {
                   onChange={(e) => {
                     register("socialMediaHandles").onChange(e);
                     handleInputChange();
+                    // Update team leader info if it's a team
+                    if (teamMembers.length > 0) {
+                      handleTeamMemberChange(0, 'socialMediaHandles', e.target.value);
+                    }
                   }}
                 />
               </div>
@@ -756,6 +975,177 @@ export const YffTeamRegistrationForm = () => {
             </CardContent>
           </Card>
 
+          {/* Section 4: Team Information */}
+          <Card className="bg-white shadow-lg border-0 rounded-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <CardTitle className="text-xl font-semibold">
+                  Team Information
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6">
+              <div>
+                <Label htmlFor="numberOfTeamMembers" className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Number of Team Members *
+                </Label>
+                <Select 
+                  onValueChange={(value) => handleTeamMembersChange(parseInt(value))}
+                  defaultValue="1"
+                >
+                  <SelectTrigger className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg">
+                    <SelectValue placeholder="Select number of team members" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 Member (Individual)</SelectItem>
+                    <SelectItem value="2">2 Members</SelectItem>
+                    <SelectItem value="3">3 Members</SelectItem>
+                    <SelectItem value="4">4 Members</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {numberOfTeamMembers > 1 && (
+                <div>
+                  <Label htmlFor="teamName" className="text-sm font-semibold text-gray-700 mb-2 block">
+                    Team Name *
+                  </Label>
+                  <Input
+                    id="teamName"
+                    {...register("teamName")}
+                    placeholder="Enter your team name"
+                    className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                    onChange={(e) => {
+                      register("teamName").onChange(e);
+                      handleInputChange();
+                    }}
+                  />
+                </div>
+              )}
+
+              {numberOfTeamMembers > 1 && teamMembers.length > 0 && (
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-4">Team Members</h4>
+                  <YffTeamMemberFields
+                    members={teamMembers}
+                    onMemberChange={handleTeamMemberChange}
+                    onRemoveMember={handleRemoveTeamMember}
+                    errors={errors}
+                    onInputChange={handleInputChange}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Section 5: Venture Information */}
+          <Card className="bg-white shadow-lg border-0 rounded-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-orange-600 to-orange-700 text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                  <Building className="w-5 h-5" />
+                </div>
+                <CardTitle className="text-xl font-semibold">
+                  Venture Information
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6">
+              <div>
+                <Label htmlFor="ventureName" className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Venture Name
+                </Label>
+                <Input
+                  id="ventureName"
+                  {...register("ventureName")}
+                  placeholder="Enter your venture name"
+                  className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                  onChange={(e) => {
+                    register("ventureName").onChange(e);
+                    handleInputChange();
+                  }}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="industrySector" className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Industry Sector
+                </Label>
+                <Select 
+                  onValueChange={(value) => {
+                    setValue("industrySector", value);
+                    handleInputChange();
+                  }}
+                >
+                  <SelectTrigger className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg">
+                    <SelectValue placeholder="Select industry sector" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {industryOptions.map(industry => (
+                      <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="website" className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Website
+                </Label>
+                <Input
+                  id="website"
+                  {...register("website")}
+                  placeholder="https://yourwebsite.com"
+                  className={`h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg ${errors.website ? 'border-red-500' : ''}`}
+                  onChange={(e) => {
+                    register("website").onChange(e);
+                    handleInputChange();
+                  }}
+                />
+                {errors.website && (
+                  <p className="text-red-500 text-sm mt-1">{errors.website.message}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Section 6: Referral Information */}
+          <Card className="bg-white shadow-lg border-0 rounded-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-teal-600 to-teal-700 text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                  <Briefcase className="w-5 h-5" />
+                </div>
+                <CardTitle className="text-xl font-semibold">
+                  Referral Information
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6">
+              <div>
+                <Label htmlFor="referralId" className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Referral ID (Optional)
+                </Label>
+                <Input
+                  id="referralId"
+                  {...register("referralId")}
+                  placeholder="Enter referral ID if you have one"
+                  className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                  onChange={(e) => {
+                    register("referralId").onChange(e);
+                    handleInputChange();
+                  }}
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  If someone referred you to this program, enter their referral ID here.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Submit Button */}
           <div className="text-center pb-8">
             <Button 
@@ -778,6 +1168,9 @@ export const YffTeamRegistrationForm = () => {
             </p>
           </div>
         </form>
+
+        {/* Autosave Indicator */}
+        <YffAutosaveIndicator status={autosaveStatus} />
       </div>
     </div>
   );

@@ -2,8 +2,9 @@
 /**
  * @fileoverview Admin Layout Component
  * 
- * Provides consistent layout structure for all admin pages including
- * navigation, user info, and responsive design.
+ * Provides consistent layout structure for admin pages WITHOUT
+ * rendering Navigation or Footer (handled by App.tsx globally).
+ * Only renders admin-specific navigation and content wrapper.
  * 
  * @version 1.0.0
  * @author 26ideas Development Team
@@ -36,10 +37,19 @@ interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
+/**
+ * Admin Layout Component
+ * 
+ * Provides admin-specific layout without duplicating global Navigation/Footer
+ * Only renders admin navigation and content wrapper
+ */
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const { user, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Debug logging to prevent duplicate headers
+  console.log('🔧 AdminLayout rendering - should NOT render Navigation/Footer');
 
   const navigationItems = [
     { 
@@ -80,11 +90,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation */}
+      {/* Admin-specific header - NOT the main Navigation */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo and Title */}
+            {/* Admin Logo and Title */}
             <div className="flex items-center">
               <img 
                 src="/lovable-uploads/72856c44-6ead-48de-8838-a00fe8990bad.png" 
@@ -97,7 +107,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               </div>
             </div>
 
-            {/* Desktop Navigation */}
+            {/* Admin Navigation */}
             <nav className="hidden md:flex space-x-4">
               {navigationItems.map((item) => {
                 const Icon = item.icon;
@@ -175,10 +185,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Admin Content - wrapped without additional layout */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
+      
+      {/* NO Footer rendered here - handled by App.tsx globally */}
     </div>
   );
 };

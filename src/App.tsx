@@ -19,13 +19,24 @@ import CrmDashboard from "./pages/admin/CrmDashboard";
 import YffApplicationsPage from "./pages/admin/YffApplicationsPage";
 import MentorApplicationsPage from "./pages/admin/MentorApplicationsPage";
 import PhoneInputTest from "./pages/PhoneInputTest";
+import { startLayoutMonitoring } from "./utils/layout-debug";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
 /**
  * Main App component with routing and layout structure
+ * Only this file should render Navigation and Footer to prevent duplicates
  */
 function App() {
+  // Debug logging to prevent future duplicates
+  console.log('🏗️ App component rendering - Navigation and Footer should only appear once');
+  
+  // Start layout monitoring in development
+  useEffect(() => {
+    startLayoutMonitoring();
+  }, []);
+  
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -34,7 +45,10 @@ function App() {
           <Sonner />
           <BrowserRouter>
             <div className="min-h-screen flex flex-col">
+              {/* Single Navigation component for entire app */}
               <Navigation />
+              
+              {/* Main content area */}
               <main className="flex-grow">
                 <Routes>
                   <Route path="/" element={<Index />} />
@@ -51,6 +65,8 @@ function App() {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>
+              
+              {/* Single Footer component for entire app */}
               <Footer />
             </div>
           </BrowserRouter>

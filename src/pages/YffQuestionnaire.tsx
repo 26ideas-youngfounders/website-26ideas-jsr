@@ -18,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
+import { YffRegistration, parseRegistrationData } from '@/types/yff-registration';
 
 /**
  * YFF Questionnaire Page Component
@@ -30,7 +31,7 @@ import { AlertCircle } from 'lucide-react';
 const YffQuestionnaire = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [registration, setRegistration] = useState<any>(null);
+  const [registration, setRegistration] = useState<YffRegistration | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,8 +74,10 @@ const YffQuestionnaire = () => {
           return;
         }
 
-        console.log('✅ Registration data loaded:', registrationData);
-        setRegistration(registrationData);
+        // Parse and validate registration data with type safety
+        const parsedRegistration = parseRegistrationData(registrationData);
+        console.log('✅ Registration data loaded and parsed:', parsedRegistration);
+        setRegistration(parsedRegistration);
         
       } catch (error) {
         console.error('❌ Error in loadRegistration:', error);
@@ -155,10 +158,12 @@ const YffQuestionnaire = () => {
         </p>
       </div>
 
-      <YffQuestionnaireForm 
-        registration={registration} 
-        onComplete={handleComplete} 
-      />
+      {registration && (
+        <YffQuestionnaireForm 
+          registration={registration} 
+          onComplete={handleComplete} 
+        />
+      )}
     </div>
   );
 };

@@ -1,96 +1,132 @@
 
 /**
- * Registration validation utilities for YFF applications
- * Handles age validation and word count enforcement
+ * @fileoverview Registration Validation Utilities
+ * 
+ * Comprehensive validation functions for YFF registration data
+ * including age validation and word count enforcement.
  */
 
 /**
- * Calculate age from date of birth
+ * Age validation result interface
  */
-export const calculateAge = (dateOfBirth: string): number => {
+interface AgeValidationResult {
+  isValid: boolean;
+  age?: number;
+  error?: string;
+}
+
+/**
+ * Validate age based on date of birth
+ * Must be between 18 and 27 years old
+ */
+export const validateAge = (dateOfBirth: string): AgeValidationResult => {
+  if (!dateOfBirth) {
+    return {
+      isValid: false,
+      error: 'Date of birth is required'
+    };
+  }
+
   const today = new Date();
   const birthDate = new Date(dateOfBirth);
+  
+  // Check if date is valid
+  if (isNaN(birthDate.getTime())) {
+    return {
+      isValid: false,
+      error: 'Invalid date format'
+    };
+  }
+
+  // Calculate age
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
   
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
     age--;
   }
-  
-  return age;
-};
 
-/**
- * Validate age is between 18 and 27
- */
-export const validateAge = (dateOfBirth: string): { isValid: boolean; error?: string } => {
-  if (!dateOfBirth) {
-    return { isValid: false, error: 'Date of birth is required' };
+  // Check if date is in the future
+  if (birthDate > today) {
+    return {
+      isValid: false,
+      error: 'Date of birth cannot be in the future'
+    };
   }
-  
-  const age = calculateAge(dateOfBirth);
-  
+
+  // Check age limits
   if (age < 18) {
-    return { isValid: false, error: 'You must be at least 18 years old to register' };
+    return {
+      isValid: false,
+      age,
+      error: 'You must be at least 18 years old to register'
+    };
   }
-  
+
   if (age > 27) {
-    return { isValid: false, error: 'You must be 27 years old or younger to register' };
+    return {
+      isValid: false,
+      age,
+      error: 'You must be 27 years old or younger to register'
+    };
   }
-  
-  return { isValid: true };
+
+  return {
+    isValid: true,
+    age
+  };
 };
 
 /**
  * Count words in a text string
  */
 export const countWords = (text: string): number => {
-  if (!text || typeof text !== 'string') return 0;
+  if (!text || typeof text !== 'string') {
+    return 0;
+  }
   
-  // Remove extra whitespace and split by whitespace
-  const words = text.trim().split(/\s+/);
-  
-  // If the text is empty after trim, return 0
-  if (words.length === 1 && words[0] === '') return 0;
-  
-  return words.length;
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(word => word.length > 0)
+    .length;
 };
 
 /**
- * Validate word count limit
+ * Validate word count does not exceed maximum limit
  */
-export const validateWordLimit = (text: string, limit: number = 300): { isValid: boolean; wordCount: number; error?: string } => {
+export const validateWordCount = (text: string, maxWords: number = 300): boolean => {
   const wordCount = countWords(text);
+  return wordCount <= maxWords;
+};
+
+/**
+ * Get word count validation result with detailed information
+ */
+export const getWordCountValidation = (text: string, maxWords: number = 300) => {
+  const wordCount = countWords(text);
+  const isValid = wordCount <= maxWords;
   
-  if (wordCount > limit) {
-    return {
-      isValid: false,
-      wordCount,
-      error: `Please limit your answer to ${limit} words. Current: ${wordCount} words.`
-    };
-  }
-  
-  return { isValid: true, wordCount };
+  return {
+    isValid,
+    wordCount,
+    maxWords,
+    remaining: maxWords - wordCount,
+    error: isValid ? null : `Text exceeds maximum of ${maxWords} words (${wordCount} words)`
+  };
 };
 
 /**
  * Validate all team members' ages
  */
-export const validateTeamAges = (teamMembers: any[], leaderDateOfBirth: string): { isValid: boolean; errors: string[] } => {
+export const validateTeamMembersAges = (teamMembers: any[]): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
   
-  // Validate leader age
-  const leaderAgeValidation = validateAge(leaderDateOfBirth);
-  if (!leaderAgeValidation.isValid) {
-    errors.push(`Team leader: ${leaderAgeValidation.error}`);
-  }
-  
-  // Validate team members' ages
   teamMembers.forEach((member, index) => {
     if (member.dateOfBirth) {
-      const memberAgeValidation = validateAge(member.dateOfBirth);
-      if (!memberAgeValidation.isValid) {
-        errors.push(`Team member ${index + 1}: ${memberAgeValidation.error}`);
+      const validation = validateAge(member.dateOfBirth);
+      if (!validation.isValid) {
+        errors.push(`Team Member ${index + 1}: ${validation.error}`);
       }
     }
   });
@@ -102,44 +138,22 @@ export const validateTeamAges = (teamMembers: any[], leaderDateOfBirth: string):
 };
 
 /**
- * Validate all essay/paragraph answers for word limits
+ * Validate all questionnaire answers for word count
  */
-export const validateEssayAnswers = (answers: any, wordLimit: number = 300): { isValid: boolean; errors: string[]; wordCounts: { [key: string]: number } } => {
+export const validateQuestionnaireWordCounts = (answers: Record<string, any>): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
-  const wordCounts: { [key: string]: number } = {};
   
-  // Define which fields are essay/paragraph fields that need word count validation
-  const essayFields = [
-    'whyApplying',
-    'businessIdea', 
-    'experience',
-    'challenges',
-    'goals',
-    'commitment',
-    'ventureDescription',
-    'targetMarket',
-    'competitiveAdvantage',
-    'businessModel',
-    'fundingNeeds',
-    'teamStrengths',
-    'mentorshipNeeds',
-    'longTermVision'
-  ];
-  
-  essayFields.forEach(field => {
-    if (answers[field]) {
-      const validation = validateWordLimit(answers[field], wordLimit);
-      wordCounts[field] = validation.wordCount;
-      
+  Object.entries(answers).forEach(([key, value]) => {
+    if (typeof value === 'string') {
+      const validation = getWordCountValidation(value, 300);
       if (!validation.isValid) {
-        errors.push(`${field}: ${validation.error}`);
+        errors.push(`${key}: ${validation.error}`);
       }
     }
   });
   
   return {
     isValid: errors.length === 0,
-    errors,
-    wordCounts
+    errors
   };
 };

@@ -56,6 +56,7 @@ interface YffQuestionnaireFormProps {
 
 /**
  * Questionnaire form schema with word count validation
+ * NOTE: All fields are REQUIRED to maintain type consistency
  */
 const questionnaireSchema = z.object({
   whyApplying: z.string()
@@ -83,6 +84,11 @@ const questionnaireSchema = z.object({
     .refine(text => validateWordCount(text, 300), 'Answer must not exceed 300 words'),
 });
 
+/**
+ * QuestionnaireFormData type - all fields are REQUIRED
+ * WARNING: Keep this interface in sync with the form schema above.
+ * If you make any field optional here, you must also update the schema and default values.
+ */
 type QuestionnaireFormData = z.infer<typeof questionnaireSchema>;
 
 /**
@@ -99,6 +105,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   const form = useForm<QuestionnaireFormData>({
     resolver: zodResolver(questionnaireSchema),
     defaultValues: {
+      // All fields have string defaults to match required interface
       whyApplying: registration.questionnaire_answers?.whyApplying || '',
       businessIdea: registration.questionnaire_answers?.businessIdea || '',
       experience: registration.questionnaire_answers?.experience || '',

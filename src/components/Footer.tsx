@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Footer component for the 26ideas Young Founders platform.
  * 

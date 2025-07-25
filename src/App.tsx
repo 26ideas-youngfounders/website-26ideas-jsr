@@ -3,24 +3,31 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Navigation } from "./components/Navigation";
-import { Footer } from "./components/Footer";
+import Navigation from "./components/Navigation";
+import Footer from "./components/Footer";
 import Index from "./pages/Index";
 import AnnualRetreat from "./pages/AnnualRetreat";
-import YffLandingPage from "./pages/YffLandingPage";
+import { YffLandingPage } from "./pages/YffLandingPage";
 import YffQuestionnaire from "./pages/YffQuestionnaire";
 import { YffTeamRegistration } from "./pages/YffTeamRegistration";
 import YffTeamInformation from "./pages/YffTeamInformation";
 import MentorSignup from "./pages/MentorSignup";
 import PhoneInputTest from "./pages/PhoneInputTest";
 import NotFound from "./pages/NotFound";
-import { CrmDashboard } from "./pages/admin/CrmDashboard";
-import { YffApplicationsPage } from "./pages/admin/YffApplicationsPage";
-import { MentorApplicationsPage } from "./pages/admin/MentorApplicationsPage";
+import CrmDashboard from "./pages/admin/CrmDashboard";
+import YffApplicationsPage from "./pages/admin/YffApplicationsPage";
+import MentorApplicationsPage from "./pages/admin/MentorApplicationsPage";
+import { startLayoutMonitoring } from "./utils/layout-debug";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
 function App() {
+  // Start layout monitoring in development
+  useEffect(() => {
+    startLayoutMonitoring();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

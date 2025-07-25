@@ -12,7 +12,7 @@
  * - Logs detailed information about layout issues
  * 
  * @author 26ideas Development Team
- * @version 2.0.0
+ * @version 2.1.0
  */
 
 /**
@@ -23,12 +23,14 @@ const removeDuplicateElements = (selector: string, elementType: string) => {
   const elements = document.querySelectorAll(selector);
   
   if (elements.length > 1) {
-    console.warn(`🔧 AUTO-FIXING: Removing ${elements.length - 1} duplicate ${elementType} elements`);
+    console.error(`🚨 CRITICAL: ${elements.length} duplicate ${elementType} elements detected!`);
+    console.error(`📍 ${elementType} should ONLY be rendered in App.tsx`);
+    console.error(`🔍 Check for incorrect imports in individual pages`);
     
     // Remove all elements except the first one
     elements.forEach((element, index) => {
       if (index > 0) {
-        console.log(`🗑️ Removing duplicate ${elementType} element #${index + 1}`);
+        console.log(`🗑️ AUTO-REMOVING duplicate ${elementType} element #${index + 1}`);
         element.remove();
       }
     });
@@ -50,37 +52,39 @@ export const checkForDuplicateLayouts = () => {
   // Check for multiple navigation elements with more specific selectors
   const navigationElements = document.querySelectorAll('nav[class*="bg-background"], nav[class*="border-b"]');
   if (navigationElements.length > 1) {
-    console.error('❌ DUPLICATE HEADERS DETECTED:', navigationElements.length, 'navigation elements found');
-    console.error('📍 Header elements:', navigationElements);
+    console.error('❌ DUPLICATE NAVIGATION DETECTED:', navigationElements.length, 'navigation elements found');
+    console.error('📍 Navigation elements:', navigationElements);
     console.error('🔍 This should never happen - Navigation should only be rendered in App.tsx');
+    console.error('🚨 CHECK: Are you importing Navigation in individual pages?');
     
     // Add visual indicator for duplicate headers before removal
     navigationElements.forEach((nav, index) => {
       if (index > 0) {
-        (nav as HTMLElement).style.border = '3px solid red';
-        (nav as HTMLElement).style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
-        console.log(`🚨 Marking duplicate header #${index + 1} with red border`);
+        (nav as HTMLElement).style.border = '5px solid red';
+        (nav as HTMLElement).style.backgroundColor = 'rgba(255, 0, 0, 0.2)';
+        console.log(`🚨 Marking duplicate navigation #${index + 1} with red border`);
       }
     });
     
     // Auto-remove duplicates after a brief delay for visual feedback
     setTimeout(() => {
       removeDuplicateElements('nav[class*="bg-background"], nav[class*="border-b"]', 'Navigation');
-    }, 500);
+    }, 1000);
   }
 
   // Check for multiple footer elements
   const footerElements = document.querySelectorAll('footer[class*="bg-background"], footer[class*="border-t"]');
   if (footerElements.length > 1) {
-    console.error('❌ DUPLICATE FOOTERS DETECTED:', footerElements.length, 'footer elements found');
+    console.error('❌ DUPLICATE FOOTER DETECTED:', footerElements.length, 'footer elements found');
     console.error('📍 Footer elements:', footerElements);
     console.error('🔍 This should never happen - Footer should only be rendered in App.tsx');
+    console.error('🚨 CHECK: Are you importing Footer in individual pages?');
     
     // Add visual indicator for duplicate footers before removal
     footerElements.forEach((footer, index) => {
       if (index > 0) {
-        (footer as HTMLElement).style.border = '3px solid red';
-        (footer as HTMLElement).style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+        (footer as HTMLElement).style.border = '5px solid red';
+        (footer as HTMLElement).style.backgroundColor = 'rgba(255, 0, 0, 0.2)';
         console.log(`🚨 Marking duplicate footer #${index + 1} with red border`);
       }
     });
@@ -88,7 +92,7 @@ export const checkForDuplicateLayouts = () => {
     // Auto-remove duplicates after a brief delay for visual feedback
     setTimeout(() => {
       removeDuplicateElements('footer[class*="bg-background"], footer[class*="border-t"]', 'Footer');
-    }, 500);
+    }, 1000);
   }
 
   // Check for admin headers when not on admin pages
@@ -101,7 +105,7 @@ export const checkForDuplicateLayouts = () => {
 
   // Log successful single layout detection
   if (navigationElements.length === 1 && footerElements.length <= 1) {
-    console.log('✅ Layout check passed - single navigation detected');
+    console.log('✅ Layout check passed - single navigation and footer detected');
   }
 };
 
@@ -112,9 +116,10 @@ export const checkForDuplicateLayouts = () => {
 export const startLayoutMonitoring = () => {
   if (process.env.NODE_ENV !== 'development') return;
   
-  console.log('🚀 Starting layout monitoring system...');
-  console.log('📝 CRITICAL: Navigation and Footer should ONLY be rendered in App.tsx');
+  console.log('🚀 Starting enhanced layout monitoring system...');
+  console.log('📝 CRITICAL RULE: Navigation and Footer should ONLY be rendered in App.tsx');
   console.log('🚫 DO NOT import Navigation/Footer in individual pages');
+  console.log('🔧 Any duplicates will be automatically removed with visual warnings');
 
   // Run initial check after DOM is ready
   setTimeout(checkForDuplicateLayouts, 100);
@@ -149,7 +154,7 @@ export const startLayoutMonitoring = () => {
     subtree: true
   });
   
-  console.log('✅ Layout monitoring system active');
+  console.log('✅ Enhanced layout monitoring system active');
 };
 
 /**

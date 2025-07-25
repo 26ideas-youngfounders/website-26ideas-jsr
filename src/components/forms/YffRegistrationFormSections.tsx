@@ -15,43 +15,43 @@ import { Button } from '@/components/ui/button';
 import { Plus, Minus } from 'lucide-react';
 import { YffTeamMemberFields } from './YffTeamMemberFields';
 
-// Update TeamMember interface to match form schema - all fields are required for submission
+// TeamMember interface with optional fields to match form schema for autosave support
 interface TeamMember {
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  countryCode: string;
-  dateOfBirth: string;
-  currentCity: string;
-  state: string;
-  pinCode: string;
-  permanentAddress: string;
-  gender: string;
-  institutionName: string;
-  courseProgram: string;
-  currentYearOfStudy: string;
-  expectedGraduation: string;
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  countryCode?: string;
+  dateOfBirth?: string;
+  currentCity?: string;
+  state?: string;
+  pinCode?: string;
+  permanentAddress?: string;
+  gender?: string;
+  institutionName?: string;
+  courseProgram?: string;
+  currentYearOfStudy?: string;
+  expectedGraduation?: string;
   linkedinProfile?: string;
 }
 
-// Update FormValues interface to match the form schema exactly
+// FormValues interface with optional fields to match the actual form schema
 interface FormValues {
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  countryCode: string;
-  dateOfBirth: string;
-  currentCity: string;
-  state: string;
-  pinCode: string;
-  permanentAddress: string;
-  gender: string;
-  institutionName: string;
-  courseProgram: string;
-  currentYearOfStudy: string;
-  expectedGraduation: string;
-  numberOfTeamMembers: number;
-  teamMembers: TeamMember[];
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  countryCode?: string;
+  dateOfBirth?: string;
+  currentCity?: string;
+  state?: string;
+  pinCode?: string;
+  permanentAddress?: string;
+  gender?: string;
+  institutionName?: string;
+  courseProgram?: string;
+  currentYearOfStudy?: string;
+  expectedGraduation?: string;
+  numberOfTeamMembers?: number;
+  teamMembers?: TeamMember[];
   ventureName?: string;
   industrySector?: string;
   teamName?: string;
@@ -70,7 +70,7 @@ interface YffRegistrationFormSectionsProps {
  * Handles personal information, team details, and venture information
  */
 export const YffRegistrationFormSections: React.FC<YffRegistrationFormSectionsProps> = ({ form }) => {
-  const numberOfTeamMembers = form.watch('numberOfTeamMembers');
+  const numberOfTeamMembers = form.watch('numberOfTeamMembers') || 1;
 
   /**
    * Handles adding a new team member with default values
@@ -161,7 +161,7 @@ export const YffRegistrationFormSections: React.FC<YffRegistrationFormSectionsPr
                 <FormLabel>Phone Number *</FormLabel>
                 <FormControl>
                   <PhoneInput
-                    value={field.value}
+                    value={field.value || ''}
                     onChange={field.onChange}
                     placeholder="Enter phone number"
                   />

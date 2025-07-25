@@ -12,43 +12,43 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PhoneInput } from '@/components/ui/phone-input';
 
-// Use the same TeamMember interface as YffRegistrationFormSections
+// TeamMember interface with optional fields to match form schema for autosave support
 interface TeamMember {
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  countryCode: string;
-  dateOfBirth: string;
-  currentCity: string;
-  state: string;
-  pinCode: string;
-  permanentAddress: string;
-  gender: string;
-  institutionName: string;
-  courseProgram: string;
-  currentYearOfStudy: string;
-  expectedGraduation: string;
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  countryCode?: string;
+  dateOfBirth?: string;
+  currentCity?: string;
+  state?: string;
+  pinCode?: string;
+  permanentAddress?: string;
+  gender?: string;
+  institutionName?: string;
+  courseProgram?: string;
+  currentYearOfStudy?: string;
+  expectedGraduation?: string;
   linkedinProfile?: string;
 }
 
-// Use the same FormValues interface as YffRegistrationFormSections
+// FormValues interface with optional fields to match the actual form schema
 interface FormValues {
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  countryCode: string;
-  dateOfBirth: string;
-  currentCity: string;
-  state: string;
-  pinCode: string;
-  permanentAddress: string;
-  gender: string;
-  institutionName: string;
-  courseProgram: string;
-  currentYearOfStudy: string;
-  expectedGraduation: string;
-  numberOfTeamMembers: number;
-  teamMembers: TeamMember[];
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  countryCode?: string;
+  dateOfBirth?: string;
+  currentCity?: string;
+  state?: string;
+  pinCode?: string;
+  permanentAddress?: string;
+  gender?: string;
+  institutionName?: string;
+  courseProgram?: string;
+  currentYearOfStudy?: string;
+  expectedGraduation?: string;
+  numberOfTeamMembers?: number;
+  teamMembers?: TeamMember[];
   ventureName?: string;
   industrySector?: string;
   teamName?: string;
@@ -116,7 +116,7 @@ export const YffTeamMemberFields: React.FC<YffTeamMemberFieldsProps> = ({
               <FormLabel>Phone Number *</FormLabel>
               <FormControl>
                 <PhoneInput
-                  value={field.value}
+                  value={field.value || ''}
                   onChange={field.onChange}
                   placeholder="Enter phone number"
                 />

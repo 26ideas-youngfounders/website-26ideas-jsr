@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -39,20 +40,20 @@ type YffRegistrationFormData = {
   currentYearOfStudy: string;
   expectedGraduation: Date;
   numberOfTeamMembers: number;
-  ventureName?: string;
-  industrySector?: string;
-  teamName?: string;
-  website?: string;
-  linkedinProfile?: string;
-  socialMediaHandles?: string;
-  referralId?: string;
+  ventureName: string;
+  industrySector: string;
+  teamName: string;
+  website: string;
+  linkedinProfile: string;
+  socialMediaHandles: string;
+  referralId: string;
 };
 
 export type YffRegistration = YffRegistrationFormData & {
   teamMembers: TeamMember[];
 };
 
-// Yup schema for form validation - matching the exact interface
+// Yup schema for form validation - matching the exact interface with proper required/optional fields
 const schema = yup.object().shape({
   fullName: yup.string().required('Full name is required'),
   email: yup.string().email('Invalid email format').required('Email is required'),
@@ -69,13 +70,13 @@ const schema = yup.object().shape({
   currentYearOfStudy: yup.string().required('Current year of study is required'),
   expectedGraduation: yup.date().required('Expected graduation date is required'),
   numberOfTeamMembers: yup.number().required('Number of team members is required').min(1, 'Must have at least 1 team member'),
-  ventureName: yup.string().optional(),
-  industrySector: yup.string().optional(),
-  teamName: yup.string().optional(),
-  website: yup.string().optional(),
-  linkedinProfile: yup.string().optional(),
-  socialMediaHandles: yup.string().optional(),
-  referralId: yup.string().optional(),
+  ventureName: yup.string().default(''),
+  industrySector: yup.string().default(''),
+  teamName: yup.string().default(''),
+  website: yup.string().default(''),
+  linkedinProfile: yup.string().default(''),
+  socialMediaHandles: yup.string().default(''),
+  referralId: yup.string().default(''),
 });
 
 // Type for country options

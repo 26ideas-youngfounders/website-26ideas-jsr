@@ -12,6 +12,12 @@ import { YffAutosaveIndicator } from './YffAutosaveIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import { 
+  AutosaveFormData, 
+  isAutosaveFormData, 
+  extractTeamMembers, 
+  extractNumberOfTeamMembers 
+} from '@/types/autosave';
 
 // Define the schema for individual team members
 const teamMemberSchema = z.object({
@@ -65,44 +71,33 @@ export type FormValues = z.infer<typeof formSchema>;
 // Define the team member type
 export type TeamMember = z.infer<typeof teamMemberSchema>;
 
-// Type guard to check if data is of type FormValues
-const isFormValues = (data: any): data is FormValues => {
+/**
+ * Safely restore autosaved data to form with proper type checking
+ */
+const restoreAutosavedData = (
+  autosavedData: AutosaveFormData,
+  form: ReturnType<typeof useForm<FormValues>>
+): void => {
   try {
-    formSchema.parse(data);
-    return true;
+    // Validate and restore form fields
+    Object.entries(autosavedData).forEach(([key, value]) => {
+      if (key in form.getValues() && value !== undefined) {
+        // Special handling for team members
+        if (key === 'teamMembers') {
+          const teamMembers = extractTeamMembers(autosavedData);
+          form.setValue('teamMembers', teamMembers);
+        } else if (key === 'numberOfTeamMembers') {
+          const numberOfMembers = extractNumberOfTeamMembers(autosavedData);
+          form.setValue('numberOfTeamMembers', numberOfMembers);
+        } else {
+          form.setValue(key as keyof FormValues, value);
+        }
+      }
+    });
   } catch (error) {
-    console.error('Validation error:', error);
-    return false;
+    console.error('❌ Error restoring autosaved data:', error);
+    throw error;
   }
-};
-
-// Type guard to check if autosaved data is valid
-const isAutosaveData = (data: any): data is FormValues => {
-  try {
-    formSchema.parse(data);
-    return true;
-  } catch (error) {
-    console.error('Autosave data validation error:', error);
-    return false;
-  }
-};
-
-// Helper function to extract team members from autosaved data
-const extractTeamMembers = (autosavedData: any): TeamMember[] => {
-  if (autosavedData && typeof autosavedData === 'object' && 'teamMembers' in autosavedData && Array.isArray(autosavedData.teamMembers)) {
-    return autosavedData.teamMembers.filter((member: any): member is TeamMember =>
-      member && typeof member === 'object' && Object.keys(teamMemberSchema.shape).every(key => key in member)
-    );
-  }
-  return [];
-};
-
-// Helper function to extract number of team members from autosaved data
-const extractNumberOfTeamMembers = (autosavedData: any): number => {
-  if (autosavedData && typeof autosavedData === 'object' && 'numberOfTeamMembers' in autosavedData && typeof autosavedData.numberOfTeamMembers === 'number') {
-    return autosavedData.numberOfTeamMembers;
-  }
-  return 1;
 };
 
 /**
@@ -173,12 +168,12 @@ export const YffTeamRegistrationForm = () => {
           first_name: firstName,
           last_name: lastName,
           email: user.email,
-          privacy_consent: true, // Assume consent since they're authenticated
+          privacy_consent: true,
           data_processing_consent: true,
           country_code: '+91',
           country_iso_code: 'IN',
           is_active: true,
-          email_verified: true, // They're authenticated, so email is verified
+          email_verified: true,
         });
 
       if (error) {
@@ -254,27 +249,11 @@ export const YffTeamRegistrationForm = () => {
         console.log('📋 Loading autosaved data...');
         const autosavedData = await loadSavedData();
         
-        if (autosavedData) {
+        if (autosavedData && isAutosaveFormData(autosavedData)) {
           console.log('🔄 Restoring autosaved form data');
           
-          // Validate and restore autosaved data
           try {
-            // Safely restore form fields
-            Object.keys(autosavedData).forEach((key) => {
-              if (key in form.getValues() && autosavedData[key] !== undefined) {
-                form.setValue(key as keyof FormValues, autosavedData[key]);
-              }
-            });
-
-            // Handle team members specially
-            if (autosavedData.teamMembers && Array.isArray(autosavedData.teamMembers)) {
-              form.setValue('teamMembers', autosavedData.teamMembers);
-            }
-            
-            if (autosavedData.numberOfTeamMembers && typeof autosavedData.numberOfTeamMembers === 'number') {
-              form.setValue('numberOfTeamMembers', autosavedData.numberOfTeamMembers);
-            }
-
+            restoreAutosavedData(autosavedData, form);
             setDataRestored(true);
             
             // Show restoration message
@@ -292,7 +271,7 @@ export const YffTeamRegistrationForm = () => {
             });
           }
         } else {
-          console.log('📭 No autosaved data found');
+          console.log('📭 No valid autosaved data found');
         }
 
         setProfileLoaded(true);

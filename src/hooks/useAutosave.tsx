@@ -2,13 +2,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { AutosaveFormData, isAutosaveFormData } from '@/types/autosave';
 
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'loading';
 
 interface UseAutosaveProps {
   formData: any;
   debounceMs?: number;
-  formType?: string; // Add form type to distinguish between different forms
+  formType?: string;
 }
 
 /**
@@ -22,7 +23,7 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Load saved data on component mount or user change
-  const loadSavedData = useCallback(async () => {
+  const loadSavedData = useCallback(async (): Promise<AutosaveFormData | null> => {
     if (!user?.id) {
       console.log('🔄 No user ID available for autosave load');
       return null;
@@ -44,11 +45,19 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
         return null;
       }
 
-      if (data) {
+      if (data && data.form_data) {
         console.log('✅ Loaded autosave data from:', data.updated_at);
-        setLastSaved(new Date(data.updated_at));
-        setStatus('saved');
-        return data.form_data;
+        
+        // Type guard and validation
+        if (isAutosaveFormData(data.form_data)) {
+          setLastSaved(new Date(data.updated_at));
+          setStatus('saved');
+          return data.form_data as AutosaveFormData;
+        } else {
+          console.warn('⚠️ Invalid autosave data structure, ignoring');
+          setStatus('error');
+          return null;
+        }
       }
 
       console.log('📭 No autosave data found');

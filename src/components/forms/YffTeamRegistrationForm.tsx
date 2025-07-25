@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -24,6 +23,10 @@ type TeamMember = {
   linkedin?: string;
 };
 
+/**
+ * YFF Registration Form Data Interface
+ * ALL FIELDS ARE REQUIRED - keep in sync with schema and defaults
+ */
 type YffRegistrationFormData = {
   fullName: string;
   email: string;
@@ -53,7 +56,10 @@ export type YffRegistration = YffRegistrationFormData & {
   teamMembers: TeamMember[];
 };
 
-// Yup schema for form validation - matching the exact interface with proper required/optional fields
+/**
+ * Yup schema - STRICTLY ALIGNED with YffRegistrationFormData interface
+ * Required fields use .required(), optional venture fields use .default('')
+ */
 const schema = yup.object().shape({
   fullName: yup.string().required('Full name is required'),
   email: yup.string().email('Invalid email format').required('Email is required'),
@@ -70,13 +76,14 @@ const schema = yup.object().shape({
   currentYearOfStudy: yup.string().required('Current year of study is required'),
   expectedGraduation: yup.date().required('Expected graduation date is required'),
   numberOfTeamMembers: yup.number().required('Number of team members is required').min(1, 'Must have at least 1 team member'),
-  ventureName: yup.string().default(''),
-  industrySector: yup.string().default(''),
-  teamName: yup.string().default(''),
-  website: yup.string().default(''),
-  linkedinProfile: yup.string().default(''),
-  socialMediaHandles: yup.string().default(''),
-  referralId: yup.string().default(''),
+  // Optional venture fields - but still required as strings for type consistency
+  ventureName: yup.string().required('').default(''),
+  industrySector: yup.string().required('').default(''),
+  teamName: yup.string().required('').default(''),
+  website: yup.string().required('').default(''),
+  linkedinProfile: yup.string().required('').default(''),
+  socialMediaHandles: yup.string().required('').default(''),
+  referralId: yup.string().required('').default(''),
 });
 
 // Type for country options
@@ -119,10 +126,11 @@ export const YffTeamRegistrationForm = () => {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [countries, setCountries] = useState<CountryOption[]>([]);
   
-  // Initialize react-hook-form methods with proper typing
+  // Initialize react-hook-form methods with proper typing and ALL required defaults
   const methods = useForm<YffRegistrationFormData>({
     resolver: yupResolver(schema),
     defaultValues: {
+      // All required fields must have default values
       fullName: userProfile?.first_name + ' ' + userProfile?.last_name || '',
       email: userProfile?.email || '',
       phoneNumber: '',
@@ -138,6 +146,7 @@ export const YffTeamRegistrationForm = () => {
       currentYearOfStudy: '',
       expectedGraduation: new Date(),
       numberOfTeamMembers: 1,
+      // Optional venture fields - but required as strings
       ventureName: '',
       industrySector: '',
       teamName: '',

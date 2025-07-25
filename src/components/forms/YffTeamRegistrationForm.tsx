@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,7 +11,7 @@ import { YffRegistrationFormSections } from './YffRegistrationFormSections';
 import { YffAutosaveIndicator } from './YffAutosaveIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Shield, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
   AutosaveFormData, 
@@ -75,48 +74,113 @@ export type FormValues = z.infer<typeof formSchema>;
 export type TeamMember = z.infer<typeof teamMemberSchema>;
 
 /**
- * Handles Supabase error responses and provides user-friendly messages
+ * Enhanced error handler with detailed logging and user-friendly messages
  */
-const handleSubmissionError = (error: any, toast: any) => {
-  console.error('❌ Registration submission failed:', error);
+const handleSubmissionError = (error: any, toast: any, formData: any) => {
+  const timestamp = new Date().toISOString();
+  const errorDetails = {
+    timestamp,
+    error: error,
+    submittedData: formData,
+    userAgent: navigator.userAgent,
+    url: window.location.href
+  };
+  
+  console.error('❌ REGISTRATION ERROR DETAILS:', errorDetails);
   
   let userMessage = 'Registration failed. Please try again.';
-  let specificField = '';
+  let isRecoverable = true;
+  let actionGuidance = '';
   
-  if (error?.message) {
-    // Check for specific database constraint errors
-    if (error.message.includes('duplicate key')) {
-      userMessage = 'A registration with this email already exists.';
-    } else if (error.message.includes('violates not-null constraint')) {
-      userMessage = 'Some required fields are missing. Please review your information and try again.';
-    } else if (error.message.includes('violates check constraint')) {
-      if (error.message.includes('gender_check')) {
-        userMessage = 'Gender field contains an invalid value. Please select Male, Female, or Other.';
-        specificField = 'Please check the Gender field and ensure it has a valid selection.';
-      } else if (error.message.includes('email_check')) {
-        userMessage = 'Email format is invalid. Please check your email address.';
-        specificField = 'Please check the Email field format.';
-      } else if (error.message.includes('phone_check')) {
-        userMessage = 'Phone number format is invalid. Please check your phone number.';
-        specificField = 'Please check the Phone Number field format.';
-      } else {
-        userMessage = 'Some field values are invalid. Please check your entries and try again.';
-      }
-    } else if (error.message.includes('invalid input syntax')) {
-      userMessage = 'Some field values have invalid format. Please check your entries and try again.';
-    } else if (error.message.includes('violates foreign key constraint')) {
-      userMessage = 'Invalid reference data. Please contact support.';
-    } else {
-      userMessage = `Registration failed: ${error.message}`;
+  if (error?.code === '23505') {
+    // Unique constraint violation - check which field
+    if (error.message.includes('email')) {
+      userMessage = 'A registration already exists with this email address.';
+      actionGuidance = 'Please contact support if you need to edit your existing registration.';
+      isRecoverable = false;
+    } else if (error.message.includes('individual_id')) {
+      userMessage = 'You have already registered your team.';
+      actionGuidance = 'Please contact support if you need to edit your registration, or proceed to the questionnaire if you haven\'t completed it yet.';
+      isRecoverable = false;
+    } else if (error.message.includes('team_name')) {
+      userMessage = 'This team name is already taken.';
+      actionGuidance = 'Please choose a different team name.';
+      isRecoverable = true;
     }
+  } else if (error?.code === '23514') {
+    // Check constraint violation
+    if (error.message.includes('gender')) {
+      userMessage = 'Gender field contains an invalid value.';
+      actionGuidance = 'Please select Male, Female, or Other for the gender field.';
+    } else if (error.message.includes('email')) {
+      userMessage = 'Email format is invalid.';
+      actionGuidance = 'Please check your email address format.';
+    } else if (error.message.includes('phone')) {
+      userMessage = 'Phone number format is invalid.';
+      actionGuidance = 'Please check your phone number format.';
+    }
+  } else if (error?.code === '23502') {
+    // Not null constraint violation
+    userMessage = 'Some required fields are missing.';
+    actionGuidance = 'Please fill in all required fields and try again.';
   }
   
-  // Show user-friendly error with specific field information
+  // Log recurring errors
+  const errorKey = `yff_registration_error_${error?.code || 'unknown'}`;
+  const errorCount = parseInt(localStorage.getItem(errorKey) || '0') + 1;
+  localStorage.setItem(errorKey, errorCount.toString());
+  
+  if (errorCount > 1) {
+    console.warn('🚨 RECURRING ERROR DETECTED:', {
+      errorCode: error?.code,
+      count: errorCount,
+      ...errorDetails
+    });
+  }
+  
   toast({
-    title: 'Registration Failed',
-    description: specificField ? `${userMessage} ${specificField}` : userMessage,
+    title: isRecoverable ? 'Registration Error' : 'Registration Not Allowed',
+    description: actionGuidance ? `${userMessage} ${actionGuidance}` : userMessage,
     variant: 'destructive',
+    duration: isRecoverable ? 5000 : 10000,
   });
+  
+  return { isRecoverable, actionGuidance };
+};
+
+/**
+ * Check if user already has a registration
+ */
+const checkExistingRegistration = async (userId: string, email: string) => {
+  try {
+    console.log('🔍 Checking for existing registration...', { userId, email });
+    
+    const { data: existingReg, error } = await supabase
+      .from('yff_team_registrations')
+      .select('id, application_status, questionnaire_completed_at, email, individual_id')
+      .or(`individual_id.eq.${userId},email.eq.${email}`)
+      .maybeSingle();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('❌ Error checking existing registration:', error);
+      return { exists: false, error };
+    }
+    
+    if (existingReg) {
+      console.log('⚠️ Existing registration found:', existingReg);
+      return { 
+        exists: true, 
+        registration: existingReg,
+        canProceedToQuestionnaire: existingReg.application_status === 'registration_completed' && !existingReg.questionnaire_completed_at
+      };
+    }
+    
+    console.log('✅ No existing registration found');
+    return { exists: false };
+  } catch (error) {
+    console.error('❌ Error in checkExistingRegistration:', error);
+    return { exists: false, error };
+  }
 };
 
 /**
@@ -149,8 +213,52 @@ const restoreAutosavedData = (
 };
 
 /**
- * YFF Team Registration Form Component
- * Handles team registration with robust validation and error handling
+ * Enhanced form data sanitization with strict validation
+ */
+const sanitizeAndValidateFormData = (data: FormValues, userId: string) => {
+  // Trim all string fields
+  const sanitized = { ...data };
+  Object.keys(sanitized).forEach(key => {
+    if (typeof sanitized[key] === 'string') {
+      sanitized[key] = sanitized[key].trim();
+    }
+  });
+  
+  // Validate required fields
+  const requiredFields = [
+    'fullName', 'email', 'phoneNumber', 'dateOfBirth', 'currentCity', 
+    'state', 'pinCode', 'permanentAddress', 'gender', 'institutionName',
+    'courseProgram', 'currentYearOfStudy', 'expectedGraduation'
+  ];
+  
+  const missingFields = requiredFields.filter(field => !sanitized[field] || sanitized[field] === '');
+  if (missingFields.length > 0) {
+    throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+  }
+  
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(sanitized.email)) {
+    throw new Error('Invalid email format');
+  }
+  
+  // Validate phone number (basic check)
+  if (sanitized.phoneNumber.length < 8) {
+    throw new Error('Phone number must be at least 8 digits');
+  }
+  
+  // Validate graduation year
+  const currentYear = new Date().getFullYear();
+  const gradYear = parseInt(sanitized.expectedGraduation);
+  if (gradYear < currentYear || gradYear > currentYear + 10) {
+    throw new Error('Invalid graduation year');
+  }
+  
+  return sanitizeFormData(sanitized, userId);
+};
+
+/**
+ * YFF Team Registration Form Component with Enhanced Error Handling
  */
 export const YffTeamRegistrationForm = () => {
   const { user } = useAuth();
@@ -163,6 +271,9 @@ export const YffTeamRegistrationForm = () => {
   const [dataRestored, setDataRestored] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+  const [existingRegistration, setExistingRegistration] = useState<any>(null);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [submitAttempts, setSubmitAttempts] = useState(0);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -240,7 +351,7 @@ export const YffTeamRegistrationForm = () => {
     }
   };
 
-  // Enhanced data loading with better cross-session handling
+  // Enhanced data loading with duplicate checking
   useEffect(() => {
     const loadData = async () => {
       if (!user?.email) {
@@ -249,7 +360,30 @@ export const YffTeamRegistrationForm = () => {
       }
 
       try {
-        console.log('🔍 Loading profile for user:', user.email);
+        console.log('🔍 Loading profile and checking for existing registration...', user.email);
+        
+        // Check for existing registration first
+        const registrationCheck = await checkExistingRegistration(user.id, user.email);
+        
+        if (registrationCheck.error) {
+          setProfileError('Could not verify registration status. Please try again.');
+          return;
+        }
+        
+        if (registrationCheck.exists) {
+          setExistingRegistration(registrationCheck.registration);
+          setShowDuplicateWarning(true);
+          
+          if (registrationCheck.canProceedToQuestionnaire) {
+            toast({
+              title: 'Registration Complete',
+              description: 'You have already registered. Redirecting to questionnaire...',
+              duration: 3000,
+            });
+            setTimeout(() => navigate('/yff/questionnaire'), 3000);
+            return;
+          }
+        }
         
         // First, try to fetch user profile by email
         let { data: individual, error: individualError } = await supabase
@@ -335,7 +469,7 @@ export const YffTeamRegistrationForm = () => {
     };
 
     loadData();
-  }, [user, form, loadSavedData, toast]);
+  }, [user, form, loadSavedData, toast, navigate]);
 
   // Handle profile creation
   const handleCreateProfile = async () => {
@@ -367,41 +501,70 @@ export const YffTeamRegistrationForm = () => {
       return;
     }
 
+    // Prevent double submission
+    if (isSubmitting) {
+      console.warn('🚫 Double submission prevented');
+      return;
+    }
+
     setIsSubmitting(true);
+    setSubmitAttempts(prev => prev + 1);
     setValidationErrors([]);
     setFieldErrors({});
 
     try {
-      // Validate the form data before submission
+      console.log('🚀 Starting registration submission...', {
+        attempt: submitAttempts + 1,
+        userId: user.id,
+        email: user.email,
+        timestamp: new Date().toISOString()
+      });
+
+      // Double-check for existing registration
+      const registrationCheck = await checkExistingRegistration(user.id, user.email);
+      
+      if (registrationCheck.exists) {
+        const { isRecoverable } = handleSubmissionError(
+          { code: '23505', message: 'Registration already exists' },
+          toast,
+          data
+        );
+        
+        if (!isRecoverable && registrationCheck.canProceedToQuestionnaire) {
+          navigate('/yff/questionnaire');
+        }
+        return;
+      }
+
+      // Validate and sanitize form data
       const validation = validateFormData(data);
       if (!validation.isValid) {
         setValidationErrors(validation.errors);
         setFieldErrors(validation.fieldErrors);
         
-        // Show specific field errors
-        const fieldErrorMessages = Object.entries(validation.fieldErrors)
-          .map(([field, error]) => `${field}: ${error}`)
-          .join(', ');
-        
         toast({
           title: 'Validation Failed',
-          description: `Please fix the following errors: ${fieldErrorMessages}`,
+          description: 'Please fix the form errors and try again.',
           variant: 'destructive',
         });
         return;
       }
 
-      // Sanitize and prepare the submission data
-      const submissionData = sanitizeFormData(data, user.id);
+      const submissionData = sanitizeAndValidateFormData(data, user.id);
       
-      console.log('📤 Submitting registration data:', submissionData);
+      console.log('📤 Submitting registration data:', {
+        userId: user.id,
+        email: submissionData.email,
+        teamName: submissionData.team_name,
+        timestamp: new Date().toISOString()
+      });
 
       const { error } = await supabase
         .from('yff_team_registrations')
         .insert(submissionData);
 
       if (error) {
-        handleSubmissionError(error, toast);
+        handleSubmissionError(error, toast, submissionData);
         return;
       }
 
@@ -409,6 +572,11 @@ export const YffTeamRegistrationForm = () => {
       
       // Clear autosaved data after successful submission
       await clearSavedData();
+      
+      // Clear error counters
+      localStorage.removeItem('yff_registration_error_23505');
+      localStorage.removeItem('yff_registration_error_23514');
+      localStorage.removeItem('yff_registration_error_23502');
 
       toast({
         title: 'Success!',
@@ -420,12 +588,14 @@ export const YffTeamRegistrationForm = () => {
       setDataRestored(false);
       setValidationErrors([]);
       setFieldErrors({});
+      setSubmitAttempts(0);
       
       // Redirect to questionnaire
       navigate('/yff/questionnaire');
       
     } catch (error) {
-      handleSubmissionError(error, toast);
+      console.error('❌ Unexpected error during submission:', error);
+      handleSubmissionError(error, toast, data);
     } finally {
       setIsSubmitting(false);
     }
@@ -468,6 +638,62 @@ export const YffTeamRegistrationForm = () => {
             </Button>
             <Button variant="outline" onClick={() => window.location.href = '/'}>
               Go to Home
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show duplicate warning if registration exists
+  if (showDuplicateWarning && existingRegistration) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Registration Already Exists
+          </h1>
+          <p className="text-gray-600">
+            You have already registered for the YFF program.
+          </p>
+        </div>
+
+        <Alert className="mb-6 bg-amber-50 border-amber-200">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            <div className="font-semibold mb-2">Registration Found</div>
+            <div className="text-sm space-y-1">
+              <p>Email: <strong>{existingRegistration.email}</strong></p>
+              <p>Status: <strong>{existingRegistration.application_status}</strong></p>
+              {existingRegistration.questionnaire_completed_at ? (
+                <p>Questionnaire: <strong>Completed</strong></p>
+              ) : (
+                <p>Questionnaire: <strong>Pending</strong></p>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+
+        <div className="space-y-4">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-semibold mb-2">What you can do:</h3>
+            <ul className="space-y-1 text-sm text-gray-600">
+              {!existingRegistration.questionnaire_completed_at && (
+                <li>• Complete your application by filling out the questionnaire</li>
+              )}
+              <li>• Contact support if you need to edit your registration</li>
+              <li>• Return to the homepage to explore other programs</li>
+            </ul>
+          </div>
+
+          <div className="flex gap-4">
+            {!existingRegistration.questionnaire_completed_at && (
+              <Button onClick={() => navigate('/yff/questionnaire')} className="flex-1">
+                Complete Questionnaire
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => navigate('/')}>
+              Go to Homepage
             </Button>
           </div>
         </div>
@@ -521,6 +747,19 @@ export const YffTeamRegistrationForm = () => {
         </p>
       </div>
 
+      {/* Show submission attempts warning */}
+      {submitAttempts > 0 && (
+        <Alert className="mb-6 bg-blue-50 border-blue-200">
+          <Shield className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            <div className="font-semibold mb-1">Submission Attempt #{submitAttempts + 1}</div>
+            <div className="text-sm">
+              Your form data is automatically saved. If you encounter issues, please refresh the page.
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Show restoration success message */}
       {dataRestored && (
         <Alert className="mb-6 bg-green-50 border-green-200">
@@ -563,10 +802,12 @@ export const YffTeamRegistrationForm = () => {
           <div className="flex justify-end pt-6">
             <Button 
               type="submit" 
-              disabled={isSubmitting}
+              disabled={isSubmitting || submitAttempts >= 3}
               className="min-w-32"
             >
-              {isSubmitting ? 'Submitting...' : 'Submit Registration'}
+              {isSubmitting ? 'Submitting...' : 
+               submitAttempts >= 3 ? 'Too Many Attempts' : 
+               'Submit Registration'}
             </Button>
           </div>
         </form>

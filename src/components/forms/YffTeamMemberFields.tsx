@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PhoneInput } from '@/components/ui/phone-input';
 
+// Use the same TeamMember interface as YffRegistrationFormSections
 interface TeamMember {
   fullName: string;
   email: string;
@@ -30,10 +31,31 @@ interface TeamMember {
   linkedinProfile?: string;
 }
 
+// Use the same FormValues interface as YffRegistrationFormSections
 interface FormValues {
-  teamMembers: TeamMember[];
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  countryCode: string;
+  dateOfBirth: string;
+  currentCity: string;
+  state: string;
+  pinCode: string;
+  permanentAddress: string;
+  gender: string;
+  institutionName: string;
+  courseProgram: string;
+  currentYearOfStudy: string;
+  expectedGraduation: string;
   numberOfTeamMembers: number;
-  [key: string]: any;
+  teamMembers: TeamMember[];
+  ventureName?: string;
+  industrySector?: string;
+  teamName?: string;
+  website?: string;
+  linkedinProfile?: string;
+  socialMediaHandles?: string;
+  referralId?: string;
 }
 
 interface YffTeamMemberFieldsProps {

@@ -11,11 +11,55 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Minus } from 'lucide-react';
 import { YffTeamMemberFields } from './YffTeamMemberFields';
-import { FormValues } from './YffTeamRegistrationForm';
+
+// Update TeamMember interface to match form schema - all fields are required for submission
+interface TeamMember {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  countryCode: string;
+  dateOfBirth: string;
+  currentCity: string;
+  state: string;
+  pinCode: string;
+  permanentAddress: string;
+  gender: string;
+  institutionName: string;
+  courseProgram: string;
+  currentYearOfStudy: string;
+  expectedGraduation: string;
+  linkedinProfile?: string;
+}
+
+// Update FormValues interface to match the form schema exactly
+interface FormValues {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  countryCode: string;
+  dateOfBirth: string;
+  currentCity: string;
+  state: string;
+  pinCode: string;
+  permanentAddress: string;
+  gender: string;
+  institutionName: string;
+  courseProgram: string;
+  currentYearOfStudy: string;
+  expectedGraduation: string;
+  numberOfTeamMembers: number;
+  teamMembers: TeamMember[];
+  ventureName?: string;
+  industrySector?: string;
+  teamName?: string;
+  website?: string;
+  linkedinProfile?: string;
+  socialMediaHandles?: string;
+  referralId?: string;
+}
 
 interface YffRegistrationFormSectionsProps {
   form: UseFormReturn<FormValues>;
@@ -29,15 +73,15 @@ export const YffRegistrationFormSections: React.FC<YffRegistrationFormSectionsPr
   const numberOfTeamMembers = form.watch('numberOfTeamMembers');
 
   /**
-   * Handles adding a new team member
+   * Handles adding a new team member with default values
    */
   const handleAddTeamMember = () => {
     const currentMembers = form.getValues('teamMembers') || [];
     const newMemberCount = numberOfTeamMembers + 1;
     
     if (newMemberCount <= 5) {
-      // Add new empty member
-      const newMember = {
+      // Add new member with default values that match TeamMember interface
+      const newMember: TeamMember = {
         fullName: '',
         email: '',
         phoneNumber: '',

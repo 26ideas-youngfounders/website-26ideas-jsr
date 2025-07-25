@@ -4,23 +4,26 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Navigation } from "./components/Navigation";
-import { Footer } from "./components/Footer";
+import Navigation from "./components/Navigation";
+import Footer from "./components/Footer";
 import Index from "./pages/Index";
 import { YffLandingPage } from "./pages/YffLandingPage";
 import { YffTeamRegistration } from "./pages/YffTeamRegistration";
-import { YffQuestionnaire } from "./pages/YffQuestionnaire";
-import { YffTeamInformation } from "./pages/YffTeamInformation";
-import { MentorSignup } from "./pages/MentorSignup";
-import { AnnualRetreat } from "./pages/AnnualRetreat";
-import { NotFound } from "./pages/NotFound";
-import { CrmDashboard } from "./pages/admin/CrmDashboard";
-import { YffApplicationsPage } from "./pages/admin/YffApplicationsPage";
-import { MentorApplicationsPage } from "./pages/admin/MentorApplicationsPage";
-import { PhoneInputTest } from "./pages/PhoneInputTest";
+import YffQuestionnaire from "./pages/YffQuestionnaire";
+import YffTeamInformation from "./pages/YffTeamInformation";
+import MentorSignup from "./pages/MentorSignup";
+import AnnualRetreat from "./pages/AnnualRetreat";
+import NotFound from "./pages/NotFound";
+import CrmDashboard from "./pages/admin/CrmDashboard";
+import YffApplicationsPage from "./pages/admin/YffApplicationsPage";
+import MentorApplicationsPage from "./pages/admin/MentorApplicationsPage";
+import PhoneInputTest from "./pages/PhoneInputTest";
 
 const queryClient = new QueryClient();
 
+/**
+ * Main App component with routing and layout structure
+ */
 function App() {
   return (
     <QueryClientProvider client={queryClient}>

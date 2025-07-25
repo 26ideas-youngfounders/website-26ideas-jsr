@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { SignInModal } from '@/components/SignInModal';
+import SignInModal from '@/components/SignInModal';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,7 @@ import { Users, Trophy, BookOpen, MapPin, CreditCard, Plane, Network, Star } fro
  * Features prize pool, benefits, and conditional registration button
  */
 export const YffLandingPage = () => {
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
 
   // Feature boxes data matching the screenshot
   const features = [
@@ -178,9 +177,7 @@ export const YffLandingPage = () => {
 
           {/* Authentication-based Registration Button */}
           <div className="flex justify-center">
-            {isLoading ? (
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
-            ) : user ? (
+            {user ? (
               <Link to="/yff/team-registration">
                 <Button 
                   size="lg" 
@@ -190,14 +187,7 @@ export const YffLandingPage = () => {
                 </Button>
               </Link>
             ) : (
-              <SignInModal>
-                <Button 
-                  size="lg" 
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-8 py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-                >
-                  Sign In to Register
-                </Button>
-              </SignInModal>
+              <SignInModalWrapper />
             )}
           </div>
 
@@ -207,5 +197,29 @@ export const YffLandingPage = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+/**
+ * Wrapper component for SignInModal to handle state management
+ */
+const SignInModalWrapper = () => {
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
+
+  return (
+    <>
+      <Button 
+        size="lg" 
+        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-8 py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+        onClick={() => setIsModalOpen(true)}
+      >
+        Sign In to Register
+      </Button>
+      
+      <SignInModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+    </>
   );
 };

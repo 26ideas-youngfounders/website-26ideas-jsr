@@ -9,20 +9,11 @@ import { YffTeamRegistrationForm } from '@/components/forms/YffTeamRegistrationF
  * Handles team leader registration for Young Founders Floor program
  */
 export const YffTeamRegistration = () => {
-  const { user, isLoading } = useAuth();
-
-  // Show loading state while checking authentication
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  const { user } = useAuth();
 
   // Redirect to login if not authenticated
   if (!user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/young-founders-floor" replace />;
   }
 
   return (

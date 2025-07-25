@@ -12,6 +12,10 @@ interface SignInModalProps {
   onSuccess?: () => void;
 }
 
+/**
+ * SignInModal component for user authentication
+ * Provides sign-in and sign-up functionality with social login options
+ */
 const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");

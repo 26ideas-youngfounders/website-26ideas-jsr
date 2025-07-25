@@ -16,7 +16,7 @@ interface UseAutosaveProps {
 }
 
 /**
- * Enhanced autosave hook with auto-resume and persistent draft management
+ * Enhanced autosave hook with conflict prevention and detailed logging
  */
 export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_registration' }: UseAutosaveProps) => {
   const { user } = useAuth();
@@ -25,7 +25,6 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [conflictCount, setConflictCount] = useState(0);
   const [saveAttempts, setSaveAttempts] = useState(0);
-  const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
 
   // Type-safe status setter
   const setStatusSafe = useCallback((newStatus: AutosaveStatus) => {
@@ -47,29 +46,24 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
     };
     console.log('💾 [AUTOSAVE]', logEntry);
     
-    // Store critical events for debugging
-    if (message.includes('ERROR') || message.includes('CONFLICT') || message.includes('RESUME')) {
-      const errorLog = JSON.parse(localStorage.getItem('yff_autosave_events') || '[]');
+    // Store critical events in localStorage for debugging
+    if (message.includes('ERROR') || message.includes('CONFLICT')) {
+      const errorLog = JSON.parse(localStorage.getItem('yff_autosave_errors') || '[]');
       errorLog.push(logEntry);
-      localStorage.setItem('yff_autosave_events', JSON.stringify(errorLog.slice(-20)));
+      localStorage.setItem('yff_autosave_errors', JSON.stringify(errorLog.slice(-10))); // Keep last 10 errors
     }
   };
 
-  // Enhanced load function with auto-resume capability
+  // Load saved data with conflict detection
   const loadSavedData = useCallback(async (): Promise<AutosaveFormData | null> => {
     if (!user?.id) {
-      logAutosave('No user ID available for draft loading');
-      return null;
-    }
-
-    if (hasLoadedDraft) {
-      logAutosave('Draft already loaded, skipping reload');
+      logAutosave('No user ID available for autosave load');
       return null;
     }
 
     try {
       setStatusSafe('loading');
-      logAutosave('Loading saved draft for auto-resume...', { userId: user.id });
+      logAutosave('Loading autosave data...', { userId: user.id });
       
       const { data, error } = await supabase
         .from('yff_team_registration_autosave')
@@ -78,31 +72,29 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
-        logAutosave('ERROR loading draft', error);
+        logAutosave('ERROR loading autosave data', error);
         setStatusSafe('error');
         return null;
       }
 
       if (data && data.form_data) {
-        logAutosave('RESUME: Draft found and loaded successfully', { 
+        logAutosave('Loaded autosave data successfully', { 
           lastUpdated: data.updated_at,
-          recordId: data.id,
-          dataKeys: Object.keys(data.form_data)
+          recordId: data.id 
         });
         
         if (isAutosaveFormData(data.form_data)) {
           setLastSaved(new Date(data.updated_at));
-          setHasLoadedDraft(true);
           setStatusSafe('saved');
           return data.form_data as AutosaveFormData;
         } else {
-          logAutosave('Invalid draft data structure detected');
+          logAutosave('Invalid autosave data structure detected');
           setStatusSafe('error');
           return null;
         }
       }
 
-      logAutosave('RESUME: No draft found for user');
+      logAutosave('No autosave data found');
       setStatusSafe('idle');
       return null;
     } catch (error) {
@@ -110,9 +102,9 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
       setStatusSafe('error');
       return null;
     }
-  }, [user?.id, formType, setStatusSafe, hasLoadedDraft]);
+  }, [user?.id, formType, setStatusSafe]);
 
-  // Enhanced save with better conflict detection
+  // Enhanced save with different logic for questionnaire vs registration
   const saveData = useCallback(async (data: any) => {
     if (!user?.id) {
       logAutosave('No user ID available for autosave');
@@ -141,18 +133,45 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
     setSaveAttempts(prev => prev + 1);
     
     try {
-      logAutosave('Saving draft for auto-resume...', { 
+      logAutosave('Attempting to save autosave data...', { 
         attempt: saveAttempts + 1,
         userId: user.id,
         dataKeys: Object.keys(data),
         formType
       });
 
-      // Check for existing completed registration to prevent conflicts
-      if (formType === 'yff_team_registration') {
+      // Different behavior for questionnaire vs registration
+      if (formType === 'yff_questionnaire') {
+        // For questionnaire, we expect a registration to exist and want to update it
         const { data: existingReg, error: regError } = await supabase
           .from('yff_team_registrations')
-          .select('id, application_status')
+          .select('id')
+          .eq('individual_id', user.id)
+          .maybeSingle();
+
+        if (regError && regError.code !== 'PGRST116') {
+          logAutosave('ERROR checking existing registration', regError);
+          setStatusSafe('error');
+          return;
+        }
+
+        if (!existingReg) {
+          logAutosave('No registration found for questionnaire - user should register first');
+          setStatusSafe('error');
+          return;
+        }
+
+        // For questionnaire, save to a separate autosave table or skip autosave
+        logAutosave('Questionnaire autosave - skipping to prevent conflicts');
+        setStatusSafe('saved');
+        setLastSaved(new Date());
+        setTimeout(() => setStatusSafe('idle'), 2000);
+        return;
+      } else {
+        // For registration form, check for existing registration to prevent conflicts
+        const { data: existingReg, error: regError } = await supabase
+          .from('yff_team_registrations')
+          .select('id')
           .eq('individual_id', user.id)
           .maybeSingle();
 
@@ -163,7 +182,7 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
         }
 
         if (existingReg) {
-          logAutosave('Registration already exists - stopping autosave to prevent conflicts');
+          logAutosave('Registration already exists - stopping autosave');
           setStatusSafe('conflict');
           setConflictCount(prev => prev + 1);
           return;
@@ -181,14 +200,14 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
         });
 
       if (error) {
-        logAutosave('ERROR saving draft', error);
+        logAutosave('ERROR saving autosave data', error);
         setStatusSafe('error');
         
         // Exponential backoff for retries
         const retryDelay = Math.min(1000 * Math.pow(2, saveAttempts), 30000);
         setTimeout(() => setStatusSafe('idle'), retryDelay);
       } else {
-        logAutosave('Draft saved successfully for auto-resume', { 
+        logAutosave('Autosave successful', { 
           userId: user.id,
           dataSize: JSON.stringify(data).length 
         });
@@ -205,12 +224,12 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
     }
   }, [user?.id, isInitialLoad, saveAttempts, setStatusSafe, formType]);
 
-  // Enhanced clear function
+  // Enhanced clear function with logging
   const clearSavedData = useCallback(async () => {
     if (!user?.id) return;
 
     try {
-      logAutosave('Clearing saved draft...', { userId: user.id });
+      logAutosave('Clearing autosave data...', { userId: user.id });
       
       const { error } = await supabase
         .from('yff_team_registration_autosave')
@@ -218,11 +237,10 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
         .eq('individual_id', user.id);
         
       if (error) {
-        logAutosave('ERROR clearing draft', error);
+        logAutosave('ERROR clearing autosave data', error);
       } else {
-        logAutosave('Draft cleared successfully');
+        logAutosave('Autosave data cleared successfully');
         setLastSaved(null);
-        setHasLoadedDraft(false);
         setStatusSafe('idle');
         setSaveAttempts(0);
         setConflictCount(0);
@@ -232,18 +250,7 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
     }
   }, [user?.id, setStatusSafe]);
 
-  // Auto-resume on user login
-  useEffect(() => {
-    if (user?.id && !hasLoadedDraft) {
-      logAutosave('User authenticated - attempting auto-resume');
-      const timer = setTimeout(() => {
-        loadSavedData();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [user?.id, hasLoadedDraft, loadSavedData]);
-
-  // Debounced save
+  // Debounced save with conflict checking
   useEffect(() => {
     if (!formData || !user?.id || status === 'conflict') return;
 
@@ -271,10 +278,19 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
       setIsInitialLoad(true);
       setSaveAttempts(0);
       setConflictCount(0);
-      setHasLoadedDraft(false);
       logAutosave('User changed - resetting autosave state', { userId: user.id });
     }
   }, [user?.id]);
+
+  // Monitor for excessive conflicts
+  useEffect(() => {
+    if (conflictCount > 3) {
+      logAutosave('EXCESSIVE CONFLICTS detected - possible registration exists', {
+        conflictCount,
+        userId: user?.id
+      });
+    }
+  }, [conflictCount, user?.id]);
 
   return {
     status,
@@ -284,6 +300,5 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
     isLoading: status === 'loading',
     saveAttempts,
     conflictCount,
-    hasLoadedDraft,
   };
 };

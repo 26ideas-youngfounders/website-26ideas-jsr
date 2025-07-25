@@ -1,428 +1,374 @@
 
 /**
- * @fileoverview YFF Applications Admin Page
+ * @fileoverview YFF Applications Management Page
  * 
- * Administrative interface for reviewing YFF team registrations
- * with comprehensive application details, age validation, and word count tracking.
+ * Allows admins to view, filter, and manage YFF applications
+ * with detailed information display and scoring capabilities.
  * 
- * @version 2.0.0 - Enhanced with proper type safety and validation
+ * @version 1.0.0
  * @author 26ideas Development Team
  */
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import AdminAuth from '@/components/admin/AdminAuth';
+import AdminLayout from '@/components/admin/AdminLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, CheckCircle, Clock, Users, Calendar, MapPin, School, Award } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { YffRegistration, parseRegistrationData } from '@/types/yff-registration';
-import { validateAge, countWords } from '@/utils/registration-validation';
+import { 
+  Search, 
+  Filter, 
+  Download, 
+  Eye, 
+  AlertCircle,
+  Users,
+  Calendar,
+  Mail,
+  Star
+} from 'lucide-react';
 
-/**
- * YFF Applications Admin Page Component
- * 
- * Provides comprehensive admin interface for reviewing YFF applications
- * with proper type safety and validation display.
- */
-const YffApplicationsPage = () => {
-  const [applications, setApplications] = useState<YffRegistration[]>([]);
+interface YffApplication {
+  application_id: string;
+  individual_id: string;
+  status: string;
+  application_round: string;
+  answers: any;
+  cumulative_score: number;
+  submitted_at: string;
+  individuals: {
+    first_name: string;
+    last_name: string;
+    email: string;
+  } | null;
+}
+
+const YffApplicationsPage: React.FC = () => {
+  const [applications, setApplications] = useState<YffApplication[]>([]);
+  const [filteredApplications, setFilteredApplications] = useState<YffApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedApplication, setSelectedApplication] = useState<YffRegistration | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [roundFilter, setRoundFilter] = useState('all');
 
-  // Load applications on component mount
   useEffect(() => {
     loadApplications();
   }, []);
 
-  /**
-   * Load all YFF applications from the database
-   */
+  useEffect(() => {
+    filterApplications();
+  }, [applications, searchTerm, statusFilter, roundFilter]);
+
   const loadApplications = async () => {
     try {
-      console.log('📋 Loading YFF applications...');
+      setLoading(true);
       
-      const { data, error } = await supabase
-        .from('yff_team_registrations')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data: applicationsData, error: applicationsError } = await supabase
+        .from('yff_applications')
+        .select(`
+          application_id,
+          individual_id,
+          status,
+          application_round,
+          answers,
+          cumulative_score,
+          submitted_at
+        `)
+        .order('submitted_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Error loading applications:', error);
-        setError('Failed to load applications. Please try again.');
-        return;
+      if (applicationsError) {
+        throw applicationsError;
       }
 
-      // Parse and validate all registration data
-      const parsedApplications = data.map(app => parseRegistrationData(app));
-      console.log('✅ Loaded applications:', parsedApplications.length);
+      // Get individual details
+      const individualIds = applicationsData?.map(app => app.individual_id) || [];
       
-      setApplications(parsedApplications);
+      if (individualIds.length > 0) {
+        const { data: individualsData, error: individualsError } = await supabase
+          .from('individuals')
+          .select('individual_id, first_name, last_name, email')
+          .in('individual_id', individualIds);
+
+        if (individualsError) {
+          throw individualsError;
+        }
+
+        // Create a map of individuals by ID
+        const individualsMap = new Map();
+        individualsData?.forEach(individual => {
+          individualsMap.set(individual.individual_id, individual);
+        });
+
+        // Combine application and individual data
+        const combinedData: YffApplication[] = applicationsData?.map(app => ({
+          ...app,
+          individuals: individualsMap.get(app.individual_id) || null
+        })) || [];
+
+        setApplications(combinedData);
+      } else {
+        setApplications([]);
+      }
+
     } catch (error) {
-      console.error('❌ Error in loadApplications:', error);
-      setError('An unexpected error occurred while loading applications.');
+      console.error('Error loading YFF applications:', error);
+      setError('Failed to load YFF applications. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Get status badge variant based on application status
-   */
+  const filterApplications = () => {
+    let filtered = applications;
+
+    // Filter by search term
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(app => {
+        const individual = app.individuals;
+        return (
+          individual?.first_name?.toLowerCase().includes(term) ||
+          individual?.last_name?.toLowerCase().includes(term) ||
+          individual?.email?.toLowerCase().includes(term) ||
+          app.application_id.toLowerCase().includes(term)
+        );
+      });
+    }
+
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(app => app.status === statusFilter);
+    }
+
+    // Filter by round
+    if (roundFilter !== 'all') {
+      filtered = filtered.filter(app => app.application_round === roundFilter);
+    }
+
+    setFilteredApplications(filtered);
+  };
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'questionnaire_completed':
-        return 'default'; // Use default instead of success
-      case 'registration_completed':
+      case 'approved':
+        return 'default';
+      case 'rejected':
+        return 'destructive';
+      case 'under_review':
         return 'secondary';
-      case 'draft':
+      case 'submitted':
         return 'outline';
-      default:
+      case 'waitlisted':
         return 'secondary';
+      default:
+        return 'outline';
     }
   };
 
-  /**
-   * Get age validation status for display
-   */
-  const getAgeValidationStatus = (dateOfBirth: string) => {
-    const validation = validateAge(dateOfBirth);
-    return {
-      isValid: validation.isValid,
-      age: validation.age,
-      error: validation.error
-    };
-  };
-
-  /**
-   * Render application status badge
-   */
-  const renderStatusBadge = (status: string) => {
-    const variant = getStatusBadgeVariant(status);
-    const displayStatus = status.replace('_', ' ').toUpperCase();
-    
-    return (
-      <Badge variant={variant} className="ml-2">
-        {displayStatus}
-      </Badge>
-    );
-  };
-
-  /**
-   * Render detailed application view
-   */
-  const renderApplicationDetails = (application: YffRegistration) => {
-    const leaderAgeStatus = getAgeValidationStatus(application.date_of_birth);
-    
-    return (
-      <div className="space-y-6">
-        {/* Application Header */}
-        <div className="border-b pb-4">
-          <h2 className="text-2xl font-bold">{application.full_name}</h2>
-          <p className="text-gray-600">{application.email}</p>
-          {renderStatusBadge(application.application_status || 'draft')}
-        </div>
-
-        <Tabs defaultValue="personal" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="personal">Personal Info</TabsTrigger>
-            <TabsTrigger value="team">Team Details</TabsTrigger>
-            <TabsTrigger value="venture">Venture Info</TabsTrigger>
-            <TabsTrigger value="questionnaire">Questionnaire</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="personal" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Personal Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="font-semibold">Contact Information</h4>
-                    <p><strong>Email:</strong> {application.email}</p>
-                    <p><strong>Phone:</strong> {application.country_code} {application.phone_number}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      Age Information
-                    </h4>
-                    <p><strong>Date of Birth:</strong> {application.date_of_birth}</p>
-                    <div className="flex items-center gap-2">
-                      <strong>Age Status:</strong>
-                      {leaderAgeStatus.isValid ? (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <CheckCircle className="h-4 w-4" />
-                          {leaderAgeStatus.age} years (Valid)
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-red-600">
-                          <AlertCircle className="h-4 w-4" />
-                          {leaderAgeStatus.error}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="font-semibold flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      Location
-                    </h4>
-                    <p><strong>Current City:</strong> {application.current_city}</p>
-                    <p><strong>State:</strong> {application.state}</p>
-                    <p><strong>Pin Code:</strong> {application.pin_code}</p>
-                    <p><strong>Permanent Address:</strong> {application.permanent_address}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold flex items-center gap-2">
-                      <School className="h-4 w-4" />
-                      Education
-                    </h4>
-                    <p><strong>Institution:</strong> {application.institution_name}</p>
-                    <p><strong>Course:</strong> {application.course_program}</p>
-                    <p><strong>Year:</strong> {application.current_year_of_study}</p>
-                    <p><strong>Graduation:</strong> {application.expected_graduation}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="team" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Team Information ({application.number_of_team_members} members)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {application.team_members.length > 0 ? (
-                  <div className="space-y-4">
-                    {application.team_members.map((member: any, index: number) => {
-                      const memberAgeStatus = getAgeValidationStatus(member.dateOfBirth);
-                      
-                      return (
-                        <div key={index} className="border rounded-lg p-4">
-                          <h4 className="font-semibold mb-2">Team Member {index + 1}</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <p><strong>Name:</strong> {member.fullName}</p>
-                              <p><strong>Email:</strong> {member.email}</p>
-                              <p><strong>Phone:</strong> {member.countryCode} {member.phoneNumber}</p>
-                              <p><strong>Gender:</strong> {member.gender}</p>
-                            </div>
-                            <div>
-                              <p><strong>Date of Birth:</strong> {member.dateOfBirth}</p>
-                              <div className="flex items-center gap-2">
-                                <strong>Age Status:</strong>
-                                {memberAgeStatus.isValid ? (
-                                  <span className="flex items-center gap-1 text-green-600">
-                                    <CheckCircle className="h-4 w-4" />
-                                    {memberAgeStatus.age} years (Valid)
-                                  </span>
-                                ) : (
-                                  <span className="flex items-center gap-1 text-red-600">
-                                    <AlertCircle className="h-4 w-4" />
-                                    {memberAgeStatus.error}
-                                  </span>
-                                )}
-                              </div>
-                              <p><strong>City:</strong> {member.currentCity}, {member.state}</p>
-                              <p><strong>Institution:</strong> {member.institutionName}</p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No additional team members</p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="venture" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="h-5 w-5" />
-                  Venture Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p><strong>Venture Name:</strong> {application.venture_name || 'Not specified'}</p>
-                    <p><strong>Industry Sector:</strong> {application.industry_sector || 'Not specified'}</p>
-                    <p><strong>Team Name:</strong> {application.team_name || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <p><strong>Website:</strong> {application.website || 'Not specified'}</p>
-                    <p><strong>LinkedIn:</strong> {application.linkedin_profile || 'Not specified'}</p>
-                    <p><strong>Social Media:</strong> {application.social_media_handles || 'Not specified'}</p>
-                  </div>
-                </div>
-                {application.referral_id && (
-                  <div>
-                    <p><strong>Referral ID:</strong> {application.referral_id}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="questionnaire" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Questionnaire Responses
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {application.questionnaire_answers ? (
-                  <div className="space-y-6">
-                    {Object.entries(application.questionnaire_answers).map(([key, value]) => {
-                      const wordCount = countWords(value as string);
-                      const isOverLimit = wordCount > 300;
-                      
-                      return (
-                        <div key={key} className="border rounded-lg p-4">
-                          <h4 className="font-semibold mb-2 capitalize">
-                            {key.replace(/([A-Z])/g, ' $1').trim()}
-                          </h4>
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`text-sm ${isOverLimit ? 'text-red-600' : 'text-gray-600'}`}>
-                              Word Count: {wordCount} / 300
-                            </span>
-                            {isOverLimit && (
-                              <Badge variant="destructive">Over Limit</Badge>
-                            )}
-                          </div>
-                          <p className="text-gray-700 whitespace-pre-wrap">{value as string}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Questionnaire not yet completed by the applicant.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    );
-  };
-
-  // Loading state
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-gray-200 rounded"></div>
-            ))}
+      <AdminAuth>
+        <AdminLayout>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">YFF Applications</h1>
+                <p className="text-gray-600">Manage and review Young Founders Floor applications</p>
+              </div>
+            </div>
+            <div className="animate-pulse space-y-4">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-16 bg-gray-200 rounded"></div>
+              ))}
+            </div>
           </div>
-        </div>
-      </div>
+        </AdminLayout>
+      </AdminAuth>
     );
   }
 
-  // Error state
   if (error) {
     return (
-      <div className="p-6">
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      </div>
+      <AdminAuth>
+        <AdminLayout>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        </AdminLayout>
+      </AdminAuth>
     );
   }
 
-  // Main render
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">YFF Applications</h1>
-        <p className="text-gray-600">Review and manage Young Founders Floor applications</p>
-      </div>
+    <AdminAuth>
+      <AdminLayout>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">YFF Applications</h1>
+              <p className="text-gray-600">
+                {applications.length} total applications • {filteredApplications.length} displayed
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+          </div>
 
-      {selectedApplication ? (
-        <div>
-          <Button 
-            onClick={() => setSelectedApplication(null)}
-            variant="outline"
-            className="mb-4"
-          >
-            ← Back to Applications
-          </Button>
-          {renderApplicationDetails(selectedApplication)}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {applications.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <p className="text-gray-500">No applications found.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            applications.map((app) => (
-              <Card key={app.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-semibold">{app.full_name}</h3>
-                        {renderStatusBadge(app.application_status || 'draft')}
-                      </div>
-                      <p className="text-gray-600 mb-2">{app.email}</p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium">Team Size:</span> {app.number_of_team_members}
-                        </div>
-                        <div>
-                          <span className="font-medium">Institution:</span> {app.institution_name}
-                        </div>
-                        <div>
-                          <span className="font-medium">Applied:</span> {new Date(app.created_at).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => setSelectedApplication(app)}
-                      variant="outline"
-                    >
-                      View Details
-                    </Button>
+          {/* Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Filters</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search by name, email, or application ID..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
                   </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-48">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="submitted">Submitted</SelectItem>
+                    <SelectItem value="under_review">Under Review</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="waitlisted">Waitlisted</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={roundFilter} onValueChange={setRoundFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Filter by round" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Rounds</SelectItem>
+                    <SelectItem value="current">Current Round</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Applications Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Applications</CardTitle>
+              <CardDescription>
+                {filteredApplications.length} applications found
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {filteredApplications.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Applicant</TableHead>
+                      <TableHead>Application ID</TableHead>
+                      <TableHead>Round</TableHead>
+                      <TableHead>Score</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Submitted</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredApplications.map((application) => (
+                      <TableRow key={application.application_id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {application.individuals ? 
+                                `${application.individuals.first_name} ${application.individuals.last_name}` :
+                                'No name'
+                              }
+                            </div>
+                            <div className="text-sm text-gray-500 flex items-center">
+                              <Mail className="h-3 w-3 mr-1" />
+                              {application.individuals?.email || 'No email'}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                            {application.application_id.slice(0, 8)}...
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {application.application_round || 'current'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Star className="h-4 w-4 mr-1 text-yellow-500" />
+                            {application.cumulative_score || 0}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusBadgeVariant(application.status)}>
+                            {application.status.replace('_', ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center text-sm text-gray-500">
+                            <Calendar className="h-3 w-3 mr-1" />
+                            {application.submitted_at ? 
+                              new Date(application.submitted_at).toLocaleDateString() :
+                              'Not submitted'
+                            }
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            Review
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8">
+                  <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No YFF applications found</h3>
+                  <p className="text-gray-500">
+                    {applications.length === 0 
+                      ? "No YFF applications have been submitted yet."
+                      : "No applications match your current filters."
+                    }
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      )}
-    </div>
+      </AdminLayout>
+    </AdminAuth>
   );
 };
 

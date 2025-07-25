@@ -1,116 +1,301 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm, FormProvider } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
-import { InferType } from 'yup';
-import { useAuth } from '@/hooks/useAuth';
+import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { DatePicker } from '@/components/ui/date-picker';
-import countryList from 'react-select-country-list';
-import { YffAutosaveIndicator } from '@/components/forms/YffAutosaveIndicator';
+import { useAuth } from '@/hooks/useAuth';
 import { useAutosave } from '@/hooks/useAutosave';
-import { AutosaveTeamMember, extractTeamMembers } from '@/types/autosave';
+import { Button } from '@/components/ui/button';
+import { Form } from '@/components/ui/form';
+import { YffRegistrationFormSections } from './YffRegistrationFormSections';
+import { YffAutosaveIndicator } from './YffAutosaveIndicator';
+import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle, CheckCircle, Shield, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  AutosaveFormData, 
+  AutosaveStatus,
+  isAutosaveFormData, 
+  extractTeamMembers, 
+  extractNumberOfTeamMembers 
+} from '@/types/autosave';
+import { validateFormData, sanitizeFormData } from '@/utils/yff-form-validation';
 
-// Team member type with validation
-type TeamMember = {
-  name: string;
-  email: string;
-  linkedin?: string;
-};
-
-// IMPORTANT: All .required() calls must provide a message, or Yup will infer the field as optional in TypeScript.
-const yffRegistrationSchema = yup.object({
-  fullName: yup.string().required('Full name is required'),
-  email: yup.string().email('Invalid email format').required('Email is required'),
-  phoneNumber: yup.string().required('Phone number is required'),
-  countryCode: yup.string().required('Country code is required'),
-  dateOfBirth: yup.date().required('Date of birth is required'),
-  currentCity: yup.string().required('Current city is required'),
-  state: yup.string().required('State is required'),
-  pinCode: yup.string().required('PIN code is required'),
-  permanentAddress: yup.string().required('Permanent address is required'),
-  gender: yup.string().required('Gender is required').oneOf(['male', 'female', 'other'], 'Gender must be male, female, or other'),
-  institutionName: yup.string().required('Institution name is required'),
-  courseProgram: yup.string().required('Course/Program is required'),
-  currentYearOfStudy: yup.string().required('Current year of study is required'),
-  expectedGraduation: yup.date().required('Expected graduation date is required'),
-  numberOfTeamMembers: yup.number().required('Number of team members is required').min(1, 'Must have at least 1 team member').max(4, 'Maximum 4 team members allowed'),
-  ventureName: yup.string().required('Venture name is required'),
-  industrySector: yup.string().required('Industry sector is required'),
-  teamName: yup.string().required('Team name is required'),
-  website: yup.string().required('Website is required'),
-  linkedinProfile: yup.string().required('LinkedIn profile is required'),
-  socialMediaHandles: yup.string().required('Social media handles is required'),
-  referralId: yup.string().required('Referral ID is required'),
-}).required();
-
-// Generate TypeScript type from Yup schema
-type YffRegistrationFormData = InferType<typeof yffRegistrationSchema>;
-
-type CountryOption = {
-  label: string;
-  value: string;
-};
-
-/**
- * Convert AutosaveTeamMember to TeamMember format
- */
-const convertAutosaveToTeamMember = (autosaveMember: AutosaveTeamMember): TeamMember => ({
-  name: autosaveMember.fullName || '',
-  email: autosaveMember.email || '',
-  linkedin: autosaveMember.linkedinProfile || '',
+// Define the schema for individual team members
+const teamMemberSchema = z.object({
+  fullName: z.string().min(2, { message: 'Full name must be at least 2 characters.' }),
+  email: z.string().email({ message: 'Invalid email address.' }),
+  phoneNumber: z.string().min(8, { message: 'Phone number must be at least 8 digits.' }),
+  countryCode: z.string().default('+91'),
+  dateOfBirth: z.string().min(1, { message: 'Date of birth is required.' }),
+  currentCity: z.string().min(2, { message: 'City must be at least 2 characters.' }),
+  state: z.string().min(2, { message: 'State must be at least 2 characters.' }),
+  pinCode: z.string().min(6, { message: 'Pin code must be 6 digits.' }),
+  permanentAddress: z.string().min(5, { message: 'Address must be at least 5 characters.' }),
+  gender: z.string().min(1, { message: 'Gender is required.' }),
+  institutionName: z.string().min(2, { message: 'Institution name must be at least 2 characters.' }),
+  courseProgram: z.string().min(2, { message: 'Course/program must be at least 2 characters.' }),
+  currentYearOfStudy: z.string().min(1, { message: 'Current year of study is required.' }),
+  expectedGraduation: z.string().min(4, { message: 'Expected graduation year is required.' }),
+  linkedinProfile: z.string().url({ message: 'Invalid LinkedIn URL.' }).optional(),
 });
 
-/**
- * Convert TeamMember to AutosaveTeamMember format for saving
- */
-const convertTeamMemberToAutosave = (teamMember: TeamMember): AutosaveTeamMember => ({
-  fullName: teamMember.name,
-  email: teamMember.email,
-  linkedinProfile: teamMember.linkedin || '',
+// Define the main form schema
+const formSchema = z.object({
+  fullName: z.string().min(2, { message: 'Full name must be at least 2 characters.' }),
+  email: z.string().email({ message: 'Invalid email address.' }),
+  phoneNumber: z.string().min(8, { message: 'Phone number must be at least 8 digits.' }),
+  countryCode: z.string().default('+91'),
+  dateOfBirth: z.string().min(1, { message: 'Date of birth is required.' }),
+  currentCity: z.string().min(2, { message: 'City must be at least 2 characters.' }),
+  state: z.string().min(2, { message: 'State must be at least 2 characters.' }),
+  pinCode: z.string().min(6, { message: 'Pin code must be 6 digits.' }),
+  permanentAddress: z.string().min(5, { message: 'Address must be at least 5 characters.' }),
+  gender: z.string().min(1, { message: 'Gender is required.' }),
+  institutionName: z.string().min(2, { message: 'Institution name must be at least 2 characters.' }),
+  courseProgram: z.string().min(2, { message: 'Course/program must be at least 2 characters.' }),
+  currentYearOfStudy: z.string().min(1, { message: 'Current year of study is required.' }),
+  expectedGraduation: z.string().min(4, { message: 'Expected graduation year is required.' }),
+  numberOfTeamMembers: z.number().min(1, { message: 'Number of team members must be at least 1.' }).max(5, { message: 'Cannot have more than 5 team members' }).default(1),
+  teamMembers: z.array(teamMemberSchema).default([]),
+  ventureName: z.string().optional(),
+  industrySector: z.string().optional(),
+  teamName: z.string().optional(),
+  website: z.string().url({ message: 'Invalid website URL.' }).optional(),
+  linkedinProfile: z.string().url({ message: 'Invalid LinkedIn URL.' }).optional(),
+  socialMediaHandles: z.string().optional(),
+  referralId: z.string().optional(),
 });
 
+// Define the form values type
+export type FormValues = z.infer<typeof formSchema>;
+
+// Define the team member type
+export type TeamMember = z.infer<typeof teamMemberSchema>;
+
 /**
- * Enhanced YFF Team Registration Form with auto-resume and profile data integration
+ * Enhanced error handler with detailed logging and user-friendly messages
+ */
+const handleSubmissionError = (error: any, toast: any, formData: any) => {
+  const timestamp = new Date().toISOString();
+  const errorDetails = {
+    timestamp,
+    error: error,
+    submittedData: formData,
+    userAgent: navigator.userAgent,
+    url: window.location.href
+  };
+  
+  console.error('❌ REGISTRATION ERROR DETAILS:', errorDetails);
+  
+  let userMessage = 'Registration failed. Please try again.';
+  let isRecoverable = true;
+  let actionGuidance = '';
+  
+  if (error?.code === '23505') {
+    // Unique constraint violation - check which field
+    if (error.message.includes('email')) {
+      userMessage = 'A registration already exists with this email address.';
+      actionGuidance = 'Please contact support if you need to edit your existing registration.';
+      isRecoverable = false;
+    } else if (error.message.includes('individual_id')) {
+      userMessage = 'You have already registered your team.';
+      actionGuidance = 'Please contact support if you need to edit your registration, or proceed to the questionnaire if you haven\'t completed it yet.';
+      isRecoverable = false;
+    } else if (error.message.includes('team_name')) {
+      userMessage = 'This team name is already taken.';
+      actionGuidance = 'Please choose a different team name.';
+      isRecoverable = true;
+    }
+  } else if (error?.code === '23514') {
+    // Check constraint violation
+    if (error.message.includes('gender')) {
+      userMessage = 'Gender field contains an invalid value.';
+      actionGuidance = 'Please select Male, Female, or Other for the gender field.';
+    } else if (error.message.includes('email')) {
+      userMessage = 'Email format is invalid.';
+      actionGuidance = 'Please check your email address format.';
+    } else if (error.message.includes('phone')) {
+      userMessage = 'Phone number format is invalid.';
+      actionGuidance = 'Please check your phone number format.';
+    }
+  } else if (error?.code === '23502') {
+    // Not null constraint violation
+    userMessage = 'Some required fields are missing.';
+    actionGuidance = 'Please fill in all required fields and try again.';
+  }
+  
+  // Log recurring errors
+  const errorKey = `yff_registration_error_${error?.code || 'unknown'}`;
+  const errorCount = parseInt(localStorage.getItem(errorKey) || '0') + 1;
+  localStorage.setItem(errorKey, errorCount.toString());
+  
+  if (errorCount > 1) {
+    console.warn('🚨 RECURRING ERROR DETECTED:', {
+      errorCode: error?.code,
+      count: errorCount,
+      ...errorDetails
+    });
+  }
+  
+  toast({
+    title: isRecoverable ? 'Registration Error' : 'Registration Not Allowed',
+    description: actionGuidance ? `${userMessage} ${actionGuidance}` : userMessage,
+    variant: 'destructive',
+    duration: isRecoverable ? 5000 : 10000,
+  });
+  
+  return { isRecoverable, actionGuidance };
+};
+
+/**
+ * Check if user already has a registration
+ */
+const checkExistingRegistration = async (userId: string, email: string) => {
+  try {
+    console.log('🔍 Checking for existing registration...', { userId, email });
+    
+    const { data: existingReg, error } = await supabase
+      .from('yff_team_registrations')
+      .select('id, application_status, questionnaire_completed_at, email, individual_id')
+      .or(`individual_id.eq.${userId},email.eq.${email}`)
+      .maybeSingle();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('❌ Error checking existing registration:', error);
+      return { exists: false, error };
+    }
+    
+    if (existingReg) {
+      console.log('⚠️ Existing registration found:', existingReg);
+      return { 
+        exists: true, 
+        registration: existingReg,
+        canProceedToQuestionnaire: existingReg.application_status === 'registration_completed' && !existingReg.questionnaire_completed_at
+      };
+    }
+    
+    console.log('✅ No existing registration found');
+    return { exists: false };
+  } catch (error) {
+    console.error('❌ Error in checkExistingRegistration:', error);
+    return { exists: false, error };
+  }
+};
+
+/**
+ * Safely restore autosaved data to form with proper type checking
+ */
+const restoreAutosavedData = (
+  autosavedData: AutosaveFormData,
+  form: ReturnType<typeof useForm<FormValues>>
+): void => {
+  try {
+    // Validate and restore form fields
+    Object.entries(autosavedData).forEach(([key, value]) => {
+      if (key in form.getValues() && value !== undefined) {
+        // Special handling for team members
+        if (key === 'teamMembers') {
+          const teamMembers = extractTeamMembers(autosavedData);
+          form.setValue('teamMembers', teamMembers);
+        } else if (key === 'numberOfTeamMembers') {
+          const numberOfMembers = extractNumberOfTeamMembers(autosavedData);
+          form.setValue('numberOfTeamMembers', numberOfMembers);
+        } else {
+          form.setValue(key as keyof FormValues, value);
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error restoring autosaved data:', error);
+    throw error;
+  }
+};
+
+/**
+ * Enhanced form data sanitization with strict validation
+ */
+const sanitizeAndValidateFormData = (data: FormValues, userId: string) => {
+  // Trim all string fields
+  const sanitized = { ...data };
+  Object.keys(sanitized).forEach(key => {
+    if (typeof sanitized[key] === 'string') {
+      sanitized[key] = sanitized[key].trim();
+    }
+  });
+  
+  // Validate required fields
+  const requiredFields = [
+    'fullName', 'email', 'phoneNumber', 'dateOfBirth', 'currentCity', 
+    'state', 'pinCode', 'permanentAddress', 'gender', 'institutionName',
+    'courseProgram', 'currentYearOfStudy', 'expectedGraduation'
+  ];
+  
+  const missingFields = requiredFields.filter(field => !sanitized[field] || sanitized[field] === '');
+  if (missingFields.length > 0) {
+    throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+  }
+  
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(sanitized.email)) {
+    throw new Error('Invalid email format');
+  }
+  
+  // Validate phone number (basic check)
+  if (sanitized.phoneNumber.length < 8) {
+    throw new Error('Phone number must be at least 8 digits');
+  }
+  
+  // Validate graduation year
+  const currentYear = new Date().getFullYear();
+  const gradYear = parseInt(sanitized.expectedGraduation);
+  if (gradYear < currentYear || gradYear > currentYear + 10) {
+    throw new Error('Invalid graduation year');
+  }
+  
+  return sanitizeFormData(sanitized, userId);
+};
+
+/**
+ * YFF Team Registration Form Component with Enhanced Error Handling
  */
 export const YffTeamRegistrationForm = () => {
-  const { user, userProfile } = useAuth();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [countries, setCountries] = useState<CountryOption[]>([]);
-  const [hasAutoFilled, setHasAutoFilled] = useState(false);
-  
-  // Auto-fill profile data from user profile
-  const getAutoFilledDefaults = useCallback(() => {
-    const firstName = userProfile?.first_name || '';
-    const lastName = userProfile?.last_name || '';
-    const fullName = firstName && lastName ? `${firstName} ${lastName}` : '';
-    
-    return {
-      fullName: fullName,
-      email: userProfile?.email || '',
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [showProfileCreation, setShowProfileCreation] = useState(false);
+  const [dataRestored, setDataRestored] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+  const [existingRegistration, setExistingRegistration] = useState<any>(null);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [submitAttempts, setSubmitAttempts] = useState(0);
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      fullName: '',
+      email: '',
       phoneNumber: '',
-      countryCode: userProfile?.country_code || '+91',
-      dateOfBirth: new Date(),
+      countryCode: '+91',
+      dateOfBirth: '',
       currentCity: '',
       state: '',
       pinCode: '',
       permanentAddress: '',
-      gender: 'other' as const,
+      gender: '',
       institutionName: '',
       courseProgram: '',
       currentYearOfStudy: '',
-      expectedGraduation: new Date(),
+      expectedGraduation: '',
       numberOfTeamMembers: 1,
+      teamMembers: [],
       ventureName: '',
       industrySector: '',
       teamName: '',
@@ -118,701 +303,518 @@ export const YffTeamRegistrationForm = () => {
       linkedinProfile: '',
       socialMediaHandles: '',
       referralId: '',
-    };
-  }, [userProfile]);
-
-  // Initialize react-hook-form
-  const methods = useForm<YffRegistrationFormData>({
-    resolver: yupResolver(yffRegistrationSchema),
-    defaultValues: getAutoFilledDefaults(),
-    mode: 'onBlur',
+    },
   });
 
-  const {
-    handleSubmit,
-    register,
-    setValue,
-    getValues,
-    watch,
-    formState: { errors },
-  } = methods;
-
-  // Watch numberOfTeamMembers for dynamic field generation
-  const numberOfTeamMembers = watch('numberOfTeamMembers');
-
-  // Prepare form data for autosave with team members
-  const getFormDataForAutosave = useCallback(() => {
-    const formData = getValues();
-    return {
-      ...formData,
-      teamMembers: teamMembers.map(convertTeamMemberToAutosave),
-    };
-  }, [getValues, teamMembers]);
-
-  // Autosave setup
-  const { status: autosaveStatus, loadSavedData } = useAutosave({
-    formData: getFormDataForAutosave(),
+  const watchedValues = form.watch();
+  const { status: autosaveStatus, loadSavedData, clearSavedData, isLoading: autosaveLoading } = useAutosave({
+    formData: watchedValues,
     formType: 'yff_team_registration',
   });
 
-  // Load countries on mount
-  useEffect(() => {
-    const countries = countryList();
-    const countryOptions = countries.getData().map((country) => ({
-      label: country.label,
-      value: country.value,
-    }));
-    setCountries(countryOptions);
-  }, []);
+  // Create a basic profile for authenticated users who don't have one
+  const createBasicProfile = async () => {
+    if (!user?.email) return false;
 
-  // Auto-fill profile data on mount and when userProfile changes
-  useEffect(() => {
-    if (userProfile && !hasAutoFilled) {
-      const autoFilledData = getAutoFilledDefaults();
+    try {
+      console.log('📝 Creating basic profile for user:', user.email);
       
-      // Only auto-fill if the fields are currently empty
-      const currentValues = getValues();
-      Object.entries(autoFilledData).forEach(([key, value]) => {
-        if (value && (!currentValues[key] || currentValues[key] === '')) {
-          setValue(key as keyof YffRegistrationFormData, value);
-        }
-      });
-      
-      setHasAutoFilled(true);
-      console.log('✅ Auto-filled profile data:', {
-        fullName: autoFilledData.fullName,
-        email: autoFilledData.email,
-        countryCode: autoFilledData.countryCode
-      });
+      // Extract potential name from email
+      const emailUsername = user.email.split('@')[0];
+      const nameParts = emailUsername.split('.');
+      const firstName = nameParts[0] || 'User';
+      const lastName = nameParts[1] || '';
+
+      const { error } = await supabase
+        .from('individuals')
+        .insert({
+          individual_id: user.id,
+          first_name: firstName,
+          last_name: lastName,
+          email: user.email,
+          privacy_consent: true,
+          data_processing_consent: true,
+          country_code: '+91',
+          country_iso_code: 'IN',
+          is_active: true,
+          email_verified: true,
+        });
+
+      if (error) {
+        console.error('❌ Error creating basic profile:', error);
+        return false;
+      }
+
+      console.log('✅ Basic profile created successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Error in createBasicProfile:', error);
+      return false;
     }
-  }, [userProfile, hasAutoFilled, getAutoFilledDefaults, getValues, setValue]);
-
-  // Auto-resume saved draft
-  useEffect(() => {
-    if (user?.id && !hasAutoFilled) {
-      const loadDraft = async () => {
-        const savedData = await loadSavedData();
-        if (savedData) {
-          console.log('🔄 Auto-resuming form from saved draft');
-          Object.entries(savedData).forEach(([key, value]) => {
-            if (value !== undefined && value !== null && key !== 'teamMembers') {
-              setValue(key as keyof YffRegistrationFormData, value);
-            }
-          });
-          
-          // Handle team members with type conversion
-          if (savedData.teamMembers && Array.isArray(savedData.teamMembers)) {
-            const convertedTeamMembers = savedData.teamMembers.map(convertAutosaveToTeamMember);
-            setTeamMembers(convertedTeamMembers);
-          }
-          
-          toast.success('Form progress restored', {
-            description: 'Your previous work has been recovered'
-          });
-        }
-      };
-      
-      loadDraft();
-    }
-  }, [user?.id, hasAutoFilled, loadSavedData, setValue]);
-
-  // Dynamic team member fields based on numberOfTeamMembers
-  useEffect(() => {
-    const memberCount = Math.max(1, Math.min(4, numberOfTeamMembers || 1));
-    
-    setTeamMembers(prevMembers => {
-      const newMembers = [...prevMembers];
-      
-      // Add missing team member slots
-      while (newMembers.length < memberCount - 1) { // -1 because leader is separate
-        newMembers.push({ name: '', email: '', linkedin: '' });
-      }
-      
-      // Remove excess team member slots
-      while (newMembers.length > memberCount - 1) {
-        newMembers.pop();
-      }
-      
-      console.log(`📊 Updated team members: ${memberCount} total (${newMembers.length} additional members)`);
-      return newMembers;
-    });
-  }, [numberOfTeamMembers]);
-
-  // Team member management functions
-  const updateTeamMember = useCallback((index: number, field: keyof TeamMember, value: string) => {
-    setTeamMembers(prevMembers => {
-      const newMembers = [...prevMembers];
-      if (newMembers[index]) {
-        newMembers[index][field] = value;
-      }
-      return newMembers;
-    });
-  }, []);
-
-  // Convert team members to format expected by database
-  const convertTeamMembersForDatabase = (members: TeamMember[]) => {
-    return members.map(member => ({
-      fullName: member.name,
-      email: member.email,
-      linkedinProfile: member.linkedin || '',
-    }));
   };
 
-  // Form submission with validation
-  const onSubmit = async (data: YffRegistrationFormData) => {
-    if (!user) {
-      console.error("❌ User not authenticated");
-      toast.error("Authentication Error", {
-        description: "You must be signed in to submit this form",
+  // Enhanced data loading with duplicate checking
+  useEffect(() => {
+    const loadData = async () => {
+      if (!user?.email) {
+        setProfileError('User email not found. Please sign in again.');
+        return;
+      }
+
+      try {
+        console.log('🔍 Loading profile and checking for existing registration...', user.email);
+        
+        // Check for existing registration first
+        const registrationCheck = await checkExistingRegistration(user.id, user.email);
+        
+        if (registrationCheck.error) {
+          setProfileError('Could not verify registration status. Please try again.');
+          return;
+        }
+        
+        if (registrationCheck.exists) {
+          setExistingRegistration(registrationCheck.registration);
+          setShowDuplicateWarning(true);
+          
+          if (registrationCheck.canProceedToQuestionnaire) {
+            toast({
+              title: 'Registration Complete',
+              description: 'You have already registered. Redirecting to questionnaire...',
+              duration: 3000,
+            });
+            setTimeout(() => navigate('/yff/questionnaire'), 3000);
+            return;
+          }
+        }
+        
+        // First, try to fetch user profile by email
+        let { data: individual, error: individualError } = await supabase
+          .from('individuals')
+          .select('*')
+          .eq('email', user.email)
+          .maybeSingle();
+
+        // If no profile found by email, try by individual_id
+        if (!individual && !individualError) {
+          console.log('🔍 No profile found by email, trying by individual_id');
+          const { data: individualById, error: individualByIdError } = await supabase
+            .from('individuals')
+            .select('*')
+            .eq('individual_id', user.id)
+            .maybeSingle();
+          
+          individual = individualById;
+          individualError = individualByIdError;
+        }
+
+        if (individualError && individualError.code !== 'PGRST116') {
+          console.error('❌ Error fetching individual profile:', individualError);
+          setProfileError('Could not load your profile. Please refresh or contact support.');
+          return;
+        }
+
+        if (!individual) {
+          console.log('⚠️ No individual profile found, offering to create one');
+          setShowProfileCreation(true);
+          setProfileLoaded(true);
+          
+          // Pre-fill with available user data
+          form.setValue('email', user.email);
+          form.setValue('fullName', user.user_metadata?.full_name || '');
+          
+          return;
+        }
+
+        console.log('✅ Individual profile loaded:', individual);
+
+        // Pre-fill form with profile data
+        form.setValue('fullName', `${individual.first_name} ${individual.last_name}`);
+        form.setValue('email', individual.email);
+        form.setValue('countryCode', individual.country_code || '+91');
+
+        // Load autosaved data - this is crucial for cross-session persistence
+        console.log('📋 Loading autosaved data...');
+        const autosavedData = await loadSavedData();
+        
+        if (autosavedData && isAutosaveFormData(autosavedData)) {
+          console.log('🔄 Restoring autosaved form data');
+          
+          try {
+            restoreAutosavedData(autosavedData, form);
+            setDataRestored(true);
+            
+            // Show restoration message
+            toast({
+              title: 'Progress Restored',
+              description: 'Your previous form progress has been restored. Continue where you left off!',
+              duration: 5000,
+            });
+          } catch (error) {
+            console.error('❌ Error restoring autosaved data:', error);
+            toast({
+              title: 'Restoration Warning',
+              description: 'Some of your previous data could not be restored, but your progress is being saved.',
+              variant: 'destructive',
+            });
+          }
+        } else {
+          console.log('📭 No valid autosaved data found');
+        }
+
+        setProfileLoaded(true);
+        setProfileError(null);
+        setShowProfileCreation(false);
+      } catch (error) {
+        console.error('❌ Error loading data:', error);
+        setProfileError('An unexpected error occurred. Please try again.');
+      }
+    };
+
+    loadData();
+  }, [user, form, loadSavedData, toast, navigate]);
+
+  // Handle profile creation
+  const handleCreateProfile = async () => {
+    const success = await createBasicProfile();
+    if (success) {
+      setShowProfileCreation(false);
+      toast({
+        title: 'Profile Created',
+        description: 'Your basic profile has been created. You can now proceed with registration.',
+      });
+      // Reload the page to refresh the profile data
+      window.location.reload();
+    } else {
+      toast({
+        title: 'Error',
+        description: 'Failed to create profile. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const onSubmit = async (data: FormValues) => {
+    if (!user || !profileLoaded) {
+      toast({
+        title: 'Error',
+        description: 'Profile not loaded. Please refresh the page.',
+        variant: 'destructive',
       });
       return;
     }
 
+    // Prevent double submission
+    if (isSubmitting) {
+      console.warn('🚫 Double submission prevented');
+      return;
+    }
+
     setIsSubmitting(true);
-    console.log("📝 Submitting enhanced YFF registration:", { 
-      userId: user.id, 
-      dataKeys: Object.keys(data),
-      teamMemberCount: teamMembers.length 
-    });
+    setSubmitAttempts(prev => prev + 1);
+    setValidationErrors([]);
+    setFieldErrors({});
 
     try {
-      // Check for existing registration
-      const { data: existingRegistration, error: checkError } = await supabase
-        .from('yff_team_registrations')
-        .select('id')
-        .eq('individual_id', user.id)
-        .single();
+      console.log('🚀 Starting registration submission...', {
+        attempt: submitAttempts + 1,
+        userId: user.id,
+        email: user.email,
+        timestamp: new Date().toISOString()
+      });
 
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error("❌ Error checking existing registration:", checkError);
-        toast.error("Database Error", {
-          description: "Failed to check existing registration. Please try again.",
-        });
-        return;
-      }
-
-      // Format dates properly
-      const formatDateForDatabase = (date: Date): string => {
-        return date instanceof Date ? date.toISOString().split('T')[0] : '';
-      };
-
-      // Prepare registration data
-      const registrationData = {
-        individual_id: user.id,
-        full_name: data.fullName,
-        email: data.email,
-        phone_number: data.phoneNumber,
-        country_code: data.countryCode,
-        date_of_birth: formatDateForDatabase(data.dateOfBirth),
-        current_city: data.currentCity,
-        state: data.state,
-        pin_code: data.pinCode,
-        permanent_address: data.permanentAddress,
-        gender: data.gender,
-        institution_name: data.institutionName,
-        course_program: data.courseProgram,
-        current_year_of_study: data.currentYearOfStudy,
-        expected_graduation: formatDateForDatabase(data.expectedGraduation),
-        number_of_team_members: data.numberOfTeamMembers,
-        team_members: convertTeamMembersForDatabase(teamMembers),
-        venture_name: data.ventureName,
-        industry_sector: data.industrySector,
-        team_name: data.teamName,
-        website: data.website,
-        linkedin_profile: data.linkedinProfile,
-        social_media_handles: data.socialMediaHandles,
-        referral_id: data.referralId,
-        application_status: 'registration_completed',
-        updated_at: new Date().toISOString(),
-      };
-
-      let result;
-      if (existingRegistration) {
-        result = await supabase
-          .from('yff_team_registrations')
-          .update(registrationData)
-          .eq('individual_id', user.id);
-      } else {
-        result = await supabase
-          .from('yff_team_registrations')
-          .insert(registrationData);
-      }
-
-      if (result.error) {
-        console.error("❌ Error saving registration:", result.error);
-        toast.error("Submission Error", {
-          description: "Failed to save your registration. Please try again.",
-        });
-        return;
-      }
-
-      // Clear autosave data on successful submission
-      await supabase
-        .from('yff_team_registration_autosave')
-        .delete()
-        .eq('individual_id', user.id);
-
-      console.log("✅ Registration submitted successfully - redirecting to questionnaire");
+      // Double-check for existing registration
+      const registrationCheck = await checkExistingRegistration(user.id, user.email);
       
-      toast.success("Registration Submitted!", {
-        description: "Your team registration has been saved. Redirecting to questionnaire...",
+      if (registrationCheck.exists) {
+        const { isRecoverable } = handleSubmissionError(
+          { code: '23505', message: 'Registration already exists' },
+          toast,
+          data
+        );
+        
+        if (!isRecoverable && registrationCheck.canProceedToQuestionnaire) {
+          navigate('/yff/questionnaire');
+        }
+        return;
+      }
+
+      // Validate and sanitize form data
+      const validation = validateFormData(data);
+      if (!validation.isValid) {
+        setValidationErrors(validation.errors);
+        setFieldErrors(validation.fieldErrors);
+        
+        toast({
+          title: 'Validation Failed',
+          description: 'Please fix the form errors and try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const submissionData = sanitizeAndValidateFormData(data, user.id);
+      
+      console.log('📤 Submitting registration data:', {
+        userId: user.id,
+        email: submissionData.email,
+        teamName: submissionData.team_name,
+        timestamp: new Date().toISOString()
       });
 
+      const { error } = await supabase
+        .from('yff_team_registrations')
+        .insert(submissionData);
+
+      if (error) {
+        handleSubmissionError(error, toast, submissionData);
+        return;
+      }
+
+      console.log('✅ Registration submitted successfully');
+      
+      // Clear autosaved data after successful submission
+      await clearSavedData();
+      
+      // Clear error counters
+      localStorage.removeItem('yff_registration_error_23505');
+      localStorage.removeItem('yff_registration_error_23514');
+      localStorage.removeItem('yff_registration_error_23502');
+
+      toast({
+        title: 'Success!',
+        description: 'Your team registration has been submitted successfully.',
+      });
+
+      // Reset form and states
+      form.reset();
+      setDataRestored(false);
+      setValidationErrors([]);
+      setFieldErrors({});
+      setSubmitAttempts(0);
+      
       // Redirect to questionnaire
-      setTimeout(() => {
-        navigate('/yff/questionnaire');
-      }, 1500);
-
+      navigate('/yff/questionnaire');
+      
     } catch (error) {
-      console.error("❌ Error submitting form:", error);
-      toast.error("Submission Error", {
-        description: "An unexpected error occurred. Please try again.",
-      });
+      console.error('❌ Unexpected error during submission:', error);
+      handleSubmissionError(error, toast, data);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Show profile creation option
+  if (showProfileCreation) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Complete Your Profile
+          </h1>
+          <p className="text-gray-600">
+            We need to create your profile before you can register for the YFF program.
+          </p>
+        </div>
+
+        <Alert className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You're signed in as <strong>{user?.email}</strong>, but we need to create your profile 
+            in our system to continue with the registration process.
+          </AlertDescription>
+        </Alert>
+
+        <div className="space-y-4">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-semibold mb-2">What happens next:</h3>
+            <ul className="space-y-1 text-sm text-gray-600">
+              <li>• We'll create a basic profile with your email address</li>
+              <li>• You can complete the full registration form</li>
+              <li>• Your progress will be automatically saved</li>
+            </ul>
+          </div>
+
+          <div className="flex gap-4">
+            <Button onClick={handleCreateProfile} className="flex-1">
+              Create Profile & Continue
+            </Button>
+            <Button variant="outline" onClick={() => window.location.href = '/'}>
+              Go to Home
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show duplicate warning if registration exists
+  if (showDuplicateWarning && existingRegistration) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Registration Already Exists
+          </h1>
+          <p className="text-gray-600">
+            You have already registered for the YFF program.
+          </p>
+        </div>
+
+        <Alert className="mb-6 bg-amber-50 border-amber-200">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            <div className="font-semibold mb-2">Registration Found</div>
+            <div className="text-sm space-y-1">
+              <p>Email: <strong>{existingRegistration.email}</strong></p>
+              <p>Status: <strong>{existingRegistration.application_status}</strong></p>
+              {existingRegistration.questionnaire_completed_at ? (
+                <p>Questionnaire: <strong>Completed</strong></p>
+              ) : (
+                <p>Questionnaire: <strong>Pending</strong></p>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+
+        <div className="space-y-4">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-semibold mb-2">What you can do:</h3>
+            <ul className="space-y-1 text-sm text-gray-600">
+              {!existingRegistration.questionnaire_completed_at && (
+                <li>• Complete your application by filling out the questionnaire</li>
+              )}
+              <li>• Contact support if you need to edit your registration</li>
+              <li>• Return to the homepage to explore other programs</li>
+            </ul>
+          </div>
+
+          <div className="flex gap-4">
+            {!existingRegistration.questionnaire_completed_at && (
+              <Button onClick={() => navigate('/yff/questionnaire')} className="flex-1">
+                Complete Questionnaire
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => navigate('/')}>
+              Go to Homepage
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if profile couldn't be loaded
+  if (profileError) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <h2 className="text-lg font-semibold text-red-800 mb-2">Profile Loading Error</h2>
+          <p className="text-red-600 mb-4">{profileError}</p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            variant="outline"
+            className="mr-2"
+          >
+            Refresh Page
+          </Button>
+          <Button onClick={() => window.location.href = '/'}>
+            Go to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while profile is being loaded
+  if (!profileLoaded || autosaveLoading) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+          <p className="text-blue-600">
+            {autosaveLoading ? 'Loading your saved progress...' : 'Loading your profile...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+    <div className="max-w-4xl mx-auto p-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           YFF Team Registration
         </h1>
         <p className="text-gray-600">
-          Complete your team registration for the Young Founders Floor program
+          Register your team for the Young Founders Fellowship program
         </p>
       </div>
 
-      <FormProvider {...methods}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-          {/* Personal Information */}
-          <section>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Personal Information
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  placeholder="Enter your full name"
-                  {...register('fullName')}
-                />
-                {errors.fullName && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.fullName.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email address"
-                  {...register('email')}
-                />
-                {errors.email && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="phoneNumber">Phone Number</Label>
-                <Input
-                  id="phoneNumber"
-                  placeholder="Enter your phone number"
-                  {...register('phoneNumber')}
-                />
-                {errors.phoneNumber && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.phoneNumber.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="countryCode">Country Code</Label>
-                <Select
-                  onValueChange={(value) => setValue('countryCode', value)}
-                  defaultValue={getValues('countryCode')}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a country" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {countries.map((country) => (
-                      <SelectItem key={country.value} value={country.value}>
-                        {country.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.countryCode && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.countryCode.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                <DatePicker
-                  selected={getValues('dateOfBirth')}
-                  onSelect={(date) => setValue('dateOfBirth', date || new Date())}
-                />
-                {errors.dateOfBirth && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.dateOfBirth.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="gender">Gender</Label>
-                <Select
-                  onValueChange={(value) => setValue('gender', value as 'male' | 'female' | 'other')}
-                  defaultValue={getValues('gender')}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.gender && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.gender.message}
-                  </p>
-                )}
-              </div>
+      {/* Show submission attempts warning */}
+      {submitAttempts > 0 && (
+        <Alert className="mb-6 bg-blue-50 border-blue-200">
+          <Shield className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            <div className="font-semibold mb-1">Submission Attempt #{submitAttempts + 1}</div>
+            <div className="text-sm">
+              Your form data is automatically saved. If you encounter issues, please refresh the page.
             </div>
-          </section>
+          </AlertDescription>
+        </Alert>
+      )}
 
-          {/* Address Information */}
-          <section>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Address Information
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="currentCity">Current City</Label>
-                <Input
-                  id="currentCity"
-                  placeholder="Enter your current city"
-                  {...register('currentCity')}
-                />
-                {errors.currentCity && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.currentCity.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="state">State</Label>
-                <Input
-                  id="state"
-                  placeholder="Enter your state"
-                  {...register('state')}
-                />
-                {errors.state && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.state.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="pinCode">PIN Code</Label>
-                <Input
-                  id="pinCode"
-                  placeholder="Enter your PIN code"
-                  {...register('pinCode')}
-                />
-                {errors.pinCode && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.pinCode.message}
-                  </p>
-                )}
-              </div>
-              <div className="col-span-full">
-                <Label htmlFor="permanentAddress">Permanent Address</Label>
-                <Textarea
-                  id="permanentAddress"
-                  placeholder="Enter your permanent address"
-                  {...register('permanentAddress')}
-                />
-                {errors.permanentAddress && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.permanentAddress.message}
-                  </p>
-                )}
-              </div>
-            </div>
-          </section>
+      {/* Show restoration success message */}
+      {dataRestored && (
+        <Alert className="mb-6 bg-green-50 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            Your previous form progress has been restored. All your data is automatically saved as you type.
+          </AlertDescription>
+        </Alert>
+      )}
 
-          {/* Educational Information */}
-          <section>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Educational Information
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="institutionName">Institution Name</Label>
-                <Input
-                  id="institutionName"
-                  placeholder="Enter your institution name"
-                  {...register('institutionName')}
-                />
-                {errors.institutionName && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.institutionName.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="courseProgram">Course/Program</Label>
-                <Input
-                  id="courseProgram"
-                  placeholder="Enter your course/program"
-                  {...register('courseProgram')}
-                />
-                {errors.courseProgram && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.courseProgram.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="currentYearOfStudy">Current Year of Study</Label>
-                <Input
-                  id="currentYearOfStudy"
-                  placeholder="Enter your current year of study"
-                  {...register('currentYearOfStudy')}
-                />
-                {errors.currentYearOfStudy && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.currentYearOfStudy.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="expectedGraduation">Expected Graduation Date</Label>
-                <DatePicker
-                  id="expectedGraduation"
-                  onSelect={(date) => setValue('expectedGraduation', date || new Date())}
-                  selected={getValues('expectedGraduation')}
-                />
-                {errors.expectedGraduation && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.expectedGraduation.message}
-                  </p>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* Enhanced Team Information with Dynamic Fields */}
-          <section>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Team Information
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="numberOfTeamMembers">Number of Team Members (Max 4)</Label>
-                <Select
-                  onValueChange={(value) => setValue('numberOfTeamMembers', parseInt(value))}
-                  defaultValue={getValues('numberOfTeamMembers').toString()}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select number of team members" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 (Solo)</SelectItem>
-                    <SelectItem value="2">2</SelectItem>
-                    <SelectItem value="3">3</SelectItem>
-                    <SelectItem value="4">4</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.numberOfTeamMembers && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.numberOfTeamMembers.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Dynamic Team Member Fields */}
-              {teamMembers.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                    Additional Team Members
-                  </h3>
-                  {teamMembers.map((member, index) => (
-                    <div key={index} className="border rounded-lg p-4 mb-4 bg-gray-50">
-                      <h4 className="font-medium text-gray-800 mb-3">
-                        Team Member {index + 2}
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor={`teamMember-${index}-name`}>Full Name</Label>
-                          <Input
-                            id={`teamMember-${index}-name`}
-                            placeholder="Enter team member name"
-                            value={member.name}
-                            onChange={(e) => updateTeamMember(index, 'name', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor={`teamMember-${index}-email`}>Email</Label>
-                          <Input
-                            id={`teamMember-${index}-email`}
-                            type="email"
-                            placeholder="Enter team member email"
-                            value={member.email}
-                            onChange={(e) => updateTeamMember(index, 'email', e.target.value)}
-                          />
-                        </div>
-                        <div className="col-span-full">
-                          <Label htmlFor={`teamMember-${index}-linkedin`}>LinkedIn (Optional)</Label>
-                          <Input
-                            id={`teamMember-${index}-linkedin`}
-                            placeholder="Enter LinkedIn profile URL"
-                            value={member.linkedin || ''}
-                            onChange={(e) => updateTeamMember(index, 'linkedin', e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
+      {/* Show validation errors with field-specific details */}
+      {validationErrors.length > 0 && (
+        <Alert className="mb-6 bg-red-50 border-red-200">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            <div className="font-semibold mb-2">Please fix the following errors:</div>
+            <ul className="list-disc list-inside space-y-1">
+              {validationErrors.map((error, index) => (
+                <li key={index} className="text-sm">{error}</li>
+              ))}
+            </ul>
+            {Object.keys(fieldErrors).length > 0 && (
+              <div className="mt-3 p-3 bg-red-100 rounded">
+                <div className="font-medium text-sm mb-1">Field-specific errors:</div>
+                <ul className="text-xs space-y-1">
+                  {Object.entries(fieldErrors).map(([field, error]) => (
+                    <li key={field}><strong>{field}:</strong> {error}</li>
                   ))}
-                </div>
-              )}
-            </div>
-          </section>
+                </ul>
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
-          {/* Venture Information */}
-          <section>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Venture Information
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="ventureName">Venture Name</Label>
-                <Input
-                  id="ventureName"
-                  placeholder="Enter your venture name"
-                  {...register('ventureName')}
-                />
-                {errors.ventureName && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.ventureName.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="industrySector">Industry Sector</Label>
-                <Input
-                  id="industrySector"
-                  placeholder="Enter your industry sector"
-                  {...register('industrySector')}
-                />
-                {errors.industrySector && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.industrySector.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="teamName">Team Name</Label>
-                <Input
-                  id="teamName"
-                  placeholder="Enter your team name"
-                  {...register('teamName')}
-                />
-                {errors.teamName && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.teamName.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="website">Website</Label>
-                <Input
-                  id="website"
-                  type="url"
-                  placeholder="Enter your website URL"
-                  {...register('website')}
-                />
-                {errors.website && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.website.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="linkedinProfile">LinkedIn Profile</Label>
-                <Input
-                  id="linkedinProfile"
-                  type="url"
-                  placeholder="Enter your LinkedIn profile URL"
-                  {...register('linkedinProfile')}
-                />
-                {errors.linkedinProfile && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.linkedinProfile.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="socialMediaHandles">Social Media Handles</Label>
-                <Input
-                  id="socialMediaHandles"
-                  placeholder="Enter your social media handles"
-                  {...register('socialMediaHandles')}
-                />
-                {errors.socialMediaHandles && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.socialMediaHandles.message}
-                  </p>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* Referral Information */}
-          <section>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Referral Information
-            </h2>
-            <div>
-              <Label htmlFor="referralId">Referral ID</Label>
-              <Input
-                id="referralId"
-                placeholder="Enter referral ID"
-                {...register('referralId')}
-              />
-              {errors.referralId && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.referralId.message}
-                </p>
-              )}
-            </div>
-          </section>
-
-          {/* Submit Button */}
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <YffRegistrationFormSections form={form} />
+          
           <div className="flex justify-end pt-6">
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-8 py-3 bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700 disabled:opacity-50"
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || submitAttempts >= 3}
+              className="min-w-32"
             >
-              {isSubmitting ? "Submitting..." : "Submit Registration"}
+              {isSubmitting ? 'Submitting...' : 
+               submitAttempts >= 3 ? 'Too Many Attempts' : 
+               'Submit Registration'}
             </Button>
           </div>
         </form>
-      </FormProvider>
+      </Form>
 
-      {/* Enhanced Autosave Status */}
       <YffAutosaveIndicator status={autosaveStatus} />
     </div>
   );

@@ -1,8 +1,11 @@
+
 /**
  * @fileoverview Annual Retreat page component
  * 
  * This page provides information about the Young Founders Annual Retreat,
  * including event details, agenda, and registration information.
+ * 
+ * NOTE: Navigation and Footer are inherited from App.tsx - DO NOT import them here
  * 
  * @version 1.0.0
  * @author 26ideas Development Team
@@ -11,8 +14,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
 import { Home, Calendar, MapPin, Users, Clock } from "lucide-react";
 
 /**
@@ -24,6 +25,9 @@ import { Home, Calendar, MapPin, Users, Clock } from "lucide-react";
  * @returns {JSX.Element} Complete Annual Retreat page
  */
 const AnnualRetreat = () => {
+  // Debug logging to ensure no duplicate layout components
+  console.log('🏛️ AnnualRetreat page rendering - Navigation/Footer should be inherited from App.tsx');
+  
   /**
    * Feature highlights data
    */
@@ -56,10 +60,7 @@ const AnnualRetreat = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <Navigation />
-
+    <>
       {/* Home Button - Fixed position in top left */}
       <div className="fixed top-20 left-4 z-50">
         <Link to="/">
@@ -160,10 +161,7 @@ const AnnualRetreat = () => {
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <Footer />
-    </div>
+    </>
   );
 };
 

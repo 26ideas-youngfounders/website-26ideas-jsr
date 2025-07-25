@@ -26,14 +26,28 @@ const queryClient = new QueryClient();
 
 /**
  * Main App component with routing and layout structure
- * CRITICAL: Only this file should render Navigation and Footer to prevent duplicates
- * All pages must inherit header/footer from this global layout
+ * 
+ * CRITICAL LAYOUT RULES:
+ * =====================
+ * 1. This file is the ONLY place where Navigation and Footer should be rendered
+ * 2. All pages inherit the global layout from here
+ * 3. Individual pages should NEVER import Navigation or Footer directly
+ * 4. Any violation of these rules will cause duplicate headers/footers
+ * 
+ * Layout Structure:
+ * - Global Navigation (rendered once here)
+ * - Main content area (pages are rendered here)
+ * - Global Footer (rendered once here)
+ * 
+ * @returns {JSX.Element} Complete app with global layout
  */
 function App() {
-  // Debug logging to prevent future duplicates
-  console.log('🏗️ App component rendering - Navigation and Footer should only appear once');
+  // Critical debug logging to prevent future layout duplicates
+  console.log('🏗️ App component rendering - This is the ONLY place Navigation/Footer should appear');
+  console.log('🚫 NEVER import Navigation/Footer in individual page components');
+  console.log('📋 All pages inherit layout from App.tsx global wrapper');
   
-  // Start layout monitoring in development
+  // Start layout monitoring in development to catch duplicates
   useEffect(() => {
     startLayoutMonitoring();
   }, []);
@@ -47,7 +61,8 @@ function App() {
           <BrowserRouter>
             <div className="min-h-screen flex flex-col">
               {/* 
-                CRITICAL: Single Navigation component for entire app
+                🔴 CRITICAL: Single Navigation component for entire app
+                This is the ONLY place Navigation should be rendered
                 DO NOT import Navigation in any page component
               */}
               <Navigation />
@@ -71,7 +86,8 @@ function App() {
               </main>
               
               {/* 
-                CRITICAL: Single Footer component for entire app
+                🔴 CRITICAL: Single Footer component for entire app
+                This is the ONLY place Footer should be rendered
                 DO NOT import Footer in any page component
               */}
               <Footer />

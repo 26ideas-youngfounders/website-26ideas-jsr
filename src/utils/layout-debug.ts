@@ -31,8 +31,8 @@ export const checkForDuplicateLayouts = () => {
     console.warn('📍 Footer elements:', footerElements);
   }
 
-  // Check for admin headers when not on admin pages
-  const adminHeaders = document.querySelectorAll('header:has(h1:contains("Admin CRM"))');
+  // Check for admin headers when not on admin pages - use simpler selector
+  const adminHeaders = document.querySelectorAll('header');
   const isAdminPage = window.location.pathname.includes('/admin/');
   
   if (adminHeaders.length > 0 && !isAdminPage) {

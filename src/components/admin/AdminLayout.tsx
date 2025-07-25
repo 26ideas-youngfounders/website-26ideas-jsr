@@ -53,7 +53,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   const navigationItems = [
     { 
-      path: '/admin/crm-dashboard', 
+      path: '/admin/crm', 
       label: 'Dashboard', 
       icon: LayoutDashboard 
     },

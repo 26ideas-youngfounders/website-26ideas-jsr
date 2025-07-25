@@ -26,7 +26,8 @@ const queryClient = new QueryClient();
 
 /**
  * Main App component with routing and layout structure
- * Only this file should render Navigation and Footer to prevent duplicates
+ * CRITICAL: Only this file should render Navigation and Footer to prevent duplicates
+ * All pages must inherit header/footer from this global layout
  */
 function App() {
   // Debug logging to prevent future duplicates
@@ -45,10 +46,13 @@ function App() {
           <Sonner />
           <BrowserRouter>
             <div className="min-h-screen flex flex-col">
-              {/* Single Navigation component for entire app */}
+              {/* 
+                CRITICAL: Single Navigation component for entire app
+                DO NOT import Navigation in any page component
+              */}
               <Navigation />
               
-              {/* Main content area */}
+              {/* Main content area - pages inherit layout from here */}
               <main className="flex-grow">
                 <Routes>
                   <Route path="/" element={<Index />} />
@@ -66,7 +70,10 @@ function App() {
                 </Routes>
               </main>
               
-              {/* Single Footer component for entire app */}
+              {/* 
+                CRITICAL: Single Footer component for entire app
+                DO NOT import Footer in any page component
+              */}
               <Footer />
             </div>
           </BrowserRouter>

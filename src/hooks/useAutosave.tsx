@@ -47,44 +47,26 @@ export const useAutosave = ({ formData, debounceMs = 1000 }: UseAutosaveProps) =
     }
   }, [user]);
 
-  // Save data to database with better error handling
+  // Save data to database using upsert with unique constraint
   const saveData = useCallback(async (data: any) => {
     if (!user) return;
 
     setStatus('saving');
     
     try {
-      // First, try to check if record exists
-      const { data: existingData } = await supabase
+      // Use upsert to handle insert/update automatically
+      const { error } = await supabase
         .from('yff_team_registration_autosave')
-        .select('id')
-        .eq('individual_id', user.id)
-        .maybeSingle();
+        .upsert({
+          individual_id: user.id,
+          form_data: data,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'individual_id'
+        });
 
-      let result;
-      
-      if (existingData) {
-        // Update existing record
-        result = await supabase
-          .from('yff_team_registration_autosave')
-          .update({
-            form_data: data,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('individual_id', user.id);
-      } else {
-        // Insert new record
-        result = await supabase
-          .from('yff_team_registration_autosave')
-          .insert({
-            individual_id: user.id,
-            form_data: data,
-            updated_at: new Date().toISOString(),
-          });
-      }
-
-      if (result.error) {
-        console.error('❌ Autosave failed:', result.error);
+      if (error) {
+        console.error('❌ Autosave failed:', error);
         setStatus('error');
       } else {
         console.log('✅ Autosave successful');

@@ -55,8 +55,29 @@ interface YffQuestionnaireFormProps {
 }
 
 /**
+ * QuestionnaireFormData type - ALL FIELDS ARE REQUIRED
+ * WARNING: Must keep all fields' required/optional status in sync between QuestionnaireFormData,
+ * useForm defaults, and all watch()/submit logic—TS2322 prevention.
+ * 
+ * CRITICAL: This interface must exactly match the interface in YffFormSections.tsx
+ * If you change any field to optional here, you must also update:
+ * 1. The form schema below
+ * 2. The default values below
+ * 3. The interface in YffFormSections.tsx
+ */
+interface QuestionnaireFormData {
+  whyApplying: string;
+  businessIdea: string;
+  experience: string;
+  challenges: string;
+  goals: string;
+  commitment: string;
+}
+
+/**
  * Questionnaire form schema with word count validation
  * NOTE: All fields are REQUIRED - this enforces consistent typing
+ * Schema must produce required string fields to match QuestionnaireFormData interface
  */
 const questionnaireSchema = z.object({
   whyApplying: z.string()
@@ -82,19 +103,7 @@ const questionnaireSchema = z.object({
   commitment: z.string()
     .min(1, 'This field is required')
     .refine(text => validateWordCount(text, 300), 'Answer must not exceed 300 words'),
-});
-
-/**
- * QuestionnaireFormData type - ALL FIELDS ARE REQUIRED
- * WARNING: Must keep all fields' required/optional status in sync between QuestionnaireFormData,
- * useForm defaults, and all watch()/submit logic—TS2322 prevention.
- * 
- * CRITICAL: If you change any field to optional here, you must also update:
- * 1. The form schema above
- * 2. The default values below
- * 3. The interface in YffFormSections.tsx
- */
-type QuestionnaireFormData = z.infer<typeof questionnaireSchema>;
+}) satisfies z.ZodType<QuestionnaireFormData>;
 
 /**
  * YFF Questionnaire Form Component

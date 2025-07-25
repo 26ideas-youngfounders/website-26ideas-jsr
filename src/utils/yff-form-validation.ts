@@ -1,5 +1,6 @@
 
 import { FormValues, TeamMember } from '@/components/forms/YffTeamRegistrationForm';
+import { validateAge, validateTeamAges, validateWordLimit, validateEssayAnswers } from '@/utils/registration-validation';
 
 /**
  * Validation utility for YFF Team Registration Form
@@ -10,6 +11,8 @@ interface ValidationResult {
   isValid: boolean;
   errors: string[];
   fieldErrors: { [key: string]: string };
+  ageErrors?: string[];
+  wordCountErrors?: string[];
 }
 
 /**
@@ -152,9 +155,9 @@ export const validateAndNormalizeGender = (gender: string): { isValid: boolean; 
 };
 
 /**
- * Main validation function that checks all form data
+ * Main validation function that checks all form data including age and word limits
  */
-export const validateFormData = (data: FormValues): ValidationResult => {
+export const validateFormData = (data: FormValues, questionnaireAnswers?: any): ValidationResult => {
   const errors: string[] = [];
   const fieldErrors: { [key: string]: string } = {};
   
@@ -168,6 +171,16 @@ export const validateFormData = (data: FormValues): ValidationResult => {
   if (!genderValidation.isValid) {
     errors.push(genderValidation.error || 'Invalid gender value');
     fieldErrors.gender = genderValidation.error || 'Invalid gender value';
+  }
+  
+  // Validate age requirements for leader
+  if (data.dateOfBirth) {
+    const ageValidation = validateAge(data.dateOfBirth);
+    if (!ageValidation.isValid) {
+      errors.push(`Team leader: ${ageValidation.error}`);
+      fieldErrors.dateOfBirth = ageValidation.error || 'Invalid age';
+      console.error('❌ Age validation failed for team leader:', ageValidation.error);
+    }
   }
   
   // Validate number of team members
@@ -199,7 +212,31 @@ export const validateFormData = (data: FormValues): ValidationResult => {
           errors.push(error);
           fieldErrors[`teamMembers.${index}.gender`] = error;
         }
+        
+        // Validate team member age
+        if (member.dateOfBirth) {
+          const memberAgeValidation = validateAge(member.dateOfBirth);
+          if (!memberAgeValidation.isValid) {
+            const error = `Team member ${index + 1}: ${memberAgeValidation.error}`;
+            errors.push(error);
+            fieldErrors[`teamMembers.${index}.dateOfBirth`] = error;
+            console.error(`❌ Age validation failed for team member ${index + 1}:`, memberAgeValidation.error);
+          }
+        }
       });
+    }
+  }
+  
+  // Validate questionnaire answers for word limits if provided
+  if (questionnaireAnswers) {
+    const essayValidation = validateEssayAnswers(questionnaireAnswers);
+    if (!essayValidation.isValid) {
+      errors.push(...essayValidation.errors);
+      essayValidation.errors.forEach(error => {
+        const fieldName = error.split(':')[0];
+        fieldErrors[`questionnaire.${fieldName}`] = error;
+      });
+      console.error('❌ Word limit validation failed:', essayValidation.errors);
     }
   }
   

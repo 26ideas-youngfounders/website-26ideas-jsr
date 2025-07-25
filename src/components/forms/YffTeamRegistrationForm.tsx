@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,14 +21,23 @@ import {
   extractNumberOfTeamMembers 
 } from '@/types/autosave';
 import { validateFormData, sanitizeFormData } from '@/utils/yff-form-validation';
+import { validateAge } from '@/utils/registration-validation';
 
-// Define the schema for individual team members
+// Define the schema for individual team members with age validation
 const teamMemberSchema = z.object({
   fullName: z.string().min(2, { message: 'Full name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Invalid email address.' }),
   phoneNumber: z.string().min(8, { message: 'Phone number must be at least 8 digits.' }),
   countryCode: z.string().default('+91'),
-  dateOfBirth: z.string().min(1, { message: 'Date of birth is required.' }),
+  dateOfBirth: z.string().min(1, { message: 'Date of birth is required.' }).refine(
+    (dateOfBirth) => {
+      const validation = validateAge(dateOfBirth);
+      return validation.isValid;
+    },
+    {
+      message: 'Team member must be between 18 and 27 years old.',
+    }
+  ),
   currentCity: z.string().min(2, { message: 'City must be at least 2 characters.' }),
   state: z.string().min(2, { message: 'State must be at least 2 characters.' }),
   pinCode: z.string().min(6, { message: 'Pin code must be 6 digits.' }),
@@ -42,13 +50,21 @@ const teamMemberSchema = z.object({
   linkedinProfile: z.string().url({ message: 'Invalid LinkedIn URL.' }).optional(),
 });
 
-// Define the main form schema
+// Define the main form schema with age validation
 const formSchema = z.object({
   fullName: z.string().min(2, { message: 'Full name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Invalid email address.' }),
   phoneNumber: z.string().min(8, { message: 'Phone number must be at least 8 digits.' }),
   countryCode: z.string().default('+91'),
-  dateOfBirth: z.string().min(1, { message: 'Date of birth is required.' }),
+  dateOfBirth: z.string().min(1, { message: 'Date of birth is required.' }).refine(
+    (dateOfBirth) => {
+      const validation = validateAge(dateOfBirth);
+      return validation.isValid;
+    },
+    {
+      message: 'You must be between 18 and 27 years old to register.',
+    }
+  ),
   currentCity: z.string().min(2, { message: 'City must be at least 2 characters.' }),
   state: z.string().min(2, { message: 'State must be at least 2 characters.' }),
   pinCode: z.string().min(6, { message: 'Pin code must be 6 digits.' }),
@@ -260,7 +276,7 @@ const sanitizeAndValidateFormData = (data: FormValues, userId: string) => {
 };
 
 /**
- * YFF Team Registration Form Component with Enhanced Error Handling
+ * YFF Team Registration Form Component with Enhanced Age Validation
  */
 export const YffTeamRegistrationForm = () => {
   const { user } = useAuth();
@@ -276,6 +292,7 @@ export const YffTeamRegistrationForm = () => {
   const [existingRegistration, setExistingRegistration] = useState<any>(null);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [submitAttempts, setSubmitAttempts] = useState(0);
+  const [ageErrors, setAgeErrors] = useState<string[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -311,6 +328,33 @@ export const YffTeamRegistrationForm = () => {
     formData: watchedValues,
     formType: 'yff_team_registration',
   });
+
+  // Real-time age validation
+  useEffect(() => {
+    const errors: string[] = [];
+    
+    // Check leader age
+    if (watchedValues.dateOfBirth) {
+      const leaderAgeValidation = validateAge(watchedValues.dateOfBirth);
+      if (!leaderAgeValidation.isValid) {
+        errors.push(`Team leader: ${leaderAgeValidation.error}`);
+      }
+    }
+    
+    // Check team members' ages
+    if (watchedValues.teamMembers && watchedValues.teamMembers.length > 0) {
+      watchedValues.teamMembers.forEach((member, index) => {
+        if (member.dateOfBirth) {
+          const memberAgeValidation = validateAge(member.dateOfBirth);
+          if (!memberAgeValidation.isValid) {
+            errors.push(`Team member ${index + 1}: ${memberAgeValidation.error}`);
+          }
+        }
+      });
+    }
+    
+    setAgeErrors(errors);
+  }, [watchedValues.dateOfBirth, watchedValues.teamMembers]);
 
   // Create a basic profile for authenticated users who don't have one
   const createBasicProfile = async () => {
@@ -515,7 +559,7 @@ export const YffTeamRegistrationForm = () => {
     setFieldErrors({});
 
     try {
-      console.log('🚀 Starting registration submission...', {
+      console.log('🚀 Starting registration submission with age validation...', {
         attempt: submitAttempts + 1,
         userId: user.id,
         email: user.email,
@@ -538,23 +582,39 @@ export const YffTeamRegistrationForm = () => {
         return;
       }
 
-      // Validate and sanitize form data
+      // Validate and sanitize form data with age validation
       const validation = validateFormData(data);
       if (!validation.isValid) {
         setValidationErrors(validation.errors);
         setFieldErrors(validation.fieldErrors);
         
-        toast({
-          title: 'Validation Failed',
-          description: 'Please fix the form errors and try again.',
-          variant: 'destructive',
-        });
+        // Check for age-related errors
+        const ageErrorMessages = validation.errors.filter(error => 
+          error.includes('must be between 18 and 27') || 
+          error.includes('at least 18 years old') ||
+          error.includes('27 years old or younger')
+        );
+        
+        if (ageErrorMessages.length > 0) {
+          console.error('❌ Age validation failed:', ageErrorMessages);
+          toast({
+            title: 'Age Requirement Not Met',
+            description: 'All team members must be between 18 and 27 years old to register.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Validation Failed',
+            description: 'Please fix the form errors and try again.',
+            variant: 'destructive',
+          });
+        }
         return;
       }
 
       const submissionData = sanitizeAndValidateFormData(data, user.id);
       
-      console.log('📤 Submitting registration data:', {
+      console.log('📤 Submitting registration data with age validation passed:', {
         userId: user.id,
         email: submissionData.email,
         teamName: submissionData.team_name,
@@ -570,7 +630,7 @@ export const YffTeamRegistrationForm = () => {
         return;
       }
 
-      console.log('✅ Registration submitted successfully');
+      console.log('✅ Registration submitted successfully with age validation');
       
       // Clear autosaved data after successful submission
       await clearSavedData();
@@ -591,6 +651,7 @@ export const YffTeamRegistrationForm = () => {
       setValidationErrors([]);
       setFieldErrors({});
       setSubmitAttempts(0);
+      setAgeErrors([]);
       
       // Redirect to questionnaire
       navigate('/yff/questionnaire');
@@ -745,9 +806,27 @@ export const YffTeamRegistrationForm = () => {
           YFF Team Registration
         </h1>
         <p className="text-gray-600">
-          Register your team for the Young Founders Fellowship program
+          Register your team for the Young Founders Fellowship program (Ages 18-27)
         </p>
       </div>
+
+      {/* Show age validation errors */}
+      {ageErrors.length > 0 && (
+        <Alert className="mb-6 bg-red-50 border-red-200">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            <div className="font-semibold mb-2">Age Requirement Not Met:</div>
+            <ul className="list-disc list-inside space-y-1">
+              {ageErrors.map((error, index) => (
+                <li key={index} className="text-sm">{error}</li>
+              ))}
+            </ul>
+            <div className="mt-2 text-sm">
+              All team members must be between 18 and 27 years old to register.
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Show submission attempts warning */}
       {submitAttempts > 0 && (
@@ -804,11 +883,12 @@ export const YffTeamRegistrationForm = () => {
           <div className="flex justify-end pt-6">
             <Button 
               type="submit" 
-              disabled={isSubmitting || submitAttempts >= 3}
+              disabled={isSubmitting || submitAttempts >= 3 || ageErrors.length > 0}
               className="min-w-32"
             >
               {isSubmitting ? 'Submitting...' : 
                submitAttempts >= 3 ? 'Too Many Attempts' : 
+               ageErrors.length > 0 ? 'Age Requirements Not Met' :
                'Submit Registration'}
             </Button>
           </div>

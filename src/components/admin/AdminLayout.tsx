@@ -31,6 +31,7 @@ import {
   LogOut,
   User,
   Menu,
+  Shield,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -41,7 +42,7 @@ interface AdminLayoutProps {
  * Admin Layout Component
  * 
  * Provides admin-specific layout without duplicating global Navigation/Footer
- * Only renders admin navigation and content wrapper
+ * Only renders admin navigation and content wrapper with distinct admin theme
  */
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const { user, signOut } = useAuth();
@@ -53,19 +54,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   const navigationItems = [
     { 
-      path: '/admin/crm', 
-      label: 'Dashboard', 
-      icon: LayoutDashboard 
+      path: '/admin/mentor-applications', 
+      label: 'Mentor Applications', 
+      icon: UserCheck 
     },
     { 
       path: '/admin/yff-applications', 
       label: 'YFF Applications', 
       icon: Users 
-    },
-    { 
-      path: '/admin/mentor-applications', 
-      label: 'Mentor Applications', 
-      icon: UserCheck 
     },
     { 
       path: '/admin/analytics', 
@@ -90,25 +86,28 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Admin-specific header - NOT the main Navigation */}
-      <header className="bg-white shadow-sm border-b">
+      {/* Admin-specific header with distinct theme - NOT the main Navigation */}
+      <header className="bg-slate-900 shadow-lg border-b border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Admin Logo and Title */}
+            {/* Admin Logo and Title with distinct styling */}
             <div className="flex items-center">
-              <img 
-                src="/lovable-uploads/72856c44-6ead-48de-8838-a00fe8990bad.png" 
-                alt="26ideas" 
-                className="h-8 w-auto mr-3"
-              />
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">Admin CRM</h1>
-                <p className="text-xs text-gray-500">Young Founders Platform</p>
+              <div className="flex items-center mr-8">
+                <Shield className="h-8 w-8 text-blue-400 mr-3" />
+                <div>
+                  <h1 className="text-xl font-bold text-white">Admin Dashboard</h1>
+                  <p className="text-xs text-slate-300">Young Founders Platform</p>
+                </div>
               </div>
+              
+              {/* Admin Badge to clearly identify admin zone */}
+              <Badge variant="secondary" className="bg-blue-600 text-white border-blue-500">
+                Admin Zone
+              </Badge>
             </div>
 
-            {/* Admin Navigation */}
-            <nav className="hidden md:flex space-x-4">
+            {/* Admin Navigation - only admin-specific items */}
+            <nav className="hidden md:flex space-x-1">
               {navigationItems.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -117,8 +116,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     to={item.path}
                     className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       isActiveRoute(item.path)
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800'
                     }`}
                   >
                     <Icon className="h-4 w-4 mr-2" />
@@ -128,15 +127,15 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               })}
             </nav>
 
-            {/* User Menu */}
+            {/* User Menu with dark theme */}
             <div className="flex items-center space-x-4">
-              <Badge variant="outline" className="hidden sm:inline-flex">
+              <Badge variant="outline" className="hidden sm:inline-flex border-slate-600 text-slate-300">
                 Admin User
               </Badge>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <Button variant="ghost" size="sm" className="flex items-center space-x-2 text-slate-300 hover:text-white hover:bg-slate-800">
                     <User className="h-4 w-4" />
                     <span className="hidden sm:inline">{user?.email}</span>
                   </Button>
@@ -159,10 +158,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Mobile Menu */}
+              {/* Mobile Menu with dark theme */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild className="md:hidden">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-slate-800">
                     <Menu className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -185,9 +184,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
       </header>
 
-      {/* Admin Content - wrapped without additional layout */}
+      {/* Admin Content - wrapped with distinct background */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          {children}
+        </div>
       </main>
       
       {/* NO Footer rendered here - handled by App.tsx globally */}

@@ -44,13 +44,14 @@ type TeamRegistrationData = z.infer<typeof teamRegistrationSchema>;
  * Handles team leader registration with comprehensive validation and error handling
  */
 export const YffTeamRegistrationForm = () => {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasExistingRegistration, setHasExistingRegistration] = useState(false);
   const [countryCode, setCountryCode] = useState("+91");
   const [countryIsoCode, setCountryIsoCode] = useState("IN");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Scroll to top when component mounts
   useEffect(() => {
@@ -106,54 +107,41 @@ export const YffTeamRegistrationForm = () => {
   };
 
   /**
-   * Creates or updates individual profile in the database
+   * Validates form data and updates validation errors
    */
-  const ensureIndividualExists = async () => {
-    if (!user) return false;
+  const validateFormData = (data: TeamRegistrationData): string[] => {
+    const errors: string[] = [];
 
-    try {
-      // Check if individual exists
-      const { data: existingIndividual, error: checkError } = await supabase
-        .from('individuals')
-        .select('*')
-        .eq('individual_id', user.id)
-        .maybeSingle();
+    // Check required fields
+    if (!data.fullName?.trim()) errors.push("Full name is required");
+    if (!data.email?.trim()) errors.push("Email is required");
+    if (!data.phoneNumber?.trim()) errors.push("Phone number is required");
+    if (!data.dateOfBirth) errors.push("Date of birth is required");
+    if (!data.institutionName?.trim()) errors.push("Institution name is required");
+    if (!data.courseProgram?.trim()) errors.push("Course/Program is required");
+    if (!data.currentCity?.trim()) errors.push("Current city is required");
+    if (!data.state?.trim()) errors.push("State is required");
+    if (!data.pinCode?.trim()) errors.push("PIN code is required");
+    if (!data.permanentAddress?.trim()) errors.push("Permanent address is required");
 
-      if (checkError) {
-        console.error("❌ Error checking individual:", checkError);
-        return false;
-      }
-
-      if (existingIndividual) {
-        console.log("✅ Individual profile already exists");
-        return true;
-      }
-
-      // Create individual profile
-      const { error: insertError } = await supabase
-        .from('individuals')
-        .insert([{
-          individual_id: user.id,
-          email: user.email || "",
-          first_name: user.user_metadata?.first_name || "",
-          last_name: user.user_metadata?.last_name || "",
-          is_active: true,
-          email_verified: user.email_confirmed_at ? true : false,
-          privacy_consent: true,
-          data_processing_consent: true,
-        }]);
-
-      if (insertError) {
-        console.error("❌ Error creating individual:", insertError);
-        return false;
-      }
-
-      console.log("✅ Individual profile created successfully");
-      return true;
-    } catch (error) {
-      console.error("❌ Unexpected error in ensureIndividualExists:", error);
-      return false;
+    // Validate formats
+    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      errors.push("Please enter a valid email address");
     }
+
+    if (data.linkedinProfile && !/^https?:\/\/(www\.)?linkedin\.com\/in\//.test(data.linkedinProfile)) {
+      errors.push("Please enter a valid LinkedIn profile URL");
+    }
+
+    if (data.phoneNumber && (data.phoneNumber.length < 10 || data.phoneNumber.length > 15)) {
+      errors.push("Phone number must be between 10-15 digits");
+    }
+
+    if (data.pinCode && (data.pinCode.length !== 6 || !/^\d{6}$/.test(data.pinCode))) {
+      errors.push("PIN code must be exactly 6 digits");
+    }
+
+    return errors;
   };
 
   /**
@@ -167,6 +155,15 @@ export const YffTeamRegistrationForm = () => {
       return;
     }
 
+    // Check if user profile exists - this should exist for authenticated users
+    if (!userProfile) {
+      const errorMsg = "User profile not found. Please contact support.";
+      setSubmitError(errorMsg);
+      toast.error(errorMsg);
+      console.error("❌ User profile not found for authenticated user:", user.id);
+      return;
+    }
+
     if (hasExistingRegistration) {
       const errorMsg = "You have already registered for this program. Multiple registrations are not allowed.";
       setSubmitError(errorMsg);
@@ -174,18 +171,25 @@ export const YffTeamRegistrationForm = () => {
       return;
     }
 
+    // Validate form data
+    const formErrors = validateFormData(data);
+    if (formErrors.length > 0) {
+      setValidationErrors(formErrors);
+      setSubmitError("Please fix the errors below before submitting.");
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
+    setValidationErrors([]);
 
     try {
-      // Ensure individual profile exists before registering
-      const individualCreated = await ensureIndividualExists();
-      if (!individualCreated) {
-        throw new Error("Failed to create or verify individual profile");
-      }
+      // Use existing individual_id from authenticated user's profile
+      const individualId = userProfile.individual_id;
+      console.log("✅ Using existing individual_id:", individualId);
 
       const registrationData = {
-        individual_id: user.id,
+        individual_id: individualId,
         full_name: data.fullName.trim(),
         email: data.email.trim(),
         linkedin_profile: data.linkedinProfile?.trim() || null,
@@ -215,11 +219,17 @@ export const YffTeamRegistrationForm = () => {
         
         // Handle specific error types
         if (error.code === '23505') {
-          const errorMsg = "A registration with this email or team leader already exists. Please contact support if you believe this is an error.";
-          setSubmitError(errorMsg);
-          toast.error(errorMsg);
+          if (error.message.includes('individual_id')) {
+            const errorMsg = "You have already registered for this event.";
+            setSubmitError(errorMsg);
+            toast.error(errorMsg);
+          } else {
+            const errorMsg = "A registration with this information already exists. Please contact support if you believe this is an error.";
+            setSubmitError(errorMsg);
+            toast.error(errorMsg);
+          }
         } else if (error.code === '23503') {
-          const errorMsg = "There was an issue with your profile. Please sign out and sign in again, then try registering.";
+          const errorMsg = "There was an issue with your profile. Please contact support.";
           setSubmitError(errorMsg);
           toast.error(errorMsg);
         } else if (error.code === '23514') {
@@ -254,6 +264,9 @@ export const YffTeamRegistrationForm = () => {
   const handleInputChange = () => {
     if (submitError) {
       setSubmitError(null);
+    }
+    if (validationErrors.length > 0) {
+      setValidationErrors([]);
     }
   };
 
@@ -307,13 +320,20 @@ export const YffTeamRegistrationForm = () => {
         </div>
 
         {/* Error Banner */}
-        {submitError && (
+        {(submitError || validationErrors.length > 0) && (
           <div className="max-w-5xl mx-auto mb-8">
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-semibold text-red-800 mb-1">Registration Error</h3>
-                <p className="text-red-700">{submitError}</p>
+                {submitError && <p className="text-red-700 mb-2">{submitError}</p>}
+                {validationErrors.length > 0 && (
+                  <ul className="text-red-700 text-sm space-y-1">
+                    {validationErrors.map((error, index) => (
+                      <li key={index}>• {error}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </div>

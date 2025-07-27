@@ -171,6 +171,11 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   );
 
   /**
+   * Checks if the phone number is valid (exactly 10 digits)
+   */
+  const isPhoneNumberValid = value.replace(/[^0-9]/g, '').length === 10;
+
+  /**
    * Handles country selection from dropdown
    * Updates both country code and ISO code
    * 
@@ -184,15 +189,19 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
 
   /**
    * Handles phone number input changes
-   * Only allows numeric input and common phone number characters
+   * Only allows numeric input and enforces exactly 10 digits
    * 
    * @param e - Input change event
    */
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
-    // Allow only numbers, spaces, hyphens, and parentheses
-    const sanitizedValue = inputValue.replace(/[^0-9\s\-\(\)]/g, '');
-    onChange?.(sanitizedValue);
+    // Allow only numbers
+    const numericValue = inputValue.replace(/[^0-9]/g, '');
+    
+    // Limit to exactly 10 digits
+    const limitedValue = numericValue.slice(0, 10);
+    
+    onChange?.(limitedValue);
   };
 
   /**
@@ -323,6 +332,8 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
           className={cn(
             "rounded-l-none border-l-0 focus:border-l-0",
             error && "border-destructive focus:border-destructive",
+            value && !isPhoneNumberValid && "border-yellow-500 focus:border-yellow-500",
+            value && isPhoneNumberValid && "border-green-500 focus:border-green-500",
             "flex-1"
           )}
           aria-invalid={!!error}
@@ -334,6 +345,19 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
       {error && (
         <p id="phone-error" className="text-sm text-destructive">
           {error}
+        </p>
+      )}
+
+      {/* Validation Message */}
+      {value && !error && (
+        <p className={cn(
+          "text-sm",
+          isPhoneNumberValid ? "text-green-600" : "text-yellow-600"
+        )}>
+          {isPhoneNumberValid 
+            ? "✓ Phone number is valid" 
+            : `Phone number must be exactly 10 digits (${value.replace(/[^0-9]/g, '').length}/10)`
+          }
         </p>
       )}
     </div>

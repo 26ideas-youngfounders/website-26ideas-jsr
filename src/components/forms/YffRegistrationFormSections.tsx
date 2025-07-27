@@ -164,6 +164,7 @@ export const YffRegistrationFormSections: React.FC<YffRegistrationFormSectionsPr
                     value={field.value || ''}
                     onChange={field.onChange}
                     placeholder="Enter phone number"
+                    label=""
                   />
                 </FormControl>
                 <FormMessage />
@@ -351,7 +352,7 @@ export const YffRegistrationFormSections: React.FC<YffRegistrationFormSectionsPr
               variant="outline"
               size="sm"
               onClick={handleAddTeamMember}
-              disabled={numberOfTeamMembers >= 5}
+              disabled={numberOfTeamMembers >= 4}
             >
               <Plus className="w-4 h-4" />
             </Button>

@@ -62,8 +62,10 @@ const Index = () => {
       )}
 
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-blue-500 to-blue-600 py-20 px-4">
-        <div className="container mx-auto text-center">
+      <section className="relative h-[100vh] flex items-center justify-center overflow-hidden">
+        <video src="/WhatsApp Video 2025-07-23 at 17.34.36.mp4" loop autoPlay muted playsInline className="absolute inset-0 w-full h-full object-cover z-0"></video>
+        <div className="absolute inset-0 bg-black opacity-50 z-0"></div>
+        <div className="container mx-auto text-center relative z-10">
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
             The world's leading<br />
             private community for<br />

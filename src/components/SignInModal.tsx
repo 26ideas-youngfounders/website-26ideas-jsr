@@ -1,364 +1,305 @@
 
-import { useState, useEffect } from "react";
-import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { PhoneInput } from "@/components/ui/phone-input";
-import { useAuth } from "@/hooks/useAuth";
-// Remove this line
-// import { useToast } from "@/hooks/use-toast";
-// Add this line instead
-import { toast } from "sonner";
+import React, { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Eye, EyeOff, Loader2, Mail, Lock, User, UserPlus } from 'lucide-react';
 
 interface SignInModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  defaultTab?: 'signin' | 'signup';
 }
 
-/**
- * SignInModal component for user authentication
- * Provides sign-in and sign-up functionality with social login options
- */
-const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [countryCode, setCountryCode] = useState("+91"); // Default to India
-  const [countryIsoCode, setCountryIsoCode] = useState("IN"); // Default to India
-  const [privacyConsent, setPrivacyConsent] = useState(false);
-  const [dataProcessingConsent, setDataProcessingConsent] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { signInWithGoogle, signInWithFacebook, signUp, signIn } = useAuth();
-  // Remove this line
-  // const { toast } = useToast();
+export const SignInModal: React.FC<SignInModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  defaultTab = 'signin' 
+}) => {
+  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const { signIn, signUp } = useAuth();
+  const { toast } = useToast();
 
-  // Console warning for text readability
-  useEffect(() => {
-    if (isOpen) {
-      console.warn("🔍 SignInModal: Ensuring all text elements use dark colors for readability on light background");
-    }
-  }, [isOpen]);
+  // Sign In Form State
+  const [signInData, setSignInData] = useState({
+    email: '',
+    password: '',
+  });
 
-  if (!isOpen) return null;
+  // Sign Up Form State
+  const [signUpData, setSignUpData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    
+    setIsLoading(true);
+
     try {
-      if (isSignUp) {
-        // Validate required fields for sign-up
-        if (!firstName.trim()) {
-          console.error("❌ Sign-up validation failed: Missing first name");
-          return;
-        }
-        
-        if (!lastName.trim()) {
-          console.error("❌ Sign-up validation failed: Missing last name");
-          return;
-        }
-        
-        if (!privacyConsent) {
-          console.error("❌ Sign-up validation failed: Privacy consent not given");
-          return;
-        }
-        
-        if (!dataProcessingConsent) {
-          console.error("❌ Sign-up validation failed: Data processing consent not given");
-          return;
-        }
-
-        // Validate phone number is exactly 10 digits
-        if (phoneNumber.trim() && phoneNumber.trim().replace(/[^0-9]/g, '').length !== 10) {
-          console.error("❌ Sign-up validation failed: Phone number must be exactly 10 digits");
-          toast.error("Invalid Phone Number", {
-            description: "Phone number must be exactly 10 digits.",
-          });
-          return;
-        }
-
-        const { error } = await signUp(email, password, {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          privacyConsent,
-          dataProcessingConsent,
-          countryCode,
-          countryIsoCode,
-          phoneNumber: phoneNumber.trim() || undefined,
+      const result = await signIn(signInData.email, signInData.password);
+      
+      if (result.error) {
+        toast({
+          title: 'Sign In Failed',
+          description: result.error,
+          variant: 'destructive',
         });
-
-        if (!error) {
-          console.log("✅ Sign-up successful - closing modal and showing home page");
-          onClose(); // Close modal immediately
-          onSuccess?.(); // Trigger any success callbacks
-        }
       } else {
-        const { error } = await signIn(email, password);
-        if (!error) {
-          console.log("✅ Sign-in successful - closing modal and showing home page");
-          onClose(); // Close modal immediately
-          onSuccess?.(); // Trigger any success callbacks
-        } else if ((error as any).isUserNotFound) {
-          // Display a more specific message for unregistered emails
-          console.log("⚠️ Account not found with this email");
-          // Replace this
-          // toast({
-          //   title: "Account Not Found",
-          //   description: "No account found with this email. Please sign up first.",
-          //   variant: "destructive",
-          // });
-          // With this
-          toast.error("Account Not Found", {
-            description: "No account found with this email. Please sign up first.",
-          });
-        }
+        toast({
+          title: 'Welcome back!',
+          description: 'You have been successfully signed in.',
+        });
+        onClose();
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSocialLogin = async (provider: 'google' | 'facebook') => {
-    try {
-      if (provider === 'google') {
-        await signInWithGoogle();
-      } else {
-        await signInWithFacebook();
-      }
-      console.log(`✅ ${provider} sign-in initiated - closing modal`);
-      onClose(); // Close modal immediately
-      onSuccess?.(); // Trigger any success callbacks
     } catch (error) {
-      console.error(`❌ ${provider} sign-in failed:`, error);
+      toast({
+        title: 'Sign In Failed',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleCountryChange = (newCountryCode: string, newIsoCode: string) => {
-    setCountryCode(newCountryCode);
-    setCountryIsoCode(newIsoCode);
-    console.log("📱 Country selection changed:", { countryCode: newCountryCode, isoCode: newIsoCode });
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (signUpData.password !== signUpData.confirmPassword) {
+      toast({
+        title: 'Password Mismatch',
+        description: 'Passwords do not match. Please check and try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const result = await signUp(
+        signUpData.email, 
+        signUpData.password, 
+        signUpData.firstName, 
+        signUpData.lastName
+      );
+      
+      if (result.error) {
+        toast({
+          title: 'Sign Up Failed',
+          description: result.error,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Account Created!',
+          description: 'Your account has been created successfully. Please check your email for verification.',
+        });
+        onClose();
+      }
+    } catch (error) {
+      toast({
+        title: 'Sign Up Failed',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      
-      {/* Modal - with explicit white background and dark text */}
-      <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
-        {/* Close button - dark color for visibility */}
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-600 hover:text-gray-900 transition-colors z-10"
-        >
-          <X size={18} />
-        </button>
-
-        <div className="p-5">
-          {/* Content - dark text colors */}
-          <div className="text-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900 mb-1">
-              {isSignUp ? "Create Account" : "Welcome Back"}
-            </h2>
-            <p className="text-sm text-gray-600">
-              {isSignUp 
-                ? "Join our community"
-                : "Sign in to continue"
-              }
-            </p>
-          </div>
-
-          {/* Social Login Buttons - with dark text */}
-          <div className="space-y-2 mb-4">
-            <Button
-              onClick={() => handleSocialLogin('google')}
-              variant="outline"
-              className="w-full flex items-center justify-center gap-2 py-2 text-sm bg-white border-gray-300 text-gray-900 hover:bg-gray-50 hover:text-gray-900"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              Google
-            </Button>
-
-            <Button
-              onClick={() => handleSocialLogin('facebook')}
-              variant="outline"
-              className="w-full flex items-center justify-center gap-2 py-2 text-sm bg-white border-gray-300 text-gray-900 hover:bg-gray-50 hover:text-gray-900"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24">
-                <path
-                  fill="#1877F2"
-                  d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
-                />
-              </svg>
-              Facebook
-            </Button>
-          </div>
-
-          {/* Divider - dark text */}
-          <div className="relative mb-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-white px-2 text-gray-600">or</span>
-            </div>
-          </div>
-
-          {/* Email/Password Form - dark text and proper input styling */}
-          <form onSubmit={handleEmailSubmit} className="space-y-3 mb-4">
-            {isSignUp && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="firstName" className="text-xs font-medium text-gray-900">First Name *</Label>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Welcome</DialogTitle>
+        </DialogHeader>
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="signin">Sign In</TabsTrigger>
+            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="signin" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Sign In
+                </CardTitle>
+                <CardDescription>
+                  Enter your credentials to access your account
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-email">Email</Label>
                     <Input
-                      id="firstName"
-                      type="text"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="First name"
+                      id="signin-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={signInData.email}
+                      onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
                       required
-                      className="h-9 text-sm bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:border-gray-500 focus:ring-gray-500"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="lastName" className="text-xs font-medium text-gray-900">Last Name *</Label>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-password">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="signin-password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={signInData.password}
+                        onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing in...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="mr-2 h-4 w-4" />
+                        Sign In
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="signup" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserPlus className="h-5 w-5" />
+                  Create Account
+                </CardTitle>
+                <CardDescription>
+                  Join our community of young founders
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-firstname">First Name</Label>
+                      <Input
+                        id="signup-firstname"
+                        type="text"
+                        placeholder="John"
+                        value={signUpData.firstName}
+                        onChange={(e) => setSignUpData({ ...signUpData, firstName: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-lastname">Last Name</Label>
+                      <Input
+                        id="signup-lastname"
+                        type="text"
+                        placeholder="Doe"
+                        value={signUpData.lastName}
+                        onChange={(e) => setSignUpData({ ...signUpData, lastName: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email">Email</Label>
                     <Input
-                      id="lastName"
-                      type="text"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      placeholder="Last name"
+                      id="signup-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={signUpData.email}
+                      onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
                       required
-                      className="h-9 text-sm bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:border-gray-500 focus:ring-gray-500"
                     />
                   </div>
-                </div>
-
-                {/* Phone number with country code */}
-                <div>
-                  <PhoneInput
-                    label="Phone Number"
-                    value={phoneNumber}
-                    onChange={setPhoneNumber}
-                    countryCode={countryCode}
-                    countryIsoCode={countryIsoCode}
-                    onCountryChange={handleCountryChange}
-                    placeholder="Enter phone number"
-                    className="text-sm [&_label]:text-gray-900 [&_input]:bg-white [&_input]:border-gray-300 [&_input]:text-gray-900 [&_input]:placeholder:text-gray-500"
-                  />
-                </div>
-              </>
-            )}
-            
-            <div>
-              <Label htmlFor="email" className="text-xs font-medium text-gray-900">Email Address *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                required
-                className="h-9 text-sm bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:border-gray-500 focus:ring-gray-500"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="password" className="text-xs font-medium text-gray-900">Password *</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                required
-                className="h-9 text-sm bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:border-gray-500 focus:ring-gray-500"
-              />
-            </div>
-
-            {isSignUp && (
-              <div className="space-y-2">
-                <div className="flex items-start space-x-2">
-                  <input
-                    type="checkbox"
-                    id="privacyConsent"
-                    checked={privacyConsent}
-                    onChange={(e) => setPrivacyConsent(e.target.checked)}
-                    className="mt-0.5 accent-gray-900"
-                    required
-                  />
-                  <Label htmlFor="privacyConsent" className="text-xs leading-tight text-gray-900">
-                    I agree to the privacy policy and terms of service *
-                  </Label>
-                </div>
-                
-                <div className="flex items-start space-x-2">
-                  <input
-                    type="checkbox"
-                    id="dataProcessingConsent"
-                    checked={dataProcessingConsent}
-                    onChange={(e) => setDataProcessingConsent(e.target.checked)}
-                    className="mt-0.5 accent-gray-900"
-                    required
-                  />
-                  <Label htmlFor="dataProcessingConsent" className="text-xs leading-tight text-gray-900">
-                    I consent to data processing for community engagement *
-                  </Label>
-                </div>
-              </div>
-            )}
-
-            <Button 
-              type="submit" 
-              className="w-full py-2 text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 focus:bg-gray-800" 
-              disabled={loading}
-            >
-              {loading ? "Please wait..." : (isSignUp ? "Create Account" : "Sign In")}
-            </Button>
-          </form>
-
-          {/* Toggle Sign Up/Sign In - dark text */}
-          <div className="text-center">
-            <p className="text-xs text-gray-600">
-              {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-              <button
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-gray-900 hover:text-gray-700 underline font-medium"
-              >
-                {isSignUp ? "Sign in" : "Sign up"}
-              </button>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="signup-password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={signUpData.password}
+                        onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-confirm-password">Confirm Password</Label>
+                    <Input
+                      id="signup-confirm-password"
+                      type="password"
+                      value={signUpData.confirmPassword}
+                      onChange={(e) => setSignUpData({ ...signUpData, confirmPassword: e.target.value })}
+                      required
+                    />
+                  </div>
+                  
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating account...
+                      </>
+                    ) : (
+                      <>
+                        <User className="mr-2 h-4 w-4" />
+                        Create Account
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   );
 };
-
-export default SignInModal;

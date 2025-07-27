@@ -3,8 +3,17 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+interface UserProfile {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+}
+
 interface AuthContextType {
   user: User | null;
+  userProfile: UserProfile | null;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
@@ -15,12 +24,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        loadUserProfile(session.user);
+      }
       setLoading(false);
     });
 
@@ -29,11 +42,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        loadUserProfile(session.user);
+      } else {
+        setUserProfile(null);
+      }
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const loadUserProfile = async (user: User) => {
+    try {
+      const { data: individual } = await supabase
+        .from('individuals')
+        .select('*')
+        .eq('individual_id', user.id)
+        .single();
+
+      if (individual) {
+        setUserProfile({
+          id: individual.individual_id,
+          email: individual.email,
+          first_name: individual.first_name,
+          last_name: individual.last_name,
+          full_name: `${individual.first_name} ${individual.last_name}`,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    }
+  };
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -136,10 +176,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       console.error('Error signing out:', error);
     }
+    setUserProfile(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signUp, signOut, loading }}>
+    <AuthContext.Provider value={{ user, userProfile, signIn, signUp, signOut, loading }}>
       {children}
     </AuthContext.Provider>
   );

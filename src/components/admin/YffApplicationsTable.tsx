@@ -35,8 +35,8 @@ interface YffRegistration {
   full_name: string;
   email: string;
   phone_number: string;
-  team_name: string;
-  venture_name: string;
+  team_name: string | null;
+  venture_name: string | null;
   application_status: string;
   created_at: string;
   updated_at: string;
@@ -45,7 +45,7 @@ interface YffRegistration {
   institution_name: string;
   current_city: string;
   state: string;
-  industry_sector: string;
+  industry_sector: string | null;
   country_code: string;
   gender: string;
   course_program: string;
@@ -54,10 +54,10 @@ interface YffRegistration {
   date_of_birth: string;
   pin_code: string;
   permanent_address: string;
-  linkedin_profile: string;
-  website: string;
-  social_media_handles: string;
-  referral_id: string;
+  linkedin_profile: string | null;
+  website: string | null;
+  social_media_handles: string | null;
+  referral_id: string | null;
   team_members: any[];
   questionnaire_answers: any;
 }
@@ -77,6 +77,22 @@ export const YffApplicationsTable = () => {
   const [selectedApplication, setSelectedApplication] = useState<YffRegistration | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const { toast } = useToast();
+
+  /**
+   * Parse and normalize team members data
+   */
+  const parseTeamMembers = (teamMembers: any): any[] => {
+    if (!teamMembers) return [];
+    if (Array.isArray(teamMembers)) return teamMembers;
+    if (typeof teamMembers === 'string') {
+      try {
+        return JSON.parse(teamMembers);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
 
   /**
    * Fetch all applications from the database
@@ -102,7 +118,15 @@ export const YffApplicationsTable = () => {
       }
 
       console.log('✅ Applications loaded:', data?.length || 0);
-      setApplications(data || []);
+      
+      // Parse and normalize the data
+      const normalizedData = (data || []).map(app => ({
+        ...app,
+        team_members: parseTeamMembers(app.team_members),
+        questionnaire_answers: app.questionnaire_answers || {}
+      }));
+      
+      setApplications(normalizedData);
     } catch (error) {
       console.error('❌ Unexpected error fetching applications:', error);
       toast({
@@ -148,7 +172,12 @@ export const YffApplicationsTable = () => {
                   description: `New application from ${newRecord.full_name}`,
                   duration: 5000,
                 });
-                return [...prevApps, newRecord as YffRegistration];
+                const normalizedNew = {
+                  ...newRecord,
+                  team_members: parseTeamMembers(newRecord.team_members),
+                  questionnaire_answers: newRecord.questionnaire_answers || {}
+                } as YffRegistration;
+                return [...prevApps, normalizedNew];
               
               case 'UPDATE':
                 console.log('✏️ Application updated:', newRecord);
@@ -157,8 +186,13 @@ export const YffApplicationsTable = () => {
                   description: `${newRecord.full_name}'s application was updated`,
                   duration: 3000,
                 });
+                const normalizedUpdate = {
+                  ...newRecord,
+                  team_members: parseTeamMembers(newRecord.team_members),
+                  questionnaire_answers: newRecord.questionnaire_answers || {}
+                } as YffRegistration;
                 return prevApps.map(app => 
-                  app.id === newRecord.id ? newRecord as YffRegistration : app
+                  app.id === newRecord.id ? normalizedUpdate : app
                 );
               
               case 'DELETE':

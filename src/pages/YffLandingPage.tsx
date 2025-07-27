@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { SignInModal } from '@/components/SignInModal';
@@ -12,22 +12,11 @@ import { Button } from '@/components/ui/button';
 export const YffLandingPage = () => {
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [showTypeformEmbed, setShowTypeformEmbed] = useState(false);
-  const [hasSubmittedTypeform, setHasSubmittedTypeform] = useState(false);
-  const { user } = useAuth();
+  const { user, userProfile, updateTypeformRegistration } = useAuth();
   const navigate = useNavigate();
 
-  // Check if user has already submitted the Typeform
-  useEffect(() => {
-    const checkSubmissionStatus = () => {
-      const submissionStatus = localStorage.getItem('typeformRegistered');
-      if (submissionStatus === '1') {
-        setHasSubmittedTypeform(true);
-        console.log('✅ User has already submitted Typeform - hiding button');
-      }
-    };
-
-    checkSubmissionStatus();
-  }, []);
+  // Get typeform registration status from user profile (database)
+  const hasSubmittedTypeform = userProfile?.typeform_registered || false;
 
   // Handle sign-in success - redirect directly to registration
   const handleSignInSuccess = () => {
@@ -53,22 +42,25 @@ export const YffLandingPage = () => {
   };
 
   // Handle Typeform submission success
-  const handleTypeformSubmit = () => {
-    console.log('✅ Typeform submitted successfully - saving status and redirecting');
-    
-    // Store submission status in localStorage
-    localStorage.setItem('typeformRegistered', '1');
-    
-    // Update state to hide button
-    setHasSubmittedTypeform(true);
-    
-    // Hide the embed
-    setShowTypeformEmbed(false);
-    
-    // Small delay to ensure storage is saved, then redirect
-    setTimeout(() => {
-      window.location.href = '/young-founders-floor';
-    }, 100);
+  const handleTypeformSubmit = async () => {
+    if (!user) return;
+
+    try {
+      console.log('✅ Typeform submitted successfully - updating database and redirecting');
+      
+      // Update the user's typeform registration status in the database
+      await updateTypeformRegistration(true);
+      
+      // Hide the embed
+      setShowTypeformEmbed(false);
+      
+      // Small delay to ensure state is updated, then redirect
+      setTimeout(() => {
+        window.location.href = '/young-founders-floor';
+      }, 100);
+    } catch (error) {
+      console.error('Error updating typeform registration:', error);
+    }
   };
 
   return (

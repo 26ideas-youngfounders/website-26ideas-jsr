@@ -61,6 +61,7 @@ export type Database = {
           last_name: string
           phone_number: string | null
           privacy_consent: boolean
+          typeform_registered: boolean
           updated_at: string
         }
         Insert: {
@@ -76,6 +77,7 @@ export type Database = {
           last_name: string
           phone_number?: string | null
           privacy_consent?: boolean
+          typeform_registered?: boolean
           updated_at?: string
         }
         Update: {
@@ -91,6 +93,7 @@ export type Database = {
           last_name?: string
           phone_number?: string | null
           privacy_consent?: boolean
+          typeform_registered?: boolean
           updated_at?: string
         }
         Relationships: []

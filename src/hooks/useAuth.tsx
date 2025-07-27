@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +8,7 @@ interface UserProfile {
   first_name: string;
   last_name: string;
   full_name: string;
+  typeform_registered: boolean;
 }
 
 interface AuthContextType {
@@ -17,6 +17,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  updateTypeformRegistration: (registered: boolean) => Promise<void>;
   loading: boolean;
 }
 
@@ -68,10 +69,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           first_name: individual.first_name,
           last_name: individual.last_name,
           full_name: `${individual.first_name} ${individual.last_name}`,
+          typeform_registered: individual.typeform_registered || false,
         });
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
+    }
+  };
+
+  const updateTypeformRegistration = async (registered: boolean) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('individuals')
+        .update({ typeform_registered: registered })
+        .eq('individual_id', user.id);
+
+      if (error) {
+        console.error('Error updating typeform registration:', error);
+        throw error;
+      }
+
+      // Update local state
+      if (userProfile) {
+        setUserProfile({
+          ...userProfile,
+          typeform_registered: registered,
+        });
+      }
+
+      console.log(`✅ Typeform registration updated to: ${registered}`);
+    } catch (error) {
+      console.error('Error updating typeform registration:', error);
+      throw error;
     }
   };
 
@@ -150,6 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               country_iso_code: 'IN',
               is_active: true,
               email_verified: false,
+              typeform_registered: false,
             });
 
           if (profileError) {
@@ -180,7 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, signIn, signUp, signOut, loading }}>
+    <AuthContext.Provider value={{ user, userProfile, signIn, signUp, signOut, updateTypeformRegistration, loading }}>
       {children}
     </AuthContext.Provider>
   );

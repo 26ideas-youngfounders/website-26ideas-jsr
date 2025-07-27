@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { SignInModal } from '@/components/SignInModal';
 import { PopupButton } from '@typeform/embed-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 /**
  * Young Founders Floor Landing Page
@@ -14,6 +15,7 @@ export const YffLandingPage = () => {
   const [showSignInModal, setShowSignInModal] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Handle sign-in success - redirect directly to registration
   const handleSignInSuccess = () => {
@@ -36,7 +38,50 @@ export const YffLandingPage = () => {
   // Handle Typeform submission
   const handleTypeformSubmit = () => {
     console.log("✅ Typeform submission completed");
-    // You can add additional logic here like tracking or notifications
+    toast({
+      title: "Registration Submitted!",
+      description: "Thank you for registering via Typeform. We'll be in touch soon.",
+    });
+  };
+
+  // Handle Typeform ready event
+  const handleTypeformReady = () => {
+    console.log("✅ Typeform is ready");
+  };
+
+  // Handle Typeform close event
+  const handleTypeformClose = () => {
+    console.log("ℹ️ Typeform popup closed");
+  };
+
+  // Fallback handler for manual Typeform opening (if PopupButton fails)
+  const handleManualTypeformOpen = () => {
+    console.log("🔄 Attempting to open Typeform manually");
+    
+    // Check if window.tf is available
+    if (typeof window !== 'undefined' && window.tf) {
+      try {
+        window.tf.createPopup("01K16KGT1RZ1HHF3X527EMMVXS", {
+          onSubmit: handleTypeformSubmit,
+          onReady: handleTypeformReady,
+          onClose: handleTypeformClose,
+        }).open();
+      } catch (error) {
+        console.error("❌ Error opening Typeform manually:", error);
+        toast({
+          title: "Error",
+          description: "Unable to open registration form. Please try again or use the direct registration.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      console.error("❌ Typeform embed script not loaded");
+      toast({
+        title: "Error",
+        description: "Registration form is not available. Please try the direct registration instead.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -61,13 +106,28 @@ export const YffLandingPage = () => {
             </button>
             
             {user && (
-              <PopupButton
-                id="01K16KGT1RZ1HHF3X527EMMVXS"
-                className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300"
-                onSubmit={handleTypeformSubmit}
-              >
-                Register via Typeform
-              </PopupButton>
+              <div className="flex flex-col sm:flex-row gap-2 items-center">
+                <PopupButton
+                  id="01K16KGT1RZ1HHF3X527EMMVXS"
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300"
+                  onSubmit={handleTypeformSubmit}
+                  onReady={handleTypeformReady}
+                  onClose={handleTypeformClose}
+                  enableSandbox={false}
+                  autoClose={5000}
+                >
+                  Register via Typeform
+                </PopupButton>
+                
+                {/* Fallback button for debugging */}
+                <Button
+                  onClick={handleManualTypeformOpen}
+                  variant="outline"
+                  className="text-xs px-3 py-1 h-auto"
+                >
+                  Debug: Manual Open
+                </Button>
+              </div>
             )}
           </div>
           
@@ -120,6 +180,7 @@ export const YffLandingPage = () => {
       <SignInModal
         isOpen={showSignInModal}
         onClose={() => setShowSignInModal(false)}
+        onSignInSuccess={handleSignInSuccess}
       />
     </div>
   );

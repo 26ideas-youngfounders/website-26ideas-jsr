@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,7 +31,7 @@ const teamMemberSchema = z.object({
   countryCode: z.string().default('+91'),
   dateOfBirth: z.string()
     .refine((dateString) => {
-      if (!dateString) return false; // Ensure it's not empty if required
+      if (!dateString) return false;
       const dob = parseISO(dateString);
       return isValid(dob);
     }, "Invalid date format")
@@ -62,7 +61,7 @@ const formSchema = z.object({
   countryCode: z.string().default('+91'),
   dateOfBirth: z.string()
     .refine((dateString) => {
-      if (!dateString) return false; // Ensure it's not empty if required
+      if (!dateString) return false;
       const dob = parseISO(dateString);
       return isValid(dob);
     }, "Invalid date format")
@@ -337,30 +336,36 @@ export const YffTeamRegistrationForm = () => {
     formType: 'yff_team_registration',
   });
 
-  // Fetch user's phone number from profile for auto-fill
+  // Fetch user's phone number and date of birth from profile for auto-fill
   useEffect(() => {
-    const fetchUserPhoneNumber = async () => {
+    const fetchUserProfile = async () => {
       if (user?.id) {
         try {
           const { data, error } = await supabase
             .from('individuals')
-            .select('phone_number')
+            .select('phone_number, date_of_birth')
             .eq('individual_id', user.id)
             .single();
           
-          if (error && error.code !== 'PGRST116') { // PGRST116 is 'no rows found'
-            console.error('Error fetching user phone number:', error);
-          } else if (data?.phone_number) {
-            setFetchedPhoneNumber(data.phone_number);
-            form.setValue('phoneNumber', data.phone_number, { shouldValidate: true });
+          if (error && error.code !== 'PGRST116') {
+            console.error('Error fetching user profile:', error);
+          } else if (data) {
+            if (data.phone_number) {
+              setFetchedPhoneNumber(data.phone_number);
+              form.setValue('phoneNumber', data.phone_number, { shouldValidate: true });
+            }
+            if (data.date_of_birth) {
+              setFetchedDateOfBirth(data.date_of_birth);
+              form.setValue('dateOfBirth', data.date_of_birth, { shouldValidate: true });
+            }
           }
         } catch (error) {
-          console.error('Error fetching user phone number:', error);
+          console.error('Error fetching user profile:', error);
         }
       }
     };
     
-    fetchUserPhoneNumber();
+    fetchUserProfile();
   }, [user, form]);
 
   // Update form values when fetched data becomes available
@@ -649,22 +654,30 @@ export const YffTeamRegistrationForm = () => {
 
       console.log('✅ Registration submitted successfully');
       
-      // Save phone number to user's profile for future auto-fill
-      if (user?.id && data.phoneNumber) {
+      // Save phone number and date of birth to user's profile for future auto-fill
+      if (user?.id && (data.phoneNumber || data.dateOfBirth)) {
         try {
+          const updateData: any = {};
+          if (data.phoneNumber) {
+            updateData.phone_number = data.phoneNumber;
+          }
+          if (data.dateOfBirth) {
+            updateData.date_of_birth = data.dateOfBirth;
+          }
+          
           const { error: profileError } = await supabase
             .from('individuals')
-            .update({ phone_number: data.phoneNumber })
+            .update(updateData)
             .eq('individual_id', user.id);
           
           if (profileError) {
-            console.error('❌ Failed to update user profile phone number:', profileError);
+            console.error('❌ Failed to update user profile:', profileError);
             // Don't block registration, just log the error
           } else {
-            console.log('✅ User profile phone number updated/saved.');
+            console.log('✅ User profile updated/saved.');
           }
         } catch (error) {
-          console.error('❌ Error updating user profile phone number:', error);
+          console.error('❌ Error updating user profile:', error);
         }
       }
       

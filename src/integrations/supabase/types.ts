@@ -59,6 +59,7 @@ export type Database = {
           individual_id: string
           is_active: boolean
           last_name: string
+          phone_number: string | null
           privacy_consent: boolean
           updated_at: string
         }
@@ -73,6 +74,7 @@ export type Database = {
           individual_id?: string
           is_active?: boolean
           last_name: string
+          phone_number?: string | null
           privacy_consent?: boolean
           updated_at?: string
         }
@@ -87,6 +89,7 @@ export type Database = {
           individual_id?: string
           is_active?: boolean
           last_name?: string
+          phone_number?: string | null
           privacy_consent?: boolean
           updated_at?: string
         }

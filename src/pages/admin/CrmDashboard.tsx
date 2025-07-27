@@ -1,566 +1,343 @@
 
-/**
- * @fileoverview CRM Dashboard - Main Admin Overview Page
- * 
- * Provides comprehensive overview of both YFF and mentor applications
- * with key metrics, recent activity, and quick action cards.
- * 
- * @version 1.0.0
- * @author 26ideas Development Team
- */
-
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import AdminAuth from '@/components/admin/AdminAuth';
-import AdminLayout from '@/components/admin/AdminLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
+import { AdminLayout } from '@/components/admin/AdminLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Users,
-  UserCheck,
-  Clock,
-  TrendingUp,
-  Eye,
-  Download,
-  BarChart3,
-  AlertCircle,
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  Users, 
+  UserCheck, 
+  Clock, 
+  TrendingUp, 
+  Building,
+  GraduationCap,
+  RefreshCw,
+  Eye
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 
 interface DashboardStats {
-  yffApplications: {
-    total: number;
-    draft: number;
-    submitted: number;
-    under_review: number;
-    approved: number;
-    rejected: number;
-    waitlisted: number;
-  };
-  mentorApplications: {
-    total: number;
-    submitted: number;
-    under_review: number;
-    approved: number;
-    rejected: number;
-  };
-  recent: {
-    yffCount: number;
-    mentorCount: number;
-  };
-  pending: {
-    yffReviews: number;
-    mentorReviews: number;
-  };
+  totalApplications: number;
+  completedApplications: number;
+  pendingApplications: number;
+  todayApplications: number;
+  topInstitutions: Array<{ name: string; count: number }>;
+  topCities: Array<{ name: string; count: number }>;
+  applicationsByStatus: Array<{ status: string; count: number }>;
 }
 
-interface RecentApplication {
-  id: string;
-  type: 'yff' | 'mentor';
-  applicantName: string;
-  email: string;
-  submittedAt: string;
-  status: string;
-}
-
-interface ChartData {
-  name: string;
-  yff: number;
-  mentor: number;
-}
-
-const CrmDashboard: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentApplications, setRecentApplications] = useState<RecentApplication[]>([]);
-  const [chartData, setChartData] = useState<ChartData[]>([]);
+/**
+ * CRM Dashboard with real-time YFF applications overview
+ */
+export const CrmDashboard = () => {
+  const [stats, setStats] = useState<DashboardStats>({
+    totalApplications: 0,
+    completedApplications: 0,
+    pendingApplications: 0,
+    todayApplications: 0,
+    topInstitutions: [],
+    topCities: [],
+    applicationsByStatus: []
+  });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  /**
+   * Fetch dashboard statistics
+   */
+  const fetchDashboardStats = async () => {
     try {
       setLoading(true);
+      console.log('📊 Fetching dashboard statistics...');
+      
+      // Get all applications
+      const { data: applications, error } = await supabase
+        .from('yff_team_registrations')
+        .select('*');
 
-      // Get YFF application stats
-      const { data: yffData, error: yffError } = await supabase
-        .from('yff_applications')
-        .select('status, submitted_at');
-
-      if (yffError) throw yffError;
-
-      // Get mentor application stats
-      const { data: mentorData, error: mentorError } = await supabase
-        .from('mentor_applications')
-        .select('application_status, submitted_at');
-
-      if (mentorError) throw mentorError;
-
-      // Calculate YFF stats
-      const yffStats = {
-        total: yffData?.length || 0,
-        draft: yffData?.filter(app => app.status === 'draft').length || 0,
-        submitted: yffData?.filter(app => app.status === 'submitted').length || 0,
-        under_review: yffData?.filter(app => app.status === 'under_review').length || 0,
-        approved: yffData?.filter(app => app.status === 'approved').length || 0,
-        rejected: yffData?.filter(app => app.status === 'rejected').length || 0,
-        waitlisted: yffData?.filter(app => app.status === 'waitlisted').length || 0,
-      };
-
-      // Calculate mentor stats
-      const mentorStats = {
-        total: mentorData?.length || 0,
-        submitted: mentorData?.filter(app => app.application_status === 'submitted').length || 0,
-        under_review: mentorData?.filter(app => app.application_status === 'under_review').length || 0,
-        approved: mentorData?.filter(app => app.application_status === 'approved').length || 0,
-        rejected: mentorData?.filter(app => app.application_status === 'rejected').length || 0,
-      };
-
-      // Calculate recent applications (last 7 days)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      const recentYff = yffData?.filter(app => 
-        app.submitted_at && new Date(app.submitted_at) > sevenDaysAgo
-      ).length || 0;
-
-      const recentMentor = mentorData?.filter(app => 
-        app.submitted_at && new Date(app.submitted_at) > sevenDaysAgo
-      ).length || 0;
-
-      // Generate chart data for the last 7 days
-      const chartData: ChartData[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        
-        const yffCount = yffData?.filter(app => {
-          if (!app.submitted_at) return false;
-          const appDate = new Date(app.submitted_at);
-          return appDate.toDateString() === date.toDateString();
-        }).length || 0;
-
-        const mentorCount = mentorData?.filter(app => {
-          if (!app.submitted_at) return false;
-          const appDate = new Date(app.submitted_at);
-          return appDate.toDateString() === date.toDateString();
-        }).length || 0;
-
-        chartData.push({
-          name: dateStr,
-          yff: yffCount,
-          mentor: mentorCount,
+      if (error) {
+        console.error('❌ Error fetching applications:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load dashboard data.',
+          variant: 'destructive',
         });
+        return;
       }
 
-      // Set stats
+      // Calculate statistics
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const totalApplications = applications.length;
+      const completedApplications = applications.filter(app => 
+        app.questionnaire_completed_at !== null
+      ).length;
+      const pendingApplications = applications.filter(app => 
+        app.questionnaire_completed_at === null
+      ).length;
+      const todayApplications = applications.filter(app => 
+        new Date(app.created_at) >= today
+      ).length;
+
+      // Top institutions
+      const institutionCounts = applications.reduce((acc, app) => {
+        acc[app.institution_name] = (acc[app.institution_name] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const topInstitutions = Object.entries(institutionCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5)
+        .map(([name, count]) => ({ name, count }));
+
+      // Top cities
+      const cityCounts = applications.reduce((acc, app) => {
+        const cityState = `${app.current_city}, ${app.state}`;
+        acc[cityState] = (acc[cityState] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const topCities = Object.entries(cityCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5)
+        .map(([name, count]) => ({ name, count }));
+
+      // Applications by status
+      const statusCounts = applications.reduce((acc, app) => {
+        acc[app.application_status] = (acc[app.application_status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const applicationsByStatus = Object.entries(statusCounts)
+        .map(([status, count]) => ({ status, count }));
+
       setStats({
-        yffApplications: yffStats,
-        mentorApplications: mentorStats,
-        recent: {
-          yffCount: recentYff,
-          mentorCount: recentMentor,
-        },
-        pending: {
-          yffReviews: yffStats.submitted,
-          mentorReviews: mentorStats.submitted,
-        },
+        totalApplications,
+        completedApplications,
+        pendingApplications,
+        todayApplications,
+        topInstitutions,
+        topCities,
+        applicationsByStatus
       });
 
-      setChartData(chartData);
-
-      // Load recent applications with applicant details
-      await loadRecentApplications();
-
+      console.log('✅ Dashboard statistics loaded:', {
+        totalApplications,
+        completedApplications,
+        pendingApplications,
+        todayApplications
+      });
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      setError('Failed to load dashboard data. Please try again.');
+      console.error('❌ Error fetching dashboard stats:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load dashboard statistics.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const loadRecentApplications = async () => {
-    try {
-      // Get recent YFF applications with individual details
-      const { data: recentYff, error: yffError } = await supabase
-        .from('yff_applications')
-        .select(`
-          application_id,
-          status,
-          submitted_at,
-          individual_id
-        `)
-        .not('submitted_at', 'is', null)
-        .order('submitted_at', { ascending: false })
-        .limit(5);
+  /**
+   * Set up real-time updates
+   */
+  useEffect(() => {
+    // Initial load
+    fetchDashboardStats();
 
-      if (yffError) {
-        console.error('YFF error:', yffError);
-      }
+    // Set up real-time subscription
+    console.log('🔄 Setting up real-time subscription for dashboard...');
+    
+    const channel = supabase
+      .channel('crm_dashboard_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'yff_team_registrations'
+        },
+        () => {
+          console.log('📡 Dashboard update received, refreshing stats...');
+          fetchDashboardStats();
+        }
+      )
+      .subscribe();
 
-      // Get recent mentor applications with individual details
-      const { data: recentMentor, error: mentorError } = await supabase
-        .from('mentor_applications')
-        .select(`
-          application_id,
-          application_status,
-          submitted_at,
-          individual_id
-        `)
-        .order('submitted_at', { ascending: false })
-        .limit(5);
-
-      if (mentorError) {
-        console.error('Mentor error:', mentorError);
-      }
-
-      // Get individual details for the applications
-      const allIndividualIds = [
-        ...(recentYff || []).map(app => app.individual_id),
-        ...(recentMentor || []).map(app => app.individual_id)
-      ];
-
-      const { data: individuals, error: individualsError } = await supabase
-        .from('individuals')
-        .select('individual_id, first_name, last_name, email')
-        .in('individual_id', allIndividualIds);
-
-      if (individualsError) {
-        console.error('Individuals error:', individualsError);
-      }
-
-      // Create a map of individual data
-      const individualsMap = new Map();
-      individuals?.forEach(individual => {
-        individualsMap.set(individual.individual_id, individual);
-      });
-
-      // Combine and format recent applications
-      const combined: RecentApplication[] = [
-        ...(recentYff || []).map(app => {
-          const individual = individualsMap.get(app.individual_id);
-          return {
-            id: app.application_id,
-            type: 'yff' as const,
-            applicantName: individual ? 
-              `${individual.first_name} ${individual.last_name}`.trim() || 'No name' : 
-              'No name',
-            email: individual?.email || 'No email',
-            submittedAt: app.submitted_at,
-            status: app.status,
-          };
-        }),
-        ...(recentMentor || []).map(app => {
-          const individual = individualsMap.get(app.individual_id);
-          return {
-            id: app.application_id,
-            type: 'mentor' as const,
-            applicantName: individual ? 
-              `${individual.first_name} ${individual.last_name}`.trim() || 'No name' : 
-              'No name',
-            email: individual?.email || 'No email',
-            submittedAt: app.submitted_at,
-            status: app.application_status,
-          };
-        }),
-      ].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-       .slice(0, 10);
-
-      setRecentApplications(combined);
-    } catch (error) {
-      console.error('Error loading recent applications:', error);
-    }
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'default'; // Green
-      case 'rejected':
-        return 'destructive'; // Red
-      case 'under_review':
-        return 'secondary'; // Blue
-      case 'submitted':
-        return 'outline'; // Yellow
-      default:
-        return 'outline';
-    }
-  };
+    // Cleanup
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   if (loading) {
     return (
-      <AdminAuth>
-        <AdminLayout>
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[1, 2, 3, 4].map(i => (
-                <Card key={i} className="animate-pulse">
-                  <CardHeader className="pb-3">
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-8 bg-gray-200 rounded w-1/2 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-full"></div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5 animate-spin" />
+            <span>Loading dashboard...</span>
           </div>
-        </AdminLayout>
-      </AdminAuth>
-    );
-  }
-
-  if (error) {
-    return (
-      <AdminAuth>
-        <AdminLayout>
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        </AdminLayout>
-      </AdminAuth>
+        </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <AdminAuth>
-      <AdminLayout>
-        <div className="space-y-6">
-          {/* Header */}
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">CRM Dashboard</h1>
-            <p className="text-gray-600">Overview of applications and recent activity</p>
+            <h1 className="text-2xl font-bold">CRM Dashboard</h1>
+            <p className="text-gray-600">
+              YFF Applications overview and analytics
+            </p>
           </div>
-
-          {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                  <Users className="h-4 w-4 mr-2" />
-                  YFF Applications
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{stats?.yffApplications.total || 0}</div>
-                <div className="text-xs text-gray-500 space-y-1 mt-2">
-                  <div>Submitted: {stats?.yffApplications.submitted || 0}</div>
-                  <div>Under Review: {stats?.yffApplications.under_review || 0}</div>
-                  <div>Approved: {stats?.yffApplications.approved || 0}</div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                  <UserCheck className="h-4 w-4 mr-2" />
-                  Mentor Applications
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{stats?.mentorApplications.total || 0}</div>
-                <div className="text-xs text-gray-500 space-y-1 mt-2">
-                  <div>Submitted: {stats?.mentorApplications.submitted || 0}</div>
-                  <div>Under Review: {stats?.mentorApplications.under_review || 0}</div>
-                  <div>Approved: {stats?.mentorApplications.approved || 0}</div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Recent Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">
-                  {(stats?.recent.yffCount || 0) + (stats?.recent.mentorCount || 0)}
-                </div>
-                <div className="text-xs text-gray-500 mt-2">
-                  Last 7 days: {stats?.recent.yffCount || 0} YFF, {stats?.recent.mentorCount || 0} Mentor
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                  <Clock className="h-4 w-4 mr-2" />
-                  Pending Reviews
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">
-                  {(stats?.pending.yffReviews || 0) + (stats?.pending.mentorReviews || 0)}
-                </div>
-                <div className="text-xs text-gray-500 mt-2">
-                  {stats?.pending.yffReviews || 0} YFF, {stats?.pending.mentorReviews || 0} Mentor
-                </div>
-              </CardContent>
-            </Card>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fetchDashboardStats}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button 
+              onClick={() => navigate('/admin/yff-applications')}
+              size="sm"
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              View All Applications
+            </Button>
           </div>
+        </div>
 
-          {/* Analytics Chart */}
+        {/* Key Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Application Trends (Last 7 Days)</CardTitle>
-              <CardDescription>
-                Daily application submissions for YFF and Mentor programs
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="yff" fill="#3b82f6" name="YFF Applications" />
-                  <Bar dataKey="mentor" fill="#10b981" name="Mentor Applications" />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="text-2xl font-bold">{stats.totalApplications}</div>
+              <p className="text-xs text-muted-foreground">
+                All time registrations
+              </p>
             </CardContent>
           </Card>
 
-          {/* Quick Action Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <Link to="/admin/yff-applications">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">Review YFF Applications</CardTitle>
-                  <CardDescription>
-                    {stats?.pending.yffReviews || 0} applications waiting for review
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button size="sm" className="w-full">
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Applications
-                  </Button>
-                </CardContent>
-              </Link>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <Link to="/admin/mentor-applications">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">Review Mentor Applications</CardTitle>
-                  <CardDescription>
-                    {stats?.pending.mentorReviews || 0} applications waiting for review
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button size="sm" className="w-full">
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Applications
-                  </Button>
-                </CardContent>
-              </Link>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Export Data</CardTitle>
-                <CardDescription>
-                  Download application data and reports
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button size="sm" variant="outline" className="w-full">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export Options
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <Link to="/admin/analytics">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">Application Statistics</CardTitle>
-                  <CardDescription>
-                    Detailed analytics and trends
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button size="sm" variant="outline" className="w-full">
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    View Analytics
-                  </Button>
-                </CardContent>
-              </Link>
-            </Card>
-          </div>
-
-          {/* Recent Applications Feed */}
           <Card>
-            <CardHeader>
-              <CardTitle>Recent Applications</CardTitle>
-              <CardDescription>
-                Latest applications from both YFF and mentor programs
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Completed</CardTitle>
+              <UserCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {recentApplications.length > 0 ? (
-                <div className="space-y-4">
-                  {recentApplications.map((app) => (
-                    <div 
-                      key={`${app.type}-${app.id}`}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-shrink-0">
-                          {app.type === 'yff' ? (
-                            <Users className="h-5 w-5 text-blue-500" />
-                          ) : (
-                            <UserCheck className="h-5 w-5 text-green-500" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">{app.applicantName}</div>
-                          <div className="text-sm text-gray-500">{app.email}</div>
-                          <div className="text-xs text-gray-400">
-                            {app.type === 'yff' ? 'YFF Application' : 'Mentor Application'} • 
-                            {new Date(app.submittedAt).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <Badge variant={getStatusBadgeVariant(app.status)}>
-                          {app.status.replace('_', ' ')}
-                        </Badge>
-                        <Button size="sm" variant="outline" asChild>
-                          <Link to={`/admin/${app.type}-application/${app.id}`}>
-                            View Details
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  No recent applications found
-                </div>
-              )}
+              <div className="text-2xl font-bold">{stats.completedApplications}</div>
+              <p className="text-xs text-muted-foreground">
+                Questionnaire completed
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.pendingApplications}</div>
+              <p className="text-xs text-muted-foreground">
+                Awaiting questionnaire
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Today</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.todayApplications}</div>
+              <p className="text-xs text-muted-foreground">
+                New applications today
+              </p>
             </CardContent>
           </Card>
         </div>
-      </AdminLayout>
-    </AdminAuth>
+
+        {/* Detailed Analytics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Applications by Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Application Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {stats.applicationsByStatus.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <Badge variant="outline">
+                      {item.status.replace('_', ' ')}
+                    </Badge>
+                    <span className="font-medium">{item.count}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Top Institutions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                Top Institutions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {stats.topInstitutions.map((institution, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="text-sm font-medium truncate flex-1">
+                      {institution.name}
+                    </div>
+                    <Badge variant="secondary">{institution.count}</Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Top Cities */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <GraduationCap className="h-5 w-5" />
+                Top Cities
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {stats.topCities.map((city, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="text-sm font-medium truncate flex-1">
+                      {city.name}
+                    </div>
+                    <Badge variant="secondary">{city.count}</Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </AdminLayout>
   );
 };
-
-export default CrmDashboard;

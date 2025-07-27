@@ -15,12 +15,14 @@ type TabValue = 'signin' | 'signup';
 interface SignInModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSignInSuccess?: () => void;
   defaultTab?: TabValue;
 }
 
 export const SignInModal: React.FC<SignInModalProps> = ({ 
   isOpen, 
   onClose, 
+  onSignInSuccess,
   defaultTab = 'signin' 
 }) => {
   const [activeTab, setActiveTab] = useState<TabValue>(defaultTab);
@@ -67,6 +69,10 @@ export const SignInModal: React.FC<SignInModalProps> = ({
           description: 'You have been successfully signed in.',
         });
         onClose();
+        // Call the success callback if provided
+        if (onSignInSuccess) {
+          onSignInSuccess();
+        }
       }
     } catch (error) {
       toast({
@@ -113,6 +119,10 @@ export const SignInModal: React.FC<SignInModalProps> = ({
           description: 'Your account has been created successfully. Please check your email for verification.',
         });
         onClose();
+        // Call the success callback if provided
+        if (onSignInSuccess) {
+          onSignInSuccess();
+        }
       }
     } catch (error) {
       toast({

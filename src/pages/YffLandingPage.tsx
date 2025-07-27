@@ -7,6 +7,21 @@ import { PopupButton } from '@typeform/embed-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
+// Extend Window interface to include Typeform
+declare global {
+  interface Window {
+    tf?: {
+      createPopup: (formId: string, options?: {
+        onSubmit?: () => void;
+        onReady?: () => void;
+        onClose?: () => void;
+      }) => {
+        open: () => void;
+      };
+    };
+  }
+}
+
 /**
  * Young Founders Floor Landing Page
  * Main entry point for the YFF program with hero section and registration CTA

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { SignInModal } from '@/components/SignInModal';
@@ -12,8 +12,22 @@ import { Button } from '@/components/ui/button';
 export const YffLandingPage = () => {
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [showTypeformEmbed, setShowTypeformEmbed] = useState(false);
+  const [hasSubmittedTypeform, setHasSubmittedTypeform] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Check if user has already submitted the Typeform
+  useEffect(() => {
+    const checkSubmissionStatus = () => {
+      const submissionStatus = localStorage.getItem('typeformRegistered');
+      if (submissionStatus === '1') {
+        setHasSubmittedTypeform(true);
+        console.log('✅ User has already submitted Typeform - hiding button');
+      }
+    };
+
+    checkSubmissionStatus();
+  }, []);
 
   // Handle sign-in success - redirect directly to registration
   const handleSignInSuccess = () => {
@@ -38,6 +52,25 @@ export const YffLandingPage = () => {
     setShowTypeformEmbed(!showTypeformEmbed);
   };
 
+  // Handle Typeform submission success
+  const handleTypeformSubmit = () => {
+    console.log('✅ Typeform submitted successfully - saving status and redirecting');
+    
+    // Store submission status in localStorage
+    localStorage.setItem('typeformRegistered', '1');
+    
+    // Update state to hide button
+    setHasSubmittedTypeform(true);
+    
+    // Hide the embed
+    setShowTypeformEmbed(false);
+    
+    // Small delay to ensure storage is saved, then redirect
+    setTimeout(() => {
+      window.location.href = '/young-founders-floor';
+    }, 100);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Hero Section */}
@@ -59,13 +92,22 @@ export const YffLandingPage = () => {
               {user ? "Register Now" : "Sign in to register"}
             </button>
             
-            {user && (
+            {/* Only show Typeform button if user is authenticated and hasn't submitted */}
+            {user && !hasSubmittedTypeform && (
               <Button
                 onClick={handleTypeformToggle}
                 className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300"
               >
                 {showTypeformEmbed ? "Hide Typeform" : "Register via Typeform"}
               </Button>
+            )}
+            
+            {/* Show confirmation message if user has already submitted */}
+            {user && hasSubmittedTypeform && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
+                <p className="font-semibold">✅ You have already registered via Typeform</p>
+                <p className="text-sm">Thank you for your submission!</p>
+              </div>
             )}
           </div>
           
@@ -78,7 +120,7 @@ export const YffLandingPage = () => {
       </section>
 
       {/* Typeform Embed Section */}
-      {user && showTypeformEmbed && (
+      {user && showTypeformEmbed && !hasSubmittedTypeform && (
         <section className="py-8 bg-white">
           <div className="container mx-auto">
             <div className="max-w-4xl mx-auto">
@@ -94,7 +136,38 @@ export const YffLandingPage = () => {
                   style={{ border: 'none' }}
                   title="YFF Registration Form"
                   className="rounded-lg shadow-lg"
+                  onLoad={() => {
+                    // Listen for Typeform submission via postMessage
+                    const handleMessage = (event: MessageEvent) => {
+                      if (event.origin !== 'https://26ideas.typeform.com') return;
+                      
+                      if (event.data.type === 'form_submit') {
+                        console.log('📝 Typeform submission detected via postMessage');
+                        handleTypeformSubmit();
+                      }
+                    };
+
+                    window.addEventListener('message', handleMessage);
+                    
+                    // Cleanup listener when component unmounts
+                    return () => {
+                      window.removeEventListener('message', handleMessage);
+                    };
+                  }}
                 />
+              </div>
+              
+              {/* Manual confirmation button as fallback */}
+              <div className="mt-4 text-center">
+                <p className="text-sm text-gray-600 mb-2">
+                  If you've completed the form above, click here to confirm:
+                </p>
+                <Button
+                  onClick={handleTypeformSubmit}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded"
+                >
+                  I've completed the form
+                </Button>
               </div>
             </div>
           </div>

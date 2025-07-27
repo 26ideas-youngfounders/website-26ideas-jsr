@@ -27,6 +27,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { YffApplicationDetailsDialog } from './YffApplicationDetailsDialog';
 
 interface YffRegistration {
   id: string;
@@ -73,8 +74,6 @@ export const YffApplicationsTable = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [selectedApplication, setSelectedApplication] = useState<YffRegistration | null>(null);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const { toast } = useToast();
 
   /**
@@ -91,6 +90,22 @@ export const YffApplicationsTable = () => {
       }
     }
     return [];
+  };
+
+  /**
+   * Parse and normalize questionnaire answers
+   */
+  const parseQuestionnaireAnswers = (answers: any): any => {
+    if (!answers) return {};
+    if (typeof answers === 'object' && answers !== null) return answers;
+    if (typeof answers === 'string') {
+      try {
+        return JSON.parse(answers);
+      } catch {
+        return {};
+      }
+    }
+    return {};
   };
 
   /**
@@ -122,7 +137,7 @@ export const YffApplicationsTable = () => {
       const normalizedData = (data || []).map(app => ({
         ...app,
         team_members: parseTeamMembers(app.team_members),
-        questionnaire_answers: app.questionnaire_answers || {}
+        questionnaire_answers: parseQuestionnaireAnswers(app.questionnaire_answers)
       }));
       
       setApplications(normalizedData);
@@ -136,6 +151,59 @@ export const YffApplicationsTable = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * Convert YffRegistration to YffApplication format for the details dialog
+   */
+  const convertToApplicationFormat = (registration: YffRegistration) => {
+    return {
+      application_id: registration.id,
+      individual_id: registration.individual_id,
+      status: registration.application_status,
+      application_round: 'current',
+      answers: {
+        team: {
+          fullName: registration.full_name,
+          email: registration.email,
+          phoneNumber: registration.phone_number,
+          countryCode: registration.country_code,
+          dateOfBirth: registration.date_of_birth,
+          gender: registration.gender,
+          linkedinProfile: registration.linkedin_profile,
+          currentCity: registration.current_city,
+          state: registration.state,
+          pinCode: registration.pin_code,
+          permanentAddress: registration.permanent_address,
+          institutionName: registration.institution_name,
+          courseProgram: registration.course_program,
+          currentYearOfStudy: registration.current_year_of_study,
+          expectedGraduation: registration.expected_graduation,
+          teamName: registration.team_name,
+          ventureName: registration.venture_name,
+          industrySector: registration.industry_sector,
+          website: registration.website,
+          socialMediaHandles: registration.social_media_handles,
+          referralId: registration.referral_id,
+          numberOfMembers: registration.number_of_team_members,
+          teamMembers: registration.team_members,
+          privacyPolicy: true,
+          termsConditions: true,
+          ageVerification: true
+        },
+        questionnaire_answers: registration.questionnaire_answers
+      },
+      cumulative_score: 0,
+      submitted_at: registration.created_at,
+      individuals: {
+        first_name: registration.full_name.split(' ')[0] || '',
+        last_name: registration.full_name.split(' ').slice(1).join(' ') || '',
+        email: registration.email,
+        phone_number: registration.phone_number,
+        country_code: registration.country_code,
+        country_iso_code: 'IN'
+      }
+    };
   };
 
   /**
@@ -174,7 +242,7 @@ export const YffApplicationsTable = () => {
                 const normalizedNew = {
                   ...newRecord,
                   team_members: parseTeamMembers(newRecord.team_members),
-                  questionnaire_answers: newRecord.questionnaire_answers || {}
+                  questionnaire_answers: parseQuestionnaireAnswers(newRecord.questionnaire_answers)
                 } as YffRegistration;
                 return [...prevApps, normalizedNew];
               
@@ -188,7 +256,7 @@ export const YffApplicationsTable = () => {
                 const normalizedUpdate = {
                   ...newRecord,
                   team_members: parseTeamMembers(newRecord.team_members),
-                  questionnaire_answers: newRecord.questionnaire_answers || {}
+                  questionnaire_answers: parseQuestionnaireAnswers(newRecord.questionnaire_answers)
                 } as YffRegistration;
                 return prevApps.map(app => 
                   app.id === newRecord.id ? normalizedUpdate : app
@@ -279,14 +347,6 @@ export const YffApplicationsTable = () => {
       default:
         return 'outline';
     }
-  };
-
-  /**
-   * Handle application details view
-   */
-  const handleViewDetails = (application: YffRegistration) => {
-    setSelectedApplication(application);
-    setShowDetailsDialog(true);
   };
 
   /**
@@ -452,14 +512,9 @@ export const YffApplicationsTable = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => handleViewDetails(application)}
-                    >
-                      <Eye className="h-3 w-3 mr-1" />
-                      Review
-                    </Button>
+                    <YffApplicationDetailsDialog 
+                      application={convertToApplicationFormat(application)}
+                    />
                   </TableCell>
                 </TableRow>
               ))
@@ -467,22 +522,6 @@ export const YffApplicationsTable = () => {
           </TableBody>
         </Table>
       </div>
-
-      {/* Details Dialog - Placeholder for now */}
-      {showDetailsDialog && selectedApplication && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg max-w-2xl w-full mx-4">
-            <h2 className="text-xl font-bold mb-4">Application Details</h2>
-            <p>Application details for {selectedApplication.full_name}</p>
-            <Button 
-              onClick={() => setShowDetailsDialog(false)}
-              className="mt-4"
-            >
-              Close
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -7,14 +7,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Eye, EyeOff, Loader2, Mail, Lock, User, UserPlus } from 'lucide-react';
+
+type TabValue = 'signin' | 'signup';
 
 interface SignInModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultTab?: 'signin' | 'signup';
+  defaultTab?: TabValue;
 }
 
 export const SignInModal: React.FC<SignInModalProps> = ({ 
@@ -22,7 +23,7 @@ export const SignInModal: React.FC<SignInModalProps> = ({
   onClose, 
   defaultTab = 'signin' 
 }) => {
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [activeTab, setActiveTab] = useState<TabValue>(defaultTab);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { signIn, signUp } = useAuth();
@@ -42,6 +43,10 @@ export const SignInModal: React.FC<SignInModalProps> = ({
     password: '',
     confirmPassword: '',
   });
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as TabValue);
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,7 +132,7 @@ export const SignInModal: React.FC<SignInModalProps> = ({
           <DialogTitle>Welcome</DialogTitle>
         </DialogHeader>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>

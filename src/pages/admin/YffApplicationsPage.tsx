@@ -1,5 +1,5 @@
 
-import { AdminLayout } from '@/components/admin/AdminLayout';
+import AdminLayout from '@/components/admin/AdminLayout';
 import { YffApplicationsTable } from '@/components/admin/YffApplicationsTable';
 
 /**

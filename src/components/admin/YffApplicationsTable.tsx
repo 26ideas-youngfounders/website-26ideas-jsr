@@ -26,7 +26,6 @@ import {
   ChevronDown,
   ArrowUpDown
 } from 'lucide-react';
-import { YffApplicationDetailsDialog } from './YffApplicationDetailsDialog';
 import { format } from 'date-fns';
 
 interface YffRegistration {
@@ -469,13 +468,20 @@ export const YffApplicationsTable = () => {
         </Table>
       </div>
 
-      {/* Details Dialog */}
-      {selectedApplication && (
-        <YffApplicationDetailsDialog
-          application={selectedApplication}
-          open={showDetailsDialog}
-          onOpenChange={setShowDetailsDialog}
-        />
+      {/* Details Dialog - Placeholder for now */}
+      {showDetailsDialog && selectedApplication && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg max-w-2xl w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">Application Details</h2>
+            <p>Application details for {selectedApplication.full_name}</p>
+            <Button 
+              onClick={() => setShowDetailsDialog(false)}
+              className="mt-4"
+            >
+              Close
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

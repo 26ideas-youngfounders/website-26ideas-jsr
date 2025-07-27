@@ -1,22 +1,22 @@
 
 import { useState, useEffect } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import AdminLayout from '@/components/admin/AdminLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { 
   Users, 
   UserCheck, 
   Clock, 
   TrendingUp, 
   Building,
-  GraduationCap,
+  MapPin,
   RefreshCw,
-  Eye
+  Calendar,
+  Award,
+  Target
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 interface DashboardStats {
   totalApplications: number;
@@ -25,11 +25,17 @@ interface DashboardStats {
   todayApplications: number;
   topInstitutions: Array<{ name: string; count: number }>;
   topCities: Array<{ name: string; count: number }>;
-  applicationsByStatus: Array<{ status: string; count: number }>;
+  recentApplications: Array<{
+    id: string;
+    full_name: string;
+    team_name: string;
+    created_at: string;
+    application_status: string;
+  }>;
 }
 
 /**
- * CRM Dashboard with real-time YFF applications overview
+ * CRM Dashboard with real-time analytics and insights
  */
 export const CrmDashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
@@ -39,11 +45,9 @@ export const CrmDashboard = () => {
     todayApplications: 0,
     topInstitutions: [],
     topCities: [],
-    applicationsByStatus: []
+    recentApplications: []
   });
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
-  const navigate = useNavigate();
 
   /**
    * Fetch dashboard statistics
@@ -52,43 +56,58 @@ export const CrmDashboard = () => {
     try {
       setLoading(true);
       console.log('📊 Fetching dashboard statistics...');
-      
+
       // Get all applications
       const { data: applications, error } = await supabase
         .from('yff_team_registrations')
-        .select('*');
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ Error fetching applications:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load dashboard data.',
-          variant: 'destructive',
+        return;
+      }
+
+      console.log('✅ Applications loaded for dashboard:', applications?.length || 0);
+
+      if (!applications) {
+        setStats({
+          totalApplications: 0,
+          completedApplications: 0,
+          pendingApplications: 0,
+          todayApplications: 0,
+          topInstitutions: [],
+          topCities: [],
+          recentApplications: []
         });
         return;
       }
 
-      // Calculate statistics
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
+      // Calculate basic stats
       const totalApplications = applications.length;
       const completedApplications = applications.filter(app => 
-        app.questionnaire_completed_at !== null
+        app.application_status === 'questionnaire_completed'
       ).length;
       const pendingApplications = applications.filter(app => 
-        app.questionnaire_completed_at === null
+        app.application_status === 'registration_completed'
       ).length;
-      const todayApplications = applications.filter(app => 
-        new Date(app.created_at) >= today
-      ).length;
+
+      // Today's applications
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayApplications = applications.filter(app => {
+        const appDate = new Date(app.created_at);
+        appDate.setHours(0, 0, 0, 0);
+        return appDate.getTime() === today.getTime();
+      }).length;
 
       // Top institutions
       const institutionCounts = applications.reduce((acc, app) => {
-        acc[app.institution_name] = (acc[app.institution_name] || 0) + 1;
+        const institution = app.institution_name;
+        acc[institution] = (acc[institution] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
-      
+
       const topInstitutions = Object.entries(institutionCounts)
         .sort(([, a], [, b]) => b - a)
         .slice(0, 5)
@@ -96,24 +115,24 @@ export const CrmDashboard = () => {
 
       // Top cities
       const cityCounts = applications.reduce((acc, app) => {
-        const cityState = `${app.current_city}, ${app.state}`;
-        acc[cityState] = (acc[cityState] || 0) + 1;
+        const city = app.current_city;
+        acc[city] = (acc[city] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
-      
+
       const topCities = Object.entries(cityCounts)
         .sort(([, a], [, b]) => b - a)
         .slice(0, 5)
         .map(([name, count]) => ({ name, count }));
 
-      // Applications by status
-      const statusCounts = applications.reduce((acc, app) => {
-        acc[app.application_status] = (acc[app.application_status] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      
-      const applicationsByStatus = Object.entries(statusCounts)
-        .map(([status, count]) => ({ status, count }));
+      // Recent applications
+      const recentApplications = applications.slice(0, 5).map(app => ({
+        id: app.id,
+        full_name: app.full_name,
+        team_name: app.team_name || 'No team name',
+        created_at: app.created_at,
+        application_status: app.application_status
+      }));
 
       setStats({
         totalApplications,
@@ -122,29 +141,18 @@ export const CrmDashboard = () => {
         todayApplications,
         topInstitutions,
         topCities,
-        applicationsByStatus
+        recentApplications
       });
 
-      console.log('✅ Dashboard statistics loaded:', {
-        totalApplications,
-        completedApplications,
-        pendingApplications,
-        todayApplications
-      });
     } catch (error) {
-      console.error('❌ Error fetching dashboard stats:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load dashboard statistics.',
-        variant: 'destructive',
-      });
+      console.error('❌ Unexpected error fetching dashboard stats:', error);
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * Set up real-time updates
+   * Set up real-time subscription for dashboard updates
    */
   useEffect(() => {
     // Initial load
@@ -154,7 +162,7 @@ export const CrmDashboard = () => {
     console.log('🔄 Setting up real-time subscription for dashboard...');
     
     const channel = supabase
-      .channel('crm_dashboard_updates')
+      .channel('dashboard_updates')
       .on(
         'postgres_changes',
         {
@@ -162,63 +170,67 @@ export const CrmDashboard = () => {
           schema: 'public',
           table: 'yff_team_registrations'
         },
-        () => {
-          console.log('📡 Dashboard update received, refreshing stats...');
+        (payload) => {
+          console.log('📡 Dashboard real-time update received:', payload);
+          // Refresh stats when data changes
           fetchDashboardStats();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Dashboard subscription status:', status);
+      });
 
-    // Cleanup
+    // Cleanup subscription on unmount
     return () => {
+      console.log('🔚 Cleaning up dashboard subscription...');
       supabase.removeChannel(channel);
     };
   }, []);
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 animate-spin" />
-            <span>Loading dashboard...</span>
-          </div>
-        </div>
-      </AdminLayout>
-    );
-  }
+  /**
+   * Get status badge variant
+   */
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'registration_completed':
+        return 'default';
+      case 'questionnaire_completed':
+        return 'secondary';
+      case 'under_review':
+        return 'outline';
+      case 'approved':
+        return 'default';
+      case 'rejected':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
 
   return (
     <AdminLayout>
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">CRM Dashboard</h1>
             <p className="text-gray-600">
-              YFF Applications overview and analytics
+              Real-time insights and analytics for YFF applications
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={fetchDashboardStats}
-              disabled={loading}
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button 
-              onClick={() => navigate('/admin/yff-applications')}
-              size="sm"
-            >
-              <Eye className="h-4 w-4 mr-1" />
-              View All Applications
-            </Button>
-          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fetchDashboardStats}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
-        {/* Key Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
@@ -253,7 +265,7 @@ export const CrmDashboard = () => {
             <CardContent>
               <div className="text-2xl font-bold">{stats.pendingApplications}</div>
               <p className="text-xs text-muted-foreground">
-                Awaiting questionnaire
+                Registration only
               </p>
             </CardContent>
           </Card>
@@ -272,45 +284,33 @@ export const CrmDashboard = () => {
           </Card>
         </div>
 
-        {/* Detailed Analytics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Applications by Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Application Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {stats.applicationsByStatus.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <Badge variant="outline">
-                      {item.status.replace('_', ' ')}
-                    </Badge>
-                    <span className="font-medium">{item.count}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
+        {/* Charts and Lists */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Top Institutions */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
                 <Building className="h-5 w-5" />
                 Top Institutions
               </CardTitle>
+              <CardDescription>
+                Institutions with most applications
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {stats.topInstitutions.map((institution, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="text-sm font-medium truncate flex-1">
-                      {institution.name}
+                  <div key={institution.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{index + 1}</Badge>
+                      <span className="font-medium">{institution.name}</span>
                     </div>
-                    <Badge variant="secondary">{institution.count}</Badge>
+                    <Badge>{institution.count}</Badge>
                   </div>
                 ))}
+                {stats.topInstitutions.length === 0 && (
+                  <p className="text-sm text-gray-500">No data available</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -318,25 +318,70 @@ export const CrmDashboard = () => {
           {/* Top Cities */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <GraduationCap className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
                 Top Cities
               </CardTitle>
+              <CardDescription>
+                Cities with most applications
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {stats.topCities.map((city, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="text-sm font-medium truncate flex-1">
-                      {city.name}
+                  <div key={city.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{index + 1}</Badge>
+                      <span className="font-medium">{city.name}</span>
                     </div>
-                    <Badge variant="secondary">{city.count}</Badge>
+                    <Badge>{city.count}</Badge>
                   </div>
                 ))}
+                {stats.topCities.length === 0 && (
+                  <p className="text-sm text-gray-500">No data available</p>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Recent Applications */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Recent Applications
+            </CardTitle>
+            <CardDescription>
+              Latest YFF team registrations
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {stats.recentApplications.map((app) => (
+                <div key={app.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <div className="font-medium">{app.full_name}</div>
+                      <div className="text-sm text-gray-500">{app.team_name}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getStatusBadgeVariant(app.application_status)}>
+                      {app.application_status.replace('_', ' ')}
+                    </Badge>
+                    <span className="text-xs text-gray-500">
+                      {new Date(app.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {stats.recentApplications.length === 0 && (
+                <p className="text-sm text-gray-500">No recent applications</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </AdminLayout>
   );

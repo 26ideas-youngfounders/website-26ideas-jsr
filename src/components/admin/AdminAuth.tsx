@@ -12,7 +12,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import AdminLoginForm from './AdminLoginForm';
+import { AdminLoginForm } from './AdminLoginForm';
 
 interface AdminAuthProps {
   children: React.ReactNode;

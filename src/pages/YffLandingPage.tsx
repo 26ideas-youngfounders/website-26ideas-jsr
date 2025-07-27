@@ -29,6 +29,7 @@ declare global {
 export const YffLandingPage = () => {
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [typeformScriptLoaded, setTypeformScriptLoaded] = useState(false);
+  const [typeformReady, setTypeformReady] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -40,6 +41,10 @@ export const YffLandingPage = () => {
       if (document.querySelector('script[src*="embed.typeform.com"]')) {
         console.log("✅ Typeform script already loaded");
         setTypeformScriptLoaded(true);
+        // Add a small delay to ensure the script is fully initialized
+        setTimeout(() => {
+          setTypeformReady(true);
+        }, 1000);
         return;
       }
 
@@ -50,6 +55,10 @@ export const YffLandingPage = () => {
       script.onload = () => {
         console.log("✅ Typeform script loaded successfully");
         setTypeformScriptLoaded(true);
+        // Add a small delay to ensure the script is fully initialized
+        setTimeout(() => {
+          setTypeformReady(true);
+        }, 1000);
       };
       script.onerror = () => {
         console.error("❌ Failed to load Typeform script");
@@ -110,12 +119,11 @@ export const YffLandingPage = () => {
     console.log("ℹ️ Typeform popup closed");
   };
 
-  // Fallback handler for manual Typeform opening
-  const handleManualTypeformOpen = () => {
-    console.log("🔄 Attempting to open Typeform manually");
+  // Manual Typeform handler using native API
+  const handleNativeTypeformOpen = () => {
+    console.log("🔄 Opening Typeform using native API");
     
-    if (!typeformScriptLoaded) {
-      console.error("❌ Typeform script not loaded yet");
+    if (!typeformReady) {
       toast({
         title: "Please wait",
         description: "Typeform is still loading. Please try again in a moment.",
@@ -123,8 +131,8 @@ export const YffLandingPage = () => {
       });
       return;
     }
-    
-    // Check if window.tf is available
+
+    // Use native window.tf API
     if (typeof window !== 'undefined' && window.tf) {
       try {
         const popup = window.tf.createPopup("01K16KGT1RZ1HHF3X527EMMVXS", {
@@ -133,17 +141,17 @@ export const YffLandingPage = () => {
           onClose: handleTypeformClose,
         });
         popup.open();
-        console.log("✅ Typeform opened manually");
+        console.log("✅ Typeform opened using native API");
       } catch (error) {
-        console.error("❌ Error opening Typeform manually:", error);
+        console.error("❌ Error opening Typeform:", error);
         toast({
           title: "Error",
-          description: "Unable to open registration form. Please try again or use the direct registration.",
+          description: "Unable to open registration form. Please try the direct registration.",
           variant: "destructive",
         });
       }
     } else {
-      console.error("❌ Typeform embed script not available");
+      console.error("❌ Typeform API not available");
       toast({
         title: "Error",
         description: "Registration form is not available. Please try the direct registration instead.",
@@ -173,26 +181,20 @@ export const YffLandingPage = () => {
               {user ? "Register Now" : "Sign in to register"}
             </button>
             
-            {user && typeformScriptLoaded && (
+            {user && typeformReady && (
               <div className="flex flex-col sm:flex-row gap-2 items-center">
-                <PopupButton
-                  id="01K16KGT1RZ1HHF3X527EMMVXS"
+                <Button
+                  onClick={handleNativeTypeformOpen}
                   className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300"
-                  onSubmit={handleTypeformSubmit}
-                  onReady={handleTypeformReady}
-                  onClose={handleTypeformClose}
                 >
                   Register via Typeform
-                </PopupButton>
-                
-                {/* Fallback button for debugging */}
-                <Button
-                  onClick={handleManualTypeformOpen}
-                  variant="outline"
-                  className="text-xs px-3 py-1 h-auto"
-                >
-                  Debug: Manual Open
                 </Button>
+              </div>
+            )}
+            
+            {user && typeformScriptLoaded && !typeformReady && (
+              <div className="text-sm text-gray-600">
+                Initializing Typeform...
               </div>
             )}
             

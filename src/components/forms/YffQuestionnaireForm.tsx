@@ -15,23 +15,72 @@ import { toast } from 'sonner';
 import { YffAutosaveIndicator } from './YffAutosaveIndicator';
 import { useAutosave } from '@/hooks/useAutosave';
 
+/**
+ * Counts the number of words in a text string
+ * 
+ * @param text - The text to count words in
+ * @returns The number of words in the text
+ */
+const countWords = (text: string | null | undefined) => {
+  if (!text) return 0;
+  // Trim whitespace from both ends, replace multiple spaces with a single space, then split by space.
+  const trimmedText = text.trim();
+  if (trimmedText === "") return 0;
+  return trimmedText.split(/\s+/).length;
+};
+
 // Define form schema with conditional validation
 const questionnaireSchema = z.object({
-  ideaDescription: z.string().min(50, 'Please provide a detailed description (at least 50 characters)'),
-  productStage: z.enum(['Idea Stage / MLP / Working Prototype', 'Early Revenue']),
-  problemSolved: z.string().min(20, 'Please describe the problem (at least 20 characters)'),
-  targetAudience: z.string().min(20, 'Please describe your target audience (at least 20 characters)'),
-  solutionApproach: z.string().min(20, 'Please describe your solution approach (at least 20 characters)'),
-  monetizationStrategy: z.string().min(20, 'Please describe your monetization strategy (at least 20 characters)'),
-  customerAcquisition: z.string().min(20, 'Please describe your customer acquisition plan (at least 20 characters)'),
-  competitors: z.string().min(20, 'Please list your competitors (at least 20 characters)'),
-  developmentApproach: z.string().min(20, 'Please describe your development approach (at least 20 characters)'),
-  teamInfo: z.string().optional(),
-  timeline: z.string().min(10, 'Please provide a timeline (at least 10 characters)'),
-  // Additional fields for Early Revenue stage
-  currentRevenue: z.string().optional(),
+  ideaDescription: z.string()
+    .refine(text => countWords(text) >= 50, 'Please provide a detailed description (at least 50 words)')
+    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
+  productStage: z.enum(['Idea Stage / MLP / Working Prototype', 'Early Revenue'], {
+    required_error: 'Please select a product stage',
+  }),
+  problemSolved: z.string()
+    .refine(text => countWords(text) >= 20, 'Please describe the problem (at least 20 words)')
+    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
+  targetAudience: z.string()
+    .refine(text => countWords(text) >= 20, 'Please describe your target audience (at least 20 words)')
+    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
+  solutionApproach: z.string()
+    .refine(text => countWords(text) >= 20, 'Please describe your solution approach (at least 20 words)')
+    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
+  monetizationStrategy: z.string()
+    .refine(text => countWords(text) >= 20, 'Please describe your monetization strategy (at least 20 words)')
+    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
+  customerAcquisition: z.string()
+    .refine(text => countWords(text) >= 20, 'Please describe your customer acquisition plan (at least 20 words)')
+    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
+  competitors: z.string()
+    .refine(text => countWords(text) >= 20, 'Please list your competitors (at least 20 words)')
+    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
+  developmentApproach: z.string()
+    .refine(text => countWords(text) >= 20, 'Please describe your development approach (at least 20 words)')
+    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
+  teamInfo: z.string()
+  .refine(text => countWords(text) >= 20, 'Please provide information about your team (at least 20 words)')
+  .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
+  timeline: z.string()
+    .refine(text => countWords(text) >= 20, 'Please provide a timeline (at least 20 words)')
+    .refine(text => countWords(text) <= 300, 'Timeline must not exceed 300 words'),
+  // Additional fields for Early Revenue stage - make them optional
   payingCustomers: z.string().optional(),
   workingDuration: z.string().optional(),
+}).refine((data) => {
+  // Only validate Early Revenue fields if product stage is Early Revenue
+  if (data.productStage === 'Early Revenue') {
+    if (!data.payingCustomers || countWords(data.payingCustomers) < 20) {
+      return false;
+    }
+    if (!data.workingDuration || countWords(data.workingDuration) < 20) {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "Early Revenue fields are required when product stage is 'Early Revenue' (minimum 20 words each)",
+  path: ["payingCustomers", "workingDuration"]
 });
 
 type QuestionnaireFormData = z.infer<typeof questionnaireSchema>;
@@ -81,9 +130,10 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
 
   const form = useForm<QuestionnaireFormData>({
     resolver: zodResolver(questionnaireSchema),
+    mode: 'onChange', // Validate on change
     defaultValues: {
       ideaDescription: '',
-      productStage: undefined,
+      productStage: '' as any, // Use empty string instead of undefined
       problemSolved: '',
       targetAudience: '',
       solutionApproach: '',
@@ -93,9 +143,8 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
       developmentApproach: '',
       teamInfo: '',
       timeline: '',
-      currentRevenue: '',
-      payingCustomers: '',
-      workingDuration: '',
+      payingCustomers: undefined,
+      workingDuration: undefined,
     },
   });
 
@@ -169,6 +218,11 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   }, [watchedValues, registration?.id, form]);
 
   const onSubmit = async (data: QuestionnaireFormData) => {
+    console.log('Attempting form submission. Data:', data);
+    console.log('Form errors before submission logic:', form.formState.errors);
+    console.log('Form is valid:', form.formState.isValid);
+    console.log('Form is dirty:', form.formState.isDirty);
+    
     if (!registration?.id) {
       toast.error('Registration not found');
       return;
@@ -178,14 +232,6 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
 
     try {
       // Validate required fields based on product stage
-      if (data.productStage === 'Early Revenue') {
-        if (!data.payingCustomers || !data.workingDuration) {
-          toast.error('Please fill in all required fields for Early Revenue stage');
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
       console.log('📤 Submitting questionnaire data:', data);
 
       // Update the registration with questionnaire answers
@@ -221,6 +267,37 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
     <div className="space-y-6">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Global form error display */}
+          {form.formState.errors.root?.message && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <p className="text-red-600 text-sm font-medium">
+                {form.formState.errors.root.message}
+              </p>
+            </div>
+          )}
+          
+          {/* Debug information - only show in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-4 text-xs">
+              <p className="font-medium mb-2">Debug Info:</p>
+              <p>Form Valid: {form.formState.isValid ? 'Yes' : 'No'}</p>
+              <p>Form Dirty: {form.formState.isDirty ? 'Yes' : 'No'}</p>
+              <p>Product Stage: {productStage || 'Not selected'}</p>
+              <p>Error Count: {Object.keys(form.formState.errors).length}</p>
+              {Object.keys(form.formState.errors).length > 0 && (
+                <div className="mt-2">
+                  <p className="font-medium">Errors:</p>
+                  <ul className="list-disc list-inside">
+                    {Object.entries(form.formState.errors).map(([field, error]) => (
+                      <li key={field} className="text-red-600">
+                        {field}: {error?.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
           {/* Common Questions */}
           <Card>
             <CardHeader>
@@ -237,7 +314,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                       <Textarea 
                         {...field}
                         placeholder="Describe your business idea in detail..."
-                        className="min-h-[100px]"
+                        className="h-[120px] resize-none"
                       />
                     </FormControl>
                     <FormMessage />
@@ -289,7 +366,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                     <FormItem>
                       <FormLabel>What problem does your idea solve? *</FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="Describe the problem you're solving..." />
+                        <Textarea {...field} placeholder="Describe the problem you're solving..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -303,7 +380,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                     <FormItem>
                       <FormLabel>Whose problem does your idea solve for? *</FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="Describe your target audience..." />
+                        <Textarea {...field} placeholder="Describe your target audience..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -317,7 +394,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                     <FormItem>
                       <FormLabel>How does your idea solve this problem? *</FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="Describe your solution approach..." />
+                        <Textarea {...field} placeholder="Describe your solution approach..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -336,7 +413,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         }
                       </FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="Describe your monetization strategy..." />
+                        <Textarea {...field} placeholder="Describe your monetization strategy..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -355,7 +432,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         }
                       </FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="Describe your customer acquisition strategy..." />
+                        <Textarea {...field} placeholder="Describe your customer acquisition strategy..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -363,6 +440,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                 />
 
                 {isEarlyRevenue && (
+                  <>
                   <FormField
                     control={form.control}
                     name="payingCustomers"
@@ -370,12 +448,27 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                       <FormItem>
                         <FormLabel>How many paying customers does your idea already have? *</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Number of paying customers..." />
+                            <Textarea {...field} placeholder="Describe your number of paying customers..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="workingDuration"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>How long have you been working on this idea? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe how long you've been working on this idea..." className="h-[120px] resize-none" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  </>
                 )}
 
                 <FormField
@@ -385,7 +478,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                     <FormItem>
                       <FormLabel>List 3 potential competitors in the similar space or attempting to solve a similar problem? *</FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="List your competitors..." />
+                        <Textarea {...field} placeholder="List your competitors..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -399,7 +492,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                     <FormItem>
                       <FormLabel>How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner? *</FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="Describe your development approach..." />
+                        <Textarea {...field} placeholder="Describe your development approach..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -413,7 +506,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                     <FormItem>
                       <FormLabel>Who is on your team, and what are their roles?</FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="Describe your team members and their roles..." />
+                        <Textarea {...field} placeholder="Describe your team members and their roles..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -432,7 +525,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         }
                       </FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder={isEarlyRevenue ? "e.g., January 2024" : "e.g., Next month"} />
+                        <Textarea {...field} placeholder={isEarlyRevenue ? "e.g., January 2024" : "e.g., Next month"} className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -447,6 +540,12 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
               type="submit" 
               disabled={isSubmitting || !productStage}
               className="min-w-32"
+              onClick={() => {
+                console.log('Submit button clicked');
+                console.log('Current form values:', form.getValues());
+                console.log('Current form errors:', form.formState.errors);
+                form.trigger(); // Trigger validation
+              }}
             >
               {isSubmitting ? 'Submitting...' : 'Submit Application'}
             </Button>

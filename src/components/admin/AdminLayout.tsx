@@ -6,11 +6,11 @@
  * rendering Navigation or Footer (handled by App.tsx globally).
  * Only renders admin-specific navigation and content wrapper.
  * 
- * @version 1.0.0
+ * @version 2.0.0
  * @author 26ideas Development Team
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,7 @@ import {
   LogOut,
   User,
   Menu,
+  Shield,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -48,8 +49,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Debug logging to prevent duplicate headers
-  console.log('🔧 AdminLayout rendering - should NOT render Navigation/Footer');
+  // Security logging - track admin access
+  useEffect(() => {
+    console.log('🔐 Admin layout accessed by:', user?.email || 'unknown user');
+    console.log('📍 Admin route:', location.pathname);
+    
+    // Log unauthorized access attempts
+    if (!user) {
+      console.warn('⚠️ Admin layout rendered without authenticated user');
+    }
+  }, [user, location.pathname]);
 
   const navigationItems = [
     { 
@@ -80,6 +89,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   ];
 
   const handleSignOut = async () => {
+    console.log('🚪 Super-admin signing out from admin panel...');
     await signOut();
     navigate('/');
   };
@@ -102,7 +112,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 className="h-8 w-auto mr-3"
               />
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Admin CRM</h1>
+                <h1 className="text-xl font-semibold text-gray-900 flex items-center">
+                  <Shield className="h-5 w-5 mr-2 text-blue-600" />
+                  Super Admin CRM
+                </h1>
                 <p className="text-xs text-gray-500">Young Founders Platform</p>
               </div>
             </div>
@@ -130,8 +143,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">
-              <Badge variant="outline" className="hidden sm:inline-flex">
-                Admin User
+              <Badge variant="secondary" className="hidden sm:inline-flex">
+                Super Admin
               </Badge>
               
               <DropdownMenu>
@@ -142,6 +155,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem disabled>
+                    <Shield className="h-4 w-4 mr-2" />
+                    Super Administrator
+                  </DropdownMenuItem>
                   <DropdownMenuItem disabled>
                     <User className="h-4 w-4 mr-2" />
                     {user?.email}

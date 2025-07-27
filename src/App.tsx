@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import { CrmDashboard } from "./pages/admin/CrmDashboard";
 import { YffApplicationsPage } from "./pages/admin/YffApplicationsPage";
 import MentorApplicationsPage from "./pages/admin/MentorApplicationsPage";
+import AdminAuth from "./components/admin/AdminAuth";
 import { startLayoutMonitoring } from "./utils/layout-debug";
 import { useEffect } from "react";
 
@@ -46,9 +47,24 @@ function App() {
                   <Route path="/yff/team-information" element={<YffTeamInformation />} />
                   <Route path="/community/mentors" element={<MentorSignup />} />
                   <Route path="/phone-input-test" element={<PhoneInputTest />} />
-                  <Route path="/admin/crm" element={<CrmDashboard />} />
-                  <Route path="/admin/yff-applications" element={<YffApplicationsPage />} />
-                  <Route path="/admin/mentor-applications" element={<MentorApplicationsPage />} />
+                  
+                  {/* Protected Admin Routes - All wrapped in AdminAuth */}
+                  <Route path="/admin/crm" element={
+                    <AdminAuth>
+                      <CrmDashboard />
+                    </AdminAuth>
+                  } />
+                  <Route path="/admin/yff-applications" element={
+                    <AdminAuth>
+                      <YffApplicationsPage />
+                    </AdminAuth>
+                  } />
+                  <Route path="/admin/mentor-applications" element={
+                    <AdminAuth>
+                      <MentorApplicationsPage />
+                    </AdminAuth>
+                  } />
+                  
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>

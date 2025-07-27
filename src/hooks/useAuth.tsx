@@ -50,6 +50,7 @@ interface UserProfile {
   email: string;
   country_code?: string;
   country_iso_code?: string;
+  phone_number?: string;
   privacy_consent: boolean;
   data_processing_consent: boolean;
   is_active: boolean;
@@ -167,7 +168,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log("✅ User profile loaded:", {
           firstName: data.first_name,
           lastName: data.last_name,
-          email: data.email
+          email: data.email,
+          phoneNumber: data.phone_number
         });
       } else {
         console.log("⚠️ No user profile found for user:", userId);
@@ -429,6 +431,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           data_processing_consent: userInfo.dataProcessingConsent,
           country_code: userInfo.countryCode || '+91', // Default to India
           country_iso_code: userInfo.countryIsoCode || 'IN', // Default to India
+          phone_number: userInfo.phoneNumber || null, // Save phone number
           is_active: true,
           email_verified: false, // Will be updated when email is confirmed
         });
@@ -454,7 +457,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("✅ Successfully created user and individual record:", {
         email,
         firstName: userInfo.firstName,
-        lastName: userInfo.lastName
+        lastName: userInfo.lastName,
+        phoneNumber: userInfo.phoneNumber
       });
 
       toast({
@@ -492,6 +496,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Handle sign-in errors
     if (error) {
+      // Check if the error message indicates an unregistered email
+      if (error.message && 
+          (error.message.includes("Invalid login credentials") || 
+           error.message.includes("Invalid email or password"))) {
+        // Add custom property to differentiate unregistered emails
+        (error as any).isUserNotFound = true;
+      }
+      
       toast({
         title: "Error",
         description: error.message,

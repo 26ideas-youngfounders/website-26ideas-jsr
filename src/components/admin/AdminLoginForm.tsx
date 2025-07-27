@@ -8,7 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Loader2, Shield } from 'lucide-react';
 
-export const AdminLoginForm = () => {
+interface AdminLoginFormProps {
+  onLoginSuccess?: () => void;
+}
+
+export const AdminLoginForm: React.FC<AdminLoginFormProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -34,6 +38,9 @@ export const AdminLoginForm = () => {
           title: 'Welcome, Admin!',
           description: 'You have been successfully authenticated.',
         });
+        if (onLoginSuccess) {
+          onLoginSuccess();
+        }
       }
     } catch (error) {
       toast({

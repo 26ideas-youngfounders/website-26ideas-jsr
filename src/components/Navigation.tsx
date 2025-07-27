@@ -26,7 +26,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 // Internal Components and Hooks
 import { useAuth } from "@/hooks/useAuth";
-import SignInModal from "@/components/SignInModal";
+import { SignInModal } from "@/components/SignInModal";
 
 /**
  * Navigation Component

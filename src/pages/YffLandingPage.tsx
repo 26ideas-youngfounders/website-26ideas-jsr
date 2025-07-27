@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import SignInModal from '@/components/SignInModal';
+import { SignInModal } from '@/components/SignInModal';
 
 /**
  * Young Founders Floor Landing Page
@@ -15,6 +16,7 @@ export const YffLandingPage = () => {
   // Handle sign-in success - redirect directly to registration
   const handleSignInSuccess = () => {
     console.log("✅ Sign-in successful - redirecting to team registration");
+    setShowSignInModal(false);
     navigate('/yff/team-registration');
   };
 
@@ -90,7 +92,6 @@ export const YffLandingPage = () => {
       <SignInModal
         isOpen={showSignInModal}
         onClose={() => setShowSignInModal(false)}
-        onSuccess={handleSignInSuccess}
       />
     </div>
   );

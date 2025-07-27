@@ -31,6 +31,7 @@ import {
   Mail,
   Star
 } from 'lucide-react';
+import { YffApplicationDetailsDialog } from '@/components/admin/YffApplicationDetailsDialog';
 
 interface YffApplication {
   application_id: string;
@@ -340,13 +341,7 @@ const YffApplicationsPage: React.FC = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            Review
-                          </Button>
+                          <YffApplicationDetailsDialog application={application} />
                         </TableCell>
                       </TableRow>
                     ))}

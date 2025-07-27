@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { SignInModal } from '@/components/SignInModal';
+import { PopupButton } from '@typeform/embed-react';
+import { Button } from '@/components/ui/button';
 
 /**
  * Young Founders Floor Landing Page
@@ -31,6 +33,12 @@ export const YffLandingPage = () => {
     }
   };
 
+  // Handle Typeform submission
+  const handleTypeformSubmit = () => {
+    console.log("✅ Typeform submission completed");
+    // You can add additional logic here like tracking or notifications
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Hero Section */}
@@ -42,12 +50,32 @@ export const YffLandingPage = () => {
           <p className="text-xl text-gray-700 mb-12">
             Empowering the next generation of entrepreneurs
           </p>
-          <button
-            onClick={handleRegisterClick}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300"
-          >
-            {user ? "Register Now" : "Sign in to register"}
-          </button>
+          
+          {/* Registration Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <button
+              onClick={handleRegisterClick}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300"
+            >
+              {user ? "Register Now" : "Sign in to register"}
+            </button>
+            
+            {user && (
+              <PopupButton
+                id="01K16KGT1RZ1HHF3X527EMMVXS"
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors duration-300"
+                onSubmit={handleTypeformSubmit}
+              >
+                Register via Typeform
+              </PopupButton>
+            )}
+          </div>
+          
+          {!user && (
+            <p className="text-sm text-gray-600 mt-4">
+              Sign in to access Typeform registration
+            </p>
+          )}
         </div>
       </section>
 

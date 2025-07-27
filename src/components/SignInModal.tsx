@@ -6,6 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useAuth } from "@/hooks/useAuth";
+// Remove this line
+// import { useToast } from "@/hooks/use-toast";
+// Add this line instead
+import { toast } from "sonner";
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -30,6 +34,8 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
   const [dataProcessingConsent, setDataProcessingConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signInWithGoogle, signInWithFacebook, signUp, signIn } = useAuth();
+  // Remove this line
+  // const { toast } = useToast();
 
   // Console warning for text readability
   useEffect(() => {
@@ -67,6 +73,15 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
           return;
         }
 
+        // Validate phone number is exactly 10 digits
+        if (phoneNumber.trim() && phoneNumber.trim().replace(/[^0-9]/g, '').length !== 10) {
+          console.error("❌ Sign-up validation failed: Phone number must be exactly 10 digits");
+          toast.error("Invalid Phone Number", {
+            description: "Phone number must be exactly 10 digits.",
+          });
+          return;
+        }
+
         const { error } = await signUp(email, password, {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
@@ -88,6 +103,19 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
           console.log("✅ Sign-in successful - closing modal and showing home page");
           onClose(); // Close modal immediately
           onSuccess?.(); // Trigger any success callbacks
+        } else if ((error as any).isUserNotFound) {
+          // Display a more specific message for unregistered emails
+          console.log("⚠️ Account not found with this email");
+          // Replace this
+          // toast({
+          //   title: "Account Not Found",
+          //   description: "No account found with this email. Please sign up first.",
+          //   variant: "destructive",
+          // });
+          // With this
+          toast.error("Account Not Found", {
+            description: "No account found with this email. Please sign up first.",
+          });
         }
       }
     } finally {

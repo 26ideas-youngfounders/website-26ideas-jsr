@@ -123,8 +123,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Sign up error:', error);
         
         // Provide specific error messages
-        if (error.message.includes('already registered')) {
-          return { error: 'This email is already registered. Please sign in instead.' };
+        if (error.message.includes('already registered') || error.message.includes('User already registered')) {
+          return { error: 'This email is already registered. Please sign in instead or use a different email address.' };
         } else if (error.message.includes('Password should be at least')) {
           return { error: 'Password must be at least 6 characters long.' };
         } else if (error.message.includes('Invalid email')) {
@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.user) {
-        // Create individual profile
+        // Create individual profile - only if user was successfully created
         try {
           const { error: profileError } = await supabase
             .from('individuals')

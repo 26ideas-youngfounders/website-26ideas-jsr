@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye, EyeOff, Loader2, Mail, Lock, User, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Mail, Lock, User, UserPlus, AlertCircle } from 'lucide-react';
 
 type TabValue = 'signin' | 'signup';
 
@@ -48,6 +48,9 @@ export const SignInModal: React.FC<SignInModalProps> = ({
 
   const handleTabChange = (value: string) => {
     setActiveTab(value as TabValue);
+    // Clear form errors when switching tabs
+    setSignInData({ email: '', password: '' });
+    setSignUpData({ firstName: '', lastName: '', email: '', password: '', confirmPassword: '' });
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -63,6 +66,25 @@ export const SignInModal: React.FC<SignInModalProps> = ({
           description: result.error,
           variant: 'destructive',
         });
+        
+        // If credentials are invalid, suggest they might want to sign up instead
+        if (result.error.includes('Invalid email or password')) {
+          setTimeout(() => {
+            toast({
+              title: 'Need an account?',
+              description: 'If you don\'t have an account yet, try signing up instead.',
+              action: (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setActiveTab('signup')}
+                >
+                  Sign Up
+                </Button>
+              ),
+            });
+          }, 2000);
+        }
       } else {
         toast({
           title: 'Welcome back!',
@@ -97,6 +119,15 @@ export const SignInModal: React.FC<SignInModalProps> = ({
       return;
     }
 
+    if (signUpData.password.length < 6) {
+      toast({
+        title: 'Password Too Short',
+        description: 'Password must be at least 6 characters long.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -113,6 +144,25 @@ export const SignInModal: React.FC<SignInModalProps> = ({
           description: result.error,
           variant: 'destructive',
         });
+        
+        // If user already exists, suggest they sign in instead
+        if (result.error.includes('already registered')) {
+          setTimeout(() => {
+            toast({
+              title: 'Already have an account?',
+              description: 'Try signing in instead.',
+              action: (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setActiveTab('signin')}
+                >
+                  Sign In
+                </Button>
+              ),
+            });
+          }, 2000);
+        }
       } else {
         toast({
           title: 'Account Created!',
@@ -272,6 +322,7 @@ export const SignInModal: React.FC<SignInModalProps> = ({
                         value={signUpData.password}
                         onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
                         required
+                        minLength={6}
                       />
                       <Button
                         type="button"
@@ -283,6 +334,7 @@ export const SignInModal: React.FC<SignInModalProps> = ({
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
                     </div>
+                    <p className="text-xs text-gray-500">Password must be at least 6 characters</p>
                   </div>
                   
                   <div className="space-y-2">

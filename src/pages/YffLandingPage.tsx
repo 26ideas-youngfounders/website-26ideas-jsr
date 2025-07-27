@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { SignInModal } from '@/components/SignInModal';
@@ -28,9 +28,50 @@ declare global {
  */
 export const YffLandingPage = () => {
   const [showSignInModal, setShowSignInModal] = useState(false);
+  const [typeformScriptLoaded, setTypeformScriptLoaded] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Load Typeform embed script
+  useEffect(() => {
+    const loadTypeformScript = () => {
+      // Check if script already exists
+      if (document.querySelector('script[src*="embed.typeform.com"]')) {
+        console.log("✅ Typeform script already loaded");
+        setTypeformScriptLoaded(true);
+        return;
+      }
+
+      console.log("🔄 Loading Typeform embed script");
+      const script = document.createElement('script');
+      script.src = '//embed.typeform.com/next/embed.js';
+      script.async = true;
+      script.onload = () => {
+        console.log("✅ Typeform script loaded successfully");
+        setTypeformScriptLoaded(true);
+      };
+      script.onerror = () => {
+        console.error("❌ Failed to load Typeform script");
+        toast({
+          title: "Error",
+          description: "Failed to load Typeform. Please try refreshing the page.",
+          variant: "destructive",
+        });
+      };
+      document.head.appendChild(script);
+    };
+
+    loadTypeformScript();
+
+    // Cleanup function
+    return () => {
+      const script = document.querySelector('script[src*="embed.typeform.com"]');
+      if (script) {
+        script.remove();
+      }
+    };
+  }, [toast]);
 
   // Handle sign-in success - redirect directly to registration
   const handleSignInSuccess = () => {
@@ -69,18 +110,30 @@ export const YffLandingPage = () => {
     console.log("ℹ️ Typeform popup closed");
   };
 
-  // Fallback handler for manual Typeform opening (if PopupButton fails)
+  // Fallback handler for manual Typeform opening
   const handleManualTypeformOpen = () => {
     console.log("🔄 Attempting to open Typeform manually");
+    
+    if (!typeformScriptLoaded) {
+      console.error("❌ Typeform script not loaded yet");
+      toast({
+        title: "Please wait",
+        description: "Typeform is still loading. Please try again in a moment.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Check if window.tf is available
     if (typeof window !== 'undefined' && window.tf) {
       try {
-        window.tf.createPopup("01K16KGT1RZ1HHF3X527EMMVXS", {
+        const popup = window.tf.createPopup("01K16KGT1RZ1HHF3X527EMMVXS", {
           onSubmit: handleTypeformSubmit,
           onReady: handleTypeformReady,
           onClose: handleTypeformClose,
-        }).open();
+        });
+        popup.open();
+        console.log("✅ Typeform opened manually");
       } catch (error) {
         console.error("❌ Error opening Typeform manually:", error);
         toast({
@@ -90,7 +143,7 @@ export const YffLandingPage = () => {
         });
       }
     } else {
-      console.error("❌ Typeform embed script not loaded");
+      console.error("❌ Typeform embed script not available");
       toast({
         title: "Error",
         description: "Registration form is not available. Please try the direct registration instead.",
@@ -120,7 +173,7 @@ export const YffLandingPage = () => {
               {user ? "Register Now" : "Sign in to register"}
             </button>
             
-            {user && (
+            {user && typeformScriptLoaded && (
               <div className="flex flex-col sm:flex-row gap-2 items-center">
                 <PopupButton
                   id="01K16KGT1RZ1HHF3X527EMMVXS"
@@ -128,8 +181,6 @@ export const YffLandingPage = () => {
                   onSubmit={handleTypeformSubmit}
                   onReady={handleTypeformReady}
                   onClose={handleTypeformClose}
-                  enableSandbox={false}
-                  autoClose={5000}
                 >
                   Register via Typeform
                 </PopupButton>
@@ -142,6 +193,12 @@ export const YffLandingPage = () => {
                 >
                   Debug: Manual Open
                 </Button>
+              </div>
+            )}
+            
+            {user && !typeformScriptLoaded && (
+              <div className="text-sm text-gray-600">
+                Loading Typeform...
               </div>
             )}
           </div>

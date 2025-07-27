@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { parseISO, differenceInYears, isValid } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAutosave } from '@/hooks/useAutosave';
@@ -27,9 +28,20 @@ import { validateFormData, sanitizeFormData } from '@/utils/yff-form-validation'
 const teamMemberSchema = z.object({
   fullName: z.string().min(2, { message: 'Full name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Invalid email address.' }),
-  phoneNumber: z.string().min(8, { message: 'Phone number must be at least 8 digits.' }),
+  phoneNumber: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits.'),
   countryCode: z.string().default('+91'),
-  dateOfBirth: z.string().min(1, { message: 'Date of birth is required.' }),
+  dateOfBirth: z.string()
+    .refine((dateString) => {
+      if (!dateString) return false; // Ensure it's not empty if required
+      const dob = parseISO(dateString);
+      return isValid(dob);
+    }, "Invalid date format")
+    .refine((dateString) => {
+      const dob = parseISO(dateString);
+      const today = new Date();
+      const age = differenceInYears(today, dob);
+      return age >= 18 && age <= 27;
+    }, "You must be between 18 and 27 years old on the date of registration."),
   currentCity: z.string().min(2, { message: 'City must be at least 2 characters.' }),
   state: z.string().min(2, { message: 'State must be at least 2 characters.' }),
   pinCode: z.string().min(6, { message: 'Pin code must be 6 digits.' }),
@@ -46,9 +58,20 @@ const teamMemberSchema = z.object({
 const formSchema = z.object({
   fullName: z.string().min(2, { message: 'Full name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Invalid email address.' }),
-  phoneNumber: z.string().min(8, { message: 'Phone number must be at least 8 digits.' }),
+  phoneNumber: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits.'),
   countryCode: z.string().default('+91'),
-  dateOfBirth: z.string().min(1, { message: 'Date of birth is required.' }),
+  dateOfBirth: z.string()
+    .refine((dateString) => {
+      if (!dateString) return false; // Ensure it's not empty if required
+      const dob = parseISO(dateString);
+      return isValid(dob);
+    }, "Invalid date format")
+    .refine((dateString) => {
+      const dob = parseISO(dateString);
+      const today = new Date();
+      const age = differenceInYears(today, dob);
+      return age >= 18 && age <= 27;
+    }, "You must be between 18 and 27 years old on the date of registration."),
   currentCity: z.string().min(2, { message: 'City must be at least 2 characters.' }),
   state: z.string().min(2, { message: 'State must be at least 2 characters.' }),
   pinCode: z.string().min(6, { message: 'Pin code must be 6 digits.' }),
@@ -276,15 +299,17 @@ export const YffTeamRegistrationForm = () => {
   const [existingRegistration, setExistingRegistration] = useState<any>(null);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [submitAttempts, setSubmitAttempts] = useState(0);
+  const [fetchedPhoneNumber, setFetchedPhoneNumber] = useState('');
+  const [fetchedDateOfBirth, setFetchedDateOfBirth] = useState('');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       fullName: '',
       email: '',
-      phoneNumber: '',
+      phoneNumber: fetchedPhoneNumber || '',
       countryCode: '+91',
-      dateOfBirth: '',
+      dateOfBirth: fetchedDateOfBirth || '',
       currentCity: '',
       state: '',
       pinCode: '',
@@ -311,6 +336,46 @@ export const YffTeamRegistrationForm = () => {
     formData: watchedValues,
     formType: 'yff_team_registration',
   });
+
+  // Fetch user's phone number from profile for auto-fill
+  useEffect(() => {
+    const fetchUserPhoneNumber = async () => {
+      if (user?.id) {
+        try {
+          const { data, error } = await supabase
+            .from('individuals')
+            .select('phone_number')
+            .eq('individual_id', user.id)
+            .single();
+          
+          if (error && error.code !== 'PGRST116') { // PGRST116 is 'no rows found'
+            console.error('Error fetching user phone number:', error);
+          } else if (data?.phone_number) {
+            setFetchedPhoneNumber(data.phone_number);
+            form.setValue('phoneNumber', data.phone_number, { shouldValidate: true });
+          }
+        } catch (error) {
+          console.error('Error fetching user phone number:', error);
+        }
+      }
+    };
+    
+    fetchUserPhoneNumber();
+  }, [user, form]);
+
+  // Update form values when fetched data becomes available
+  useEffect(() => {
+    console.log('🔄 useEffect triggered - fetchedPhoneNumber:', fetchedPhoneNumber, 'fetchedDateOfBirth:', fetchedDateOfBirth);
+    
+    if (fetchedPhoneNumber && form.getValues('phoneNumber') !== fetchedPhoneNumber) {
+      console.log('📱 Setting phone number in form:', fetchedPhoneNumber);
+      form.setValue('phoneNumber', fetchedPhoneNumber, { shouldValidate: true });
+    }
+    if (fetchedDateOfBirth && form.getValues('dateOfBirth') !== fetchedDateOfBirth) {
+      console.log('📅 Setting date of birth in form:', fetchedDateOfBirth);
+      form.setValue('dateOfBirth', fetchedDateOfBirth, { shouldValidate: true });
+    }
+  }, [fetchedPhoneNumber, fetchedDateOfBirth, form]);
 
   // Create a basic profile for authenticated users who don't have one
   const createBasicProfile = async () => {
@@ -426,11 +491,23 @@ export const YffTeamRegistrationForm = () => {
         }
 
         console.log('✅ Individual profile loaded:', individual);
+        console.log('📱 Phone number from profile:', individual.phone_number);
+        console.log('📅 Date of birth from profile:', individual.date_of_birth);
 
         // Pre-fill form with profile data
         form.setValue('fullName', `${individual.first_name} ${individual.last_name}`);
         form.setValue('email', individual.email);
         form.setValue('countryCode', individual.country_code || '+91');
+        
+        // Set fetched phone number and date of birth from individual profile
+        if (individual.phone_number) {
+          setFetchedPhoneNumber(individual.phone_number);
+          form.setValue('phoneNumber', individual.phone_number, { shouldValidate: true });
+        }
+        if (individual.date_of_birth) {
+          setFetchedDateOfBirth(individual.date_of_birth);
+          form.setValue('dateOfBirth', individual.date_of_birth, { shouldValidate: true });
+        }
 
         // Load autosaved data - this is crucial for cross-session persistence
         console.log('📋 Loading autosaved data...');
@@ -571,6 +648,25 @@ export const YffTeamRegistrationForm = () => {
       }
 
       console.log('✅ Registration submitted successfully');
+      
+      // Save phone number to user's profile for future auto-fill
+      if (user?.id && data.phoneNumber) {
+        try {
+          const { error: profileError } = await supabase
+            .from('individuals')
+            .update({ phone_number: data.phoneNumber })
+            .eq('individual_id', user.id);
+          
+          if (profileError) {
+            console.error('❌ Failed to update user profile phone number:', profileError);
+            // Don't block registration, just log the error
+          } else {
+            console.log('✅ User profile phone number updated/saved.');
+          }
+        } catch (error) {
+          console.error('❌ Error updating user profile phone number:', error);
+        }
+      }
       
       // Clear autosaved data after successful submission
       await clearSavedData();

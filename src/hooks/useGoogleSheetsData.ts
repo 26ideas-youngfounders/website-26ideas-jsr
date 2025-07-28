@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface GoogleSheetsRow {
   teamName: string;
@@ -15,13 +16,10 @@ interface UseGoogleSheetsDataReturn {
   refetch: () => Promise<void>;
 }
 
-const SPREADSHEET_ID = '1N4rNJDtW2NHl0K38oiIrGag-VwXbvaUkgPri-QE4XnM';
-const SHEET_NAME = 'Answers';
-const API_KEY = 'AIzaSyAQqgzd1oYW603wThb_iWnrQ9F1slwo-2g';
 const POLLING_INTERVAL = 180000; // 3 minutes
 
 /**
- * Custom hook to fetch and sync Google Sheets data with periodic polling
+ * Custom hook to fetch and sync Google Sheets data via Supabase Edge Function
  */
 export const useGoogleSheetsData = (): UseGoogleSheetsDataReturn => {
   const [data, setData] = useState<GoogleSheetsRow[]>([]);
@@ -29,35 +27,33 @@ export const useGoogleSheetsData = (): UseGoogleSheetsDataReturn => {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Fetch data from Google Sheets API
+   * Fetch data from Google Sheets via secure Edge Function
    */
   const fetchSheetData = useCallback(async () => {
     try {
-      console.log('📊 Fetching Google Sheets data...');
+      console.log('📊 Fetching Google Sheets data via Edge Function...');
       
-      const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`
-      );
+      const { data: response, error: functionError } = await supabase.functions.invoke('google-sheets-proxy', {
+        method: 'GET',
+      });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (functionError) {
+        throw new Error(`Edge Function error: ${functionError.message}`);
       }
 
-      const json = await response.json();
-      const rows = json.values || [];
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch Google Sheets data');
+      }
+
+      const sheetsData = response.data || [];
       
-      console.log('✅ Raw Google Sheets data:', rows);
+      console.log('✅ Google Sheets data received via Edge Function:', {
+        count: sheetsData.length,
+        cached: response.cached,
+        timestamp: response.timestamp
+      });
 
-      // Skip header row and parse data
-      const parsedData: GoogleSheetsRow[] = rows.slice(1).map((row: string[]) => ({
-        teamName: (row[0] || '').trim(),
-        idea: (row[1] || '').trim(),
-        averageScore: (row[2] || '').trim(),
-        feedback: (row[3] || '').trim(),
-      })).filter((row: GoogleSheetsRow) => row.teamName); // Filter out empty rows
-
-      console.log('✅ Parsed Google Sheets data:', parsedData.length, 'rows');
-      setData(parsedData);
+      setData(sheetsData);
       setError(null);
     } catch (err) {
       console.error('❌ Error fetching Google Sheets data:', err);
@@ -75,7 +71,7 @@ export const useGoogleSheetsData = (): UseGoogleSheetsDataReturn => {
     fetchSheetData();
 
     // Set up polling interval
-    console.log('🔄 Setting up Google Sheets polling every 3 minutes...');
+    console.log('🔄 Setting up Google Sheets polling every 3 minutes via Edge Function...');
     const interval = setInterval(fetchSheetData, POLLING_INTERVAL);
 
     // Cleanup on unmount

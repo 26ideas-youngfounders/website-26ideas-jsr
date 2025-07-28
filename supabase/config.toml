@@ -187,6 +187,9 @@ verify_jwt = false
 [functions.ai-feedback]
 verify_jwt = false
 
+[functions.google-sheets-proxy]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 inspector_port = 8083

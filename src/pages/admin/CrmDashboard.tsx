@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -17,6 +16,9 @@ import {
   Calendar,
   FileText
 } from 'lucide-react';
+import { GoogleSheetsFeedbackCard } from '@/components/admin/GoogleSheetsFeedbackCard';
+import { useGoogleSheetsData } from '@/hooks/useGoogleSheetsData';
+import { matchFeedbackData } from '@/utils/feedbackMatcher';
 
 interface DashboardStats {
   totalApplications: number;
@@ -52,6 +54,9 @@ export const CrmDashboard = () => {
     recentApplications: []
   });
   const [loading, setLoading] = useState(true);
+
+  // Add Google Sheets data hook
+  const { data: feedbackData } = useGoogleSheetsData();
 
   /**
    * Fetch dashboard statistics
@@ -252,7 +257,7 @@ export const CrmDashboard = () => {
           <div>
             <h1 className="text-2xl font-bold">CRM Dashboard</h1>
             <p className="text-gray-600">
-              Real-time insights and analytics for YFF applications
+              Real-time insights and analytics for YFF applications with Google Sheets feedback
             </p>
           </div>
           <Button 
@@ -347,6 +352,9 @@ export const CrmDashboard = () => {
           </Card>
         </div>
 
+        {/* Google Sheets Feedback Card */}
+        <GoogleSheetsFeedbackCard />
+
         {/* Typeform Submissions Card */}
         <TypeformSubmissionsCard />
 
@@ -416,32 +424,45 @@ export const CrmDashboard = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              Recent Applications
+              Recent Applications with Feedback
             </CardTitle>
             <CardDescription>
-              Latest YFF team registrations
+              Latest YFF team registrations with Google Sheets feedback data
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {stats.recentApplications.map((app) => (
-                <div key={app.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <div className="font-medium">{app.full_name}</div>
-                      <div className="text-sm text-gray-500">{app.team_name}</div>
+              {stats.recentApplications.map((app) => {
+                const feedback = matchFeedbackData(app.team_name, feedbackData);
+                return (
+                  <div key={app.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <div className="font-medium">{app.full_name}</div>
+                        <div className="text-sm text-gray-500">{app.team_name}</div>
+                        {feedback.hasMatch && (
+                          <div className="text-xs text-green-600 mt-1">
+                            Score: {feedback.score?.toFixed(1) || 'N/A'} • {feedback.feedback?.substring(0, 50)}...
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {feedback.hasMatch && (
+                        <Badge variant="secondary" className="text-xs">
+                          Reviewed
+                        </Badge>
+                      )}
+                      <Badge variant={getStatusBadgeVariant(app.application_status)}>
+                        {app.application_status.replace('_', ' ')}
+                      </Badge>
+                      <span className="text-xs text-gray-500">
+                        {new Date(app.created_at).toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={getStatusBadgeVariant(app.application_status)}>
-                      {app.application_status.replace('_', ' ')}
-                    </Badge>
-                    <span className="text-xs text-gray-500">
-                      {new Date(app.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {stats.recentApplications.length === 0 && (
                 <p className="text-sm text-gray-500">No recent applications</p>
               )}

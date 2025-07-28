@@ -1,7 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useGoogleSheetsData } from '@/hooks/useGoogleSheetsData';
+import { matchFeedbackData } from '@/utils/feedbackMatcher';
 import {
   Table,
   TableBody,
@@ -24,7 +25,8 @@ import {
   Eye,
   ChevronUp,
   ChevronDown,
-  ArrowUpDown
+  ArrowUpDown,
+  Star
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { YffApplicationDetailsDialog } from './YffApplicationDetailsDialog';
@@ -75,6 +77,7 @@ export const YffApplicationsTable = () => {
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { toast } = useToast();
+  const { data: feedbackData } = useGoogleSheetsData();
 
   /**
    * Parse and normalize team members data
@@ -374,6 +377,9 @@ export const YffApplicationsTable = () => {
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-semibold">YFF Team Registrations</h2>
           <Badge variant="outline">{applications.length} total</Badge>
+          {feedbackData.length > 0 && (
+            <Badge variant="secondary">{feedbackData.length} with feedback</Badge>
+          )}
         </div>
         
         <div className="flex items-center gap-2">
@@ -416,6 +422,7 @@ export const YffApplicationsTable = () => {
               </TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Education</TableHead>
+              <TableHead>Feedback & Score</TableHead>
               <TableHead className="cursor-pointer" onClick={() => handleSort('application_status')}>
                 <div className="flex items-center gap-2">
                   Status
@@ -434,90 +441,114 @@ export const YffApplicationsTable = () => {
           <TableBody>
             {filteredApplications.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                   {searchTerm ? 'No applications match your search.' : 'No applications found.'}
                 </TableCell>
               </TableRow>
             ) : (
-              filteredApplications.map((application) => (
-                <TableRow key={application.id}>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="font-medium">{application.full_name}</div>
-                      <div className="text-sm text-gray-500 flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {application.number_of_team_members} member{application.number_of_team_members !== 1 ? 's' : ''}
+              filteredApplications.map((application) => {
+                const feedback = matchFeedbackData(application.team_name, feedbackData);
+                return (
+                  <TableRow key={application.id}>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium">{application.full_name}</div>
+                        <div className="text-sm text-gray-500 flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {application.number_of_team_members} member{application.number_of_team_members !== 1 ? 's' : ''}
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="font-medium">{application.team_name || 'N/A'}</div>
-                      <div className="text-sm text-gray-500">{application.venture_name || 'N/A'}</div>
-                      {application.industry_sector && (
-                        <div className="text-xs text-gray-400">{application.industry_sector}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-sm">
-                        <Mail className="h-3 w-3" />
-                        {application.email}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium">{application.team_name || 'N/A'}</div>
+                        <div className="text-sm text-gray-500">{application.venture_name || 'N/A'}</div>
+                        {application.industry_sector && (
+                          <div className="text-xs text-gray-400">{application.industry_sector}</div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 text-sm">
-                        <Phone className="h-3 w-3" />
-                        {application.country_code} {application.phone_number}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 text-sm">
+                          <Mail className="h-3 w-3" />
+                          {application.email}
+                        </div>
+                        <div className="flex items-center gap-1 text-sm">
+                          <Phone className="h-3 w-3" />
+                          {application.country_code} {application.phone_number}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {application.current_city}, {application.state}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {application.current_city}, {application.state}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 text-sm">
+                          <Building className="h-3 w-3" />
+                          {application.institution_name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {application.course_program}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {application.current_year_of_study} • Grad: {application.expected_graduation}
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-sm">
-                        <Building className="h-3 w-3" />
-                        {application.institution_name}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {application.course_program}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {application.current_year_of_study} • Grad: {application.expected_graduation}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <Badge variant={getStatusBadgeVariant(application.application_status)}>
-                        {application.application_status.replace('_', ' ')}
-                      </Badge>
-                      {application.questionnaire_completed_at && (
-                        <div className="text-xs text-green-600">
-                          Questionnaire completed
+                    </TableCell>
+                    <TableCell>
+                      {feedback.hasMatch ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-3 w-3 text-yellow-500" />
+                            <Badge variant="secondary" className="text-xs">
+                              {feedback.score?.toFixed(1) || 'N/A'}
+                            </Badge>
+                          </div>
+                          {feedback.feedback && (
+                            <div className="text-xs text-gray-600 max-w-32 truncate" title={feedback.feedback}>
+                              {feedback.feedback}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-400">
+                          Awaiting feedback
                         </div>
                       )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-sm">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(application.created_at), 'MMM dd, yyyy')}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Badge variant={getStatusBadgeVariant(application.application_status)}>
+                          {application.application_status.replace('_', ' ')}
+                        </Badge>
+                        {application.questionnaire_completed_at && (
+                          <div className="text-xs text-green-600">
+                            Questionnaire completed
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {format(new Date(application.created_at), 'HH:mm')}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 text-sm">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(application.created_at), 'MMM dd, yyyy')}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {format(new Date(application.created_at), 'HH:mm')}
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <YffApplicationDetailsDialog 
-                      application={convertToApplicationFormat(application)}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell>
+                      <YffApplicationDetailsDialog 
+                        application={convertToApplicationFormat(application)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

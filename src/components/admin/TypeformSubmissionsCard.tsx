@@ -33,6 +33,24 @@ interface TypeformSubmission {
 }
 
 /**
+ * Safely parse form_data from Supabase Json type to Record<string, any>
+ */
+const parseFormData = (formData: any): Record<string, any> => {
+  try {
+    if (typeof formData === 'string') {
+      return JSON.parse(formData || '{}');
+    }
+    if (formData && typeof formData === 'object') {
+      return formData;
+    }
+    return {};
+  } catch (error) {
+    console.warn('Failed to parse form_data:', error);
+    return {};
+  }
+};
+
+/**
  * Component to display Typeform submissions in the admin dashboard
  */
 export const TypeformSubmissionsCard = () => {
@@ -60,7 +78,20 @@ export const TypeformSubmissionsCard = () => {
       }
 
       console.log('✅ Typeform submissions loaded:', data?.length || 0);
-      setSubmissions(data || []);
+      
+      // Transform data to match our TypeScript interface
+      const transformedSubmissions: TypeformSubmission[] = (data || []).map(item => ({
+        id: item.id,
+        typeform_id: item.typeform_id,
+        submission_id: item.submission_id,
+        form_data: parseFormData(item.form_data),
+        submitted_at: item.submitted_at,
+        user_email: item.user_email,
+        user_identified: item.user_identified,
+        created_at: item.created_at
+      }));
+
+      setSubmissions(transformedSubmissions);
     } catch (error) {
       console.error('❌ Unexpected error fetching submissions:', error);
     } finally {

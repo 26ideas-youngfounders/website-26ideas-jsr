@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,18 +17,29 @@ const SHEET_NAME = 'Answers';
  */
 function validateSheetData(rows: string[][]): any[] {
   if (!Array.isArray(rows) || rows.length === 0) {
+    console.log('⚠️ No data rows found in Google Sheets response');
     return [];
   }
 
   // Skip header row and validate each row
-  return rows.slice(1)
-    .map((row: string[]) => ({
-      teamName: (row[0] || '').toString().trim(),
-      idea: (row[1] || '').toString().trim(),
-      averageScore: (row[2] || '').toString().trim(),
-      feedback: (row[3] || '').toString().trim(),
-    }))
-    .filter((row) => row.teamName && row.teamName.length > 0); // Only include rows with team names
+  const validatedData = rows.slice(1)
+    .map((row: string[], index: number) => {
+      if (!Array.isArray(row) || row.length < 4) {
+        console.log(`⚠️ Skipping invalid row ${index + 2}:`, row);
+        return null;
+      }
+      
+      return {
+        teamName: (row[0] || '').toString().trim(),
+        idea: (row[1] || '').toString().trim(),
+        averageScore: (row[2] || '').toString().trim(),
+        feedback: (row[3] || '').toString().trim(),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null && row.teamName.length > 0);
+
+  console.log(`✅ Processed ${validatedData.length} valid rows from ${rows.length} total rows`);
+  return validatedData;
 }
 
 /**
@@ -59,49 +69,100 @@ async function fetchSheetData(): Promise<any[]> {
   
   const apiKey = Deno.env.get('GOOGLE_SHEETS_API_KEY');
   if (!apiKey) {
-    throw new Error('Google Sheets API key not configured');
+    throw new Error('Google Sheets API key not configured. Please add GOOGLE_SHEETS_API_KEY to your environment variables.');
   }
 
-  const response = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}?key=${apiKey}`,
-    {
+  console.log('🔑 API key found, making request to Google Sheets API...');
+
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}?key=${apiKey}`;
+  console.log('📡 Request URL:', url.replace(apiKey, 'API_KEY_HIDDEN'));
+
+  try {
+    const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
       },
-    }
-  );
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ Google Sheets API error:', response.status, errorText);
+    console.log('📊 Google Sheets API response status:', response.status);
     
-    if (response.status === 403) {
-      throw new Error('Access denied to Google Sheet. Please ensure the sheet is shared with the correct permissions.');
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Google Sheets API error response:', errorText);
+      
+      let errorMessage = `Google Sheets API error: ${response.status}`;
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error) {
+          errorMessage = errorJson.error.message || errorMessage;
+          console.error('❌ Parsed error details:', errorJson.error);
+        }
+      } catch (parseError) {
+        console.error('❌ Could not parse error response as JSON');
+      }
+      
+      if (response.status === 403) {
+        throw new Error(`Access denied to Google Sheet. This could mean:
+1. The API key doesn't have access to Google Sheets API
+2. The spreadsheet is not publicly accessible
+3. The API key has restrictions that prevent access
+Original error: ${errorMessage}`);
+      }
+      if (response.status === 404) {
+        throw new Error(`Google Sheet not found. Please verify:
+1. Spreadsheet ID: ${SPREADSHEET_ID}
+2. Sheet name: ${SHEET_NAME}
+Original error: ${errorMessage}`);
+      }
+      if (response.status === 400) {
+        throw new Error(`Invalid request to Google Sheets API. Please check the spreadsheet ID and sheet name. Original error: ${errorMessage}`);
+      }
+      
+      throw new Error(errorMessage);
     }
-    if (response.status === 404) {
-      throw new Error('Google Sheet not found. Please check the spreadsheet ID and sheet name.');
-    }
+
+    const json = await response.json();
+    const rows = json.values || [];
     
-    throw new Error(`Google Sheets API error: ${response.status}`);
+    console.log('✅ Raw Google Sheets data received:', {
+      totalRows: rows.length,
+      hasHeader: rows.length > 0,
+      columns: rows.length > 0 ? rows[0]?.length || 0 : 0
+    });
+
+    if (rows.length === 0) {
+      console.log('⚠️ Google Sheets returned empty data');
+      return [];
+    }
+
+    // Log first few rows for debugging (without sensitive data)
+    if (rows.length > 0) {
+      console.log('📋 Header row:', rows[0]);
+      if (rows.length > 1) {
+        console.log('📋 Sample data rows:', rows.slice(1, Math.min(3, rows.length)).map(row => 
+          row.map((cell, index) => index === 0 ? cell : '[HIDDEN]')
+        ));
+      }
+    }
+
+    // Validate and sanitize data
+    const validatedData = validateSheetData(rows);
+    
+    console.log('✅ Final validated data count:', validatedData.length);
+
+    // Cache the validated data
+    cache.set(cacheKey, {
+      data: validatedData,
+      timestamp: Date.now()
+    });
+
+    return validatedData;
+
+  } catch (error) {
+    console.error('❌ Network or parsing error:', error);
+    throw error;
   }
-
-  const json = await response.json();
-  const rows = json.values || [];
-  
-  console.log('✅ Raw Google Sheets data received:', rows.length, 'rows');
-
-  // Validate and sanitize data
-  const validatedData = validateSheetData(rows);
-  
-  console.log('✅ Validated Google Sheets data:', validatedData.length, 'valid rows');
-
-  // Cache the validated data
-  cache.set(cacheKey, {
-    data: validatedData,
-    timestamp: Date.now()
-  });
-
-  return validatedData;
 }
 
 serve(async (req) => {
@@ -130,7 +191,9 @@ serve(async (req) => {
       data,
       cached: isCacheValid(`${SPREADSHEET_ID}-${SHEET_NAME}`),
       timestamp: new Date().toISOString(),
-      count: data.length
+      count: data.length,
+      spreadsheetId: SPREADSHEET_ID,
+      sheetName: SHEET_NAME
     }), {
       headers: { 
         ...corsHeaders, 
@@ -145,7 +208,9 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: false,
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      spreadsheetId: SPREADSHEET_ID,
+      sheetName: SHEET_NAME
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

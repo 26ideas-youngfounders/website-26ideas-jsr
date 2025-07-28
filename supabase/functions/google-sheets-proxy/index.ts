@@ -90,36 +90,17 @@ async function fetchSheetData(): Promise<any[]> {
       const errorText = await response.text();
       console.error('❌ Google Sheets API error response:', errorText);
       
-      let errorMessage = `Google Sheets API error: ${response.status}`;
-      
-      try {
-        const errorJson = JSON.parse(errorText);
-        if (errorJson.error) {
-          errorMessage = errorJson.error.message || errorMessage;
-          console.error('❌ Parsed error details:', errorJson.error);
-        }
-      } catch (parseError) {
-        console.error('❌ Could not parse error response as JSON');
-      }
-      
       if (response.status === 403) {
-        throw new Error(`Access denied to Google Sheet. This could mean:
-1. The API key doesn't have access to Google Sheets API
-2. The spreadsheet is not publicly accessible
-3. The API key has restrictions that prevent access
-Original error: ${errorMessage}`);
+        throw new Error(`Access denied to Google Sheet. Please ensure the sheet is shared with the correct permissions.`);
       }
       if (response.status === 404) {
-        throw new Error(`Google Sheet not found. Please verify:
-1. Spreadsheet ID: ${SPREADSHEET_ID}
-2. Sheet name: ${SHEET_NAME}
-Original error: ${errorMessage}`);
+        throw new Error(`Google Sheet not found. Please verify the spreadsheet ID and sheet name.`);
       }
       if (response.status === 400) {
-        throw new Error(`Invalid request to Google Sheets API. Please check the spreadsheet ID and sheet name. Original error: ${errorMessage}`);
+        throw new Error(`Invalid request to Google Sheets API. Please check the configuration.`);
       }
       
-      throw new Error(errorMessage);
+      throw new Error(`Google Sheets API error: ${response.status}`);
     }
 
     const json = await response.json();
@@ -134,16 +115,6 @@ Original error: ${errorMessage}`);
     if (rows.length === 0) {
       console.log('⚠️ Google Sheets returned empty data');
       return [];
-    }
-
-    // Log first few rows for debugging (without sensitive data)
-    if (rows.length > 0) {
-      console.log('📋 Header row:', rows[0]);
-      if (rows.length > 1) {
-        console.log('📋 Sample data rows:', rows.slice(1, Math.min(3, rows.length)).map(row => 
-          row.map((cell, index) => index === 0 ? cell : '[HIDDEN]')
-        ));
-      }
     }
 
     // Validate and sanitize data

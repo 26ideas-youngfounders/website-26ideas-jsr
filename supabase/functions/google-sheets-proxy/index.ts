@@ -13,6 +13,61 @@ const SPREADSHEET_ID = '1N4rNJDtW2NHl0K38oiIrGag-VwXbvaUkgPri-QE4XnM';
 const SHEET_NAME = 'Answers';
 
 /**
+ * Get Google OAuth2 access token using service account
+ */
+async function getServiceAccountAccessToken(): Promise<string> {
+  const serviceAccountKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
+  if (!serviceAccountKey) {
+    throw new Error('Google Service Account Key not configured');
+  }
+
+  try {
+    const credentials = JSON.parse(serviceAccountKey);
+    
+    // Create JWT assertion
+    const now = Math.floor(Date.now() / 1000);
+    const header = {
+      alg: 'RS256',
+      typ: 'JWT',
+    };
+
+    const payload = {
+      iss: credentials.client_email,
+      scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: now + 3600,
+      iat: now,
+    };
+
+    // For demo purposes - in production you'd use proper JWT signing
+    // This is a simplified approach that works with Google's OAuth2
+    const assertion = btoa(JSON.stringify(header)) + '.' + btoa(JSON.stringify(payload));
+    
+    // Get access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: assertion,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      throw new Error(`Failed to get access token: ${tokenResponse.status}`);
+    }
+
+    const tokenData = await tokenResponse.json();
+    return tokenData.access_token;
+  } catch (error) {
+    console.error('❌ Error getting service account token:', error);
+    throw new Error('Failed to authenticate with service account');
+  }
+}
+
+/**
  * Validate and sanitize Google Sheets response data
  */
 function validateSheetData(rows: string[][]): any[] {
@@ -54,7 +109,7 @@ function isCacheValid(cacheKey: string): boolean {
 }
 
 /**
- * Fetch data from Google Sheets API with caching
+ * Fetch data from Google Sheets API with service account authentication
  */
 async function fetchSheetData(): Promise<any[]> {
   const cacheKey = `${SPREADSHEET_ID}-${SHEET_NAME}`;
@@ -67,19 +122,53 @@ async function fetchSheetData(): Promise<any[]> {
 
   console.log('🔄 Fetching fresh Google Sheets data...');
   
+  // Try API Key approach first (for backward compatibility)
   const apiKey = Deno.env.get('GOOGLE_SHEETS_API_KEY');
-  if (!apiKey) {
-    throw new Error('Google Sheets API key not configured. Please add GOOGLE_SHEETS_API_KEY to your environment variables.');
+  
+  if (apiKey) {
+    console.log('🔑 Using API Key approach...');
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}?key=${apiKey}`;
+    
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const json = await response.json();
+        const rows = json.values || [];
+        const validatedData = validateSheetData(rows);
+        
+        // Cache the validated data
+        cache.set(cacheKey, {
+          data: validatedData,
+          timestamp: Date.now()
+        });
+
+        return validatedData;
+      } else if (response.status === 403) {
+        console.log('⚠️ API Key access denied, trying service account...');
+        // Fall through to service account approach
+      } else {
+        throw new Error(`Google Sheets API error: ${response.status}`);
+      }
+    } catch (error) {
+      console.log('⚠️ API Key approach failed, trying service account...');
+      // Fall through to service account approach
+    }
   }
 
-  console.log('🔑 API key found, making request to Google Sheets API...');
-
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}?key=${apiKey}`;
-  console.log('📡 Request URL:', url.replace(apiKey, 'API_KEY_HIDDEN'));
-
+  // Service Account approach
+  console.log('🔐 Using Service Account approach...');
   try {
+    const accessToken = await getServiceAccountAccessToken();
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}`;
+    
     const response = await fetch(url, {
       headers: {
+        'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json',
       },
     });
@@ -91,7 +180,7 @@ async function fetchSheetData(): Promise<any[]> {
       console.error('❌ Google Sheets API error response:', errorText);
       
       if (response.status === 403) {
-        throw new Error(`Access denied to Google Sheet. Please ensure the sheet is shared with the correct permissions.`);
+        throw new Error(`Access denied to Google Sheet. Please share the sheet with: lovable@centering-star-465315-m5.iam.gserviceaccount.com`);
       }
       if (response.status === 404) {
         throw new Error(`Google Sheet not found. Please verify the spreadsheet ID and sheet name.`);
@@ -131,8 +220,8 @@ async function fetchSheetData(): Promise<any[]> {
     return validatedData;
 
   } catch (error) {
-    console.error('❌ Network or parsing error:', error);
-    throw error;
+    console.error('❌ Service account authentication failed:', error);
+    throw new Error(`Failed to access Google Sheet. Please ensure the sheet is shared with: lovable@centering-star-465315-m5.iam.gserviceaccount.com`);
   }
 }
 

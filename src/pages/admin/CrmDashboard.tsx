@@ -5,6 +5,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { TypeformSubmissionsCard } from '@/components/admin/TypeformSubmissionsCard';
 import { 
   Users, 
   UserCheck, 
@@ -14,8 +15,7 @@ import {
   MapPin,
   RefreshCw,
   Calendar,
-  Award,
-  Target
+  FileText
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -23,6 +23,8 @@ interface DashboardStats {
   completedApplications: number;
   pendingApplications: number;
   todayApplications: number;
+  typeformSubmissions: number;
+  todayTypeformSubmissions: number;
   topInstitutions: Array<{ name: string; count: number }>;
   topCities: Array<{ name: string; count: number }>;
   recentApplications: Array<{
@@ -43,6 +45,8 @@ export const CrmDashboard = () => {
     completedApplications: 0,
     pendingApplications: 0,
     todayApplications: 0,
+    typeformSubmissions: 0,
+    todayTypeformSubmissions: 0,
     topInstitutions: [],
     topCities: [],
     recentApplications: []
@@ -58,17 +62,28 @@ export const CrmDashboard = () => {
       console.log('📊 Fetching dashboard statistics...');
 
       // Get all applications
-      const { data: applications, error } = await supabase
+      const { data: applications, error: appsError } = await supabase
         .from('yff_team_registrations')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Error fetching applications:', error);
+      if (appsError) {
+        console.error('❌ Error fetching applications:', appsError);
         return;
       }
 
-      console.log('✅ Applications loaded for dashboard:', applications?.length || 0);
+      // Get Typeform submissions
+      const { data: typeformSubmissions, error: typeformError } = await supabase
+        .from('typeform_submissions')
+        .select('*')
+        .order('submitted_at', { ascending: false });
+
+      if (typeformError) {
+        console.error('❌ Error fetching Typeform submissions:', typeformError);
+      }
+
+      console.log('✅ Applications loaded:', applications?.length || 0);
+      console.log('✅ Typeform submissions loaded:', typeformSubmissions?.length || 0);
 
       if (!applications) {
         setStats({
@@ -76,6 +91,8 @@ export const CrmDashboard = () => {
           completedApplications: 0,
           pendingApplications: 0,
           todayApplications: 0,
+          typeformSubmissions: 0,
+          todayTypeformSubmissions: 0,
           topInstitutions: [],
           topCities: [],
           recentApplications: []
@@ -100,6 +117,14 @@ export const CrmDashboard = () => {
         appDate.setHours(0, 0, 0, 0);
         return appDate.getTime() === today.getTime();
       }).length;
+
+      // Typeform stats
+      const totalTypeformSubmissions = typeformSubmissions?.length || 0;
+      const todayTypeformSubmissions = typeformSubmissions?.filter(sub => {
+        const subDate = new Date(sub.submitted_at);
+        subDate.setHours(0, 0, 0, 0);
+        return subDate.getTime() === today.getTime();
+      }).length || 0;
 
       // Top institutions
       const institutionCounts = applications.reduce((acc, app) => {
@@ -139,6 +164,8 @@ export const CrmDashboard = () => {
         completedApplications,
         pendingApplications,
         todayApplications,
+        typeformSubmissions: totalTypeformSubmissions,
+        todayTypeformSubmissions,
         topInstitutions,
         topCities,
         recentApplications
@@ -158,7 +185,7 @@ export const CrmDashboard = () => {
     // Initial load
     fetchDashboardStats();
 
-    // Set up real-time subscription
+    // Set up real-time subscription for applications
     console.log('🔄 Setting up real-time subscription for dashboard...');
     
     const channel = supabase
@@ -172,7 +199,18 @@ export const CrmDashboard = () => {
         },
         (payload) => {
           console.log('📡 Dashboard real-time update received:', payload);
-          // Refresh stats when data changes
+          fetchDashboardStats();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'typeform_submissions'
+        },
+        (payload) => {
+          console.log('📡 Typeform submission real-time update received:', payload);
           fetchDashboardStats();
         }
       )
@@ -180,7 +218,6 @@ export const CrmDashboard = () => {
         console.log('📡 Dashboard subscription status:', status);
       });
 
-    // Cleanup subscription on unmount
     return () => {
       console.log('🔚 Cleaning up dashboard subscription...');
       supabase.removeChannel(channel);
@@ -230,7 +267,7 @@ export const CrmDashboard = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
@@ -272,7 +309,7 @@ export const CrmDashboard = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Today</CardTitle>
+              <CardTitle className="text-sm font-medium">Today Apps</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -282,7 +319,36 @@ export const CrmDashboard = () => {
               </p>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Typeform Total</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.typeformSubmissions}</div>
+              <p className="text-xs text-muted-foreground">
+                Total submissions
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Typeform Today</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.todayTypeformSubmissions}</div>
+              <p className="text-xs text-muted-foreground">
+                Today's submissions
+              </p>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Typeform Submissions Card */}
+        <TypeformSubmissionsCard />
 
         {/* Charts and Lists */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

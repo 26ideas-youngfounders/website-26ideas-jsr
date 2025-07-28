@@ -178,6 +178,42 @@ export type Database = {
           },
         ]
       }
+      typeform_submissions: {
+        Row: {
+          created_at: string
+          form_data: Json
+          id: string
+          submission_id: string
+          submitted_at: string
+          typeform_id: string
+          updated_at: string
+          user_email: string | null
+          user_identified: boolean
+        }
+        Insert: {
+          created_at?: string
+          form_data?: Json
+          id?: string
+          submission_id: string
+          submitted_at: string
+          typeform_id: string
+          updated_at?: string
+          user_email?: string | null
+          user_identified?: boolean
+        }
+        Update: {
+          created_at?: string
+          form_data?: Json
+          id?: string
+          submission_id?: string
+          submitted_at?: string
+          typeform_id?: string
+          updated_at?: string
+          user_email?: string | null
+          user_identified?: boolean
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

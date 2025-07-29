@@ -2,20 +2,18 @@
 import React from 'react';
 
 /**
- * Investment partners section component
- * Displays key investment partners with their logos and information
+ * Investment partners section matching the exact design from reference
+ * Shows two key investment partners with their photos and company logos
  */
 export const InvestmentPartnersSection = () => {
   const partners = [
     {
       name: "Jignesh Kenia",
-      company: "Signal Ventures",
       image: "/lovable-uploads/dcaec285-4185-4107-bdd9-46f3ebbfc024.png",
       logo: "/lovable-uploads/6d503697-5e4a-4472-b4a1-b3e8cce6c4e7.png"
     },
     {
       name: "Abhijeet Kumar",
-      company: "91springboard",
       image: "/lovable-uploads/bddd61a4-a31d-487e-b9ee-c1980233f655.png",
       logo: "/lovable-uploads/87ca2695-b8b4-43c0-b2d8-a475495a7a48.png"
     }
@@ -42,14 +40,13 @@ export const InvestmentPartnersSection = () => {
                 <div className="absolute bottom-4 left-4 bg-white rounded-lg p-2 shadow-lg">
                   <img 
                     src={partner.logo} 
-                    alt={partner.company}
+                    alt="Partner Company"
                     className="w-12 h-8 object-contain"
                   />
                 </div>
               </div>
               
-              <h3 className="font-bold text-gray-900 mb-1">{partner.name}</h3>
-              <p className="text-gray-600 text-sm">{partner.company}</p>
+              <h3 className="font-bold text-gray-900">{partner.name}</h3>
             </div>
           ))}
         </div>

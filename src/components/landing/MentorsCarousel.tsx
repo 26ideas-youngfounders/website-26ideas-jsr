@@ -9,8 +9,8 @@ import {
 } from '@/components/ui/carousel';
 
 /**
- * Mentors carousel component
- * Displays mentor profiles in a responsive carousel with country flags and expertise badges
+ * Mentors carousel component matching the exact design from reference
+ * Shows mentor profiles with country flags and expertise badges
  */
 export const MentorsCarousel = () => {
   const mentors = [
@@ -58,17 +58,17 @@ export const MentorsCarousel = () => {
           Mentors at Young Founders
         </h2>
         
-        <Carousel
-          opts={{
-            align: "start",
-            loop: true,
-          }}
-          className="w-full max-w-6xl mx-auto"
-        >
-          <CarouselContent>
-            {mentors.map((mentor, index) => (
-              <CarouselItem key={index} className="md:basis-1/3 lg:basis-1/5">
-                <div className="p-4">
+        <div className="relative">
+          <Carousel
+            opts={{
+              align: "center",
+              loop: true,
+            }}
+            className="w-full max-w-5xl mx-auto"
+          >
+            <CarouselContent className="-ml-2 md:-ml-4">
+              {mentors.map((mentor, index) => (
+                <CarouselItem key={index} className="pl-2 md:pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/5">
                   <div className="relative bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
                     {/* Country flag */}
                     <div className="absolute -top-2 -right-2 w-12 h-8 bg-white rounded-lg shadow-md flex items-center justify-center z-10">
@@ -102,13 +102,13 @@ export const MentorsCarousel = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious className="left-[-60px]" />
-          <CarouselNext className="right-[-60px]" />
-        </Carousel>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="left-[-60px] border-gray-300 hover:bg-gray-100" />
+            <CarouselNext className="right-[-60px] border-gray-300 hover:bg-gray-100" />
+          </Carousel>
+        </div>
       </div>
     </section>
   );

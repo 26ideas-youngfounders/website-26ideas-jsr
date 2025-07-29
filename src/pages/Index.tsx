@@ -4,17 +4,15 @@ import { useLocation } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle } from 'lucide-react';
 
-// Landing page components - rebuilt section by section
+// Landing page components rebuilt to match reference exactly
 import { HeroSection } from '@/components/landing/HeroSection';
-import { CompanyLogosCarousel } from '@/components/landing/CompanyLogosCarousel';
 import { MentorsCarousel } from '@/components/landing/MentorsCarousel';
 import { InvestmentPartnersSection } from '@/components/landing/InvestmentPartnersSection';
 import { HorizonSection } from '@/components/landing/HorizonSection';
-import { CtaSection } from '@/components/landing/CtaSection';
 
 /**
- * Homepage component - completely rebuilt to match reference screenshot exactly
- * Each section is implemented as a separate component for maintainability
+ * Homepage component - rebuilt to match reference screenshot exactly
+ * Each section implemented separately for maintainability
  */
 const Index = () => {
   const location = useLocation();
@@ -63,23 +61,17 @@ const Index = () => {
         </Alert>
       )}
 
-      {/* Section 1: Hero Banner and Introduction */}
+      {/* Hero Section with starry background */}
       <HeroSection />
 
-      {/* Section 2: Partner Companies Carousel */}
-      <CompanyLogosCarousel />
-
-      {/* Section 3: Mentors at Young Founders Carousel */}
+      {/* Mentors Carousel Section */}
       <MentorsCarousel />
 
-      {/* Section 4: Investment Partners Section */}
+      {/* Investment Partners Section */}
       <InvestmentPartnersSection />
 
-      {/* Section 5: On The Horizon Calendar/Events */}
+      {/* Horizon/Events Section */}
       <HorizonSection />
-
-      {/* Section 6-7: Journey CTA Banner & Final CTA */}
-      <CtaSection />
     </div>
   );
 };

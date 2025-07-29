@@ -3,8 +3,8 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 
 /**
- * Hero section component matching the exact design from the reference
- * Features starry background, centered text content, and explore button
+ * Hero section component with starry background and centered content
+ * Matches the exact design from the reference screenshot
  */
 export const HeroSection = () => {
   return (
@@ -13,7 +13,7 @@ export const HeroSection = () => {
       <div className="absolute inset-0 bg-[url('/lovable-uploads/2802b07c-20e5-4754-a277-cc00fae8b459.png')] bg-cover bg-center opacity-90"></div>
       <div className="absolute inset-0 bg-black opacity-20"></div>
       
-      {/* Content */}
+      {/* Main content container */}
       <div className="relative z-10 container mx-auto px-4 text-center">
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
           The world's leading<br />
@@ -34,6 +34,31 @@ export const HeroSection = () => {
         >
           Explore
         </Button>
+      </div>
+      
+      {/* Bottom section with company mentions */}
+      <div className="absolute bottom-8 left-0 right-0 z-10">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-white">
+            <div className="text-center md:text-left">
+              <p className="text-lg font-medium mb-2">
+                Our mentors come from<br />
+                leading companies and institutions
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-8">
+              <div className="flex items-center">
+                <span className="text-2xl font-bold mr-2">🔥</span>
+                <span className="text-lg">Sprinklr</span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-2xl font-bold mr-2">🎓</span>
+                <span className="text-lg">PURDUE<br />UNIVERSITY</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );

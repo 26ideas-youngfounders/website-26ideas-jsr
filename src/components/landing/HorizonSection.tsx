@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
  */
 export const HorizonSection = () => {
   return (
-    <section className="py-16 px-4 bg-gray-50">
+    <section className="py-16 px-4 bg-white">
       <div className="container mx-auto">
         <h2 className="text-4xl font-bold text-center text-gray-900 mb-12">
           On the Horizon for Young Founders

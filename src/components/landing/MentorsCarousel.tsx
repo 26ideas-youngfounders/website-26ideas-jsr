@@ -10,13 +10,13 @@ import {
 
 /**
  * Mentors carousel component
- * Displays mentor profiles in a responsive carousel with country flags
+ * Displays mentor profiles in a responsive carousel with country flags and expertise badges
  */
 export const MentorsCarousel = () => {
   const mentors = [
     {
       name: "Jagan Gopal Krishna",
-      role: "Generative AI, Sales",
+      role: "Generative AI • Sales",
       image: "/lovable-uploads/dcaec285-4185-4107-bdd9-46f3ebbfc024.png",
       country: "🇸🇬",
       badges: ["AI", "ML", "SaaS"]
@@ -37,14 +37,14 @@ export const MentorsCarousel = () => {
     },
     {
       name: "Anand Madhavan",
-      role: "AI - Product",
+      role: "AI • Product",
       image: "/lovable-uploads/bddd61a4-a31d-487e-b9ee-c1980233f655.png",
       country: "🇺🇸",
       badges: ["AI", "Product", "Strategy"]
     },
     {
       name: "Soumya Pandey",
-      role: "AI - Product",
+      role: "AI • Product",
       image: "/lovable-uploads/dcaec285-4185-4107-bdd9-46f3ebbfc024.png",
       country: "🇦🇪",
       badges: ["AI", "Product", "Innovation"]
@@ -52,7 +52,7 @@ export const MentorsCarousel = () => {
   ];
 
   return (
-    <section className="py-16 px-4 bg-gray-50">
+    <section className="py-16 px-4 bg-white">
       <div className="container mx-auto">
         <h2 className="text-4xl font-bold text-center text-gray-900 mb-12">
           Mentors at Young Founders

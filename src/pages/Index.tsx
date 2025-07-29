@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle } from 'lucide-react';
 
-// New landing page components
+// Landing page components - rebuilt section by section
 import { HeroSection } from '@/components/landing/HeroSection';
 import { CompanyLogosCarousel } from '@/components/landing/CompanyLogosCarousel';
 import { MentorsCarousel } from '@/components/landing/MentorsCarousel';
@@ -13,24 +13,20 @@ import { HorizonSection } from '@/components/landing/HorizonSection';
 import { CtaSection } from '@/components/landing/CtaSection';
 
 /**
- * Homepage component that displays the main landing page
- * Handles success messages and scroll position after form submissions
- * Features comprehensive sections with carousels and interactive elements
+ * Homepage component - completely rebuilt to match reference screenshot exactly
+ * Each section is implemented as a separate component for maintainability
  */
 const Index = () => {
   const location = useLocation();
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
-  // Handle success message display and scroll to top after form submission
+  // Handle success message display and scroll behavior
   useEffect(() => {
     if (location.state?.applicationSubmitted) {
       console.log('📋 Application submitted - showing success message and scrolling to top');
       setShowSuccessMessage(true);
-      
-      // Immediately scroll to top after successful submission
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
-      // Clear the state and hide message after 10 seconds
       const timer = setTimeout(() => {
         setShowSuccessMessage(false);
       }, 10000);
@@ -39,17 +35,15 @@ const Index = () => {
     }
   }, [location.state]);
 
-  // General scroll-to-top effect for homepage to ensure consistent behavior
+  // Scroll to top on initial load
   useEffect(() => {
-    // Only scroll to top if we're coming from a form submission or initial load
     if (location.state?.applicationSubmitted || !document.referrer.includes(window.location.origin)) {
       console.log('🔝 Scrolling to top of homepage');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
-      // Log success for QA purposes
       setTimeout(() => {
         if (window.scrollY > 100) {
-          console.error('❌ Homepage scroll-to-top failed - user not at top after redirect');
+          console.error('❌ Homepage scroll-to-top failed');
         } else {
           console.log('✅ Homepage scroll-to-top successful');
         }
@@ -69,22 +63,22 @@ const Index = () => {
         </Alert>
       )}
 
-      {/* Hero Section */}
+      {/* Section 1: Hero Banner and Introduction */}
       <HeroSection />
 
-      {/* Company Logos Carousel */}
+      {/* Section 2: Partner Companies Carousel */}
       <CompanyLogosCarousel />
 
-      {/* Mentors Carousel Section */}
+      {/* Section 3: Mentors at Young Founders Carousel */}
       <MentorsCarousel />
 
-      {/* Investment Partners Section */}
+      {/* Section 4: Investment Partners Section */}
       <InvestmentPartnersSection />
 
-      {/* Horizon/Programs Section */}
+      {/* Section 5: On The Horizon Calendar/Events */}
       <HorizonSection />
 
-      {/* Call to Action Section */}
+      {/* Section 6-7: Journey CTA Banner & Final CTA */}
       <CtaSection />
     </div>
   );

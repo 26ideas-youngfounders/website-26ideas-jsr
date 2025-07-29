@@ -11,7 +11,7 @@ import Autoplay from 'embla-carousel-autoplay';
 
 /**
  * Company logos carousel component
- * Displays partner company logos in an animated carousel
+ * Displays partner company logos in an animated horizontal carousel
  */
 export const CompanyLogosCarousel = () => {
   const companies = [
@@ -21,6 +21,8 @@ export const CompanyLogosCarousel = () => {
     { name: "JioHotstar", logo: "✨" },
     { name: "Sprinklr", logo: "💧" },
     { name: "Purdue University", logo: "🎓" },
+    { name: "Microsoft", logo: "💻" },
+    { name: "Google", logo: "🔍" },
   ];
 
   return (

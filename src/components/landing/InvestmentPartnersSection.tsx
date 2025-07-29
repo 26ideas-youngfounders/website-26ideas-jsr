@@ -22,7 +22,7 @@ export const InvestmentPartnersSection = () => {
   ];
 
   return (
-    <section className="py-16 px-4 bg-white">
+    <section className="py-16 px-4 bg-gray-50">
       <div className="container mx-auto">
         <h2 className="text-4xl font-bold text-center text-gray-900 mb-12">
           Our Investment Partners

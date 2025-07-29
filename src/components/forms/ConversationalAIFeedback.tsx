@@ -51,6 +51,7 @@ export const ConversationalAIFeedback: React.FC<ConversationalAIFeedbackProps> =
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFeedback, setLastFeedback] = useState<AIFeedbackResponse | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -63,7 +64,7 @@ export const ConversationalAIFeedback: React.FC<ConversationalAIFeedbackProps> =
   /**
    * Get AI feedback for the current answer
    */
-  const getFeedback = async (retryCount = 0) => {
+  const getFeedback = async (currentRetry = 0) => {
     if (!answer.trim()) {
       toast.error('Please provide an answer before requesting feedback.');
       return;
@@ -106,18 +107,55 @@ AREAS FOR IMPROVEMENT:
 
       setLastFeedback(feedback);
 
-      // Handle rate limit case
-      if ((feedback as any).isRateLimit && retryCount < 3) {
-        toast.info('High demand detected - will retry automatically in 3 seconds...', {
+      // Check if it's a rate limit response and prevent infinite loop
+      if ((feedback as any).isRateLimit) {
+        // If this is already a retry, don't retry again
+        if (currentRetry >= 2) {
+          console.log('⚠️ Max retries reached for rate limit');
+          setRetryCount(0); // Reset retry count
+          
+          // Add user message
+          const userMessage: ChatMessage = {
+            id: `user-${Date.now()}`,
+            type: 'user',
+            content: answer,
+            timestamp: new Date().toISOString(),
+          };
+
+          // Add AI response message with rate limit info
+          const aiMessage: ChatMessage = {
+            id: `ai-${Date.now()}`,
+            type: 'ai',
+            content: feedback.rawFeedback || 'Quick feedback provided due to high demand.',
+            timestamp: new Date().toISOString(),
+            feedback,
+          };
+
+          setMessages(prev => [...prev, userMessage, aiMessage]);
+          
+          toast.warning('AI is experiencing high demand', {
+            description: 'Basic feedback provided. Try "Get Fresh Feedback" for detailed analysis.',
+          });
+          
+          setIsLoading(false);
+          return;
+        }
+
+        // Show initial rate limit message
+        toast.info(`High demand detected - will retry automatically in 3 seconds... (attempt ${currentRetry + 1}/3)`, {
           description: 'The AI is experiencing high usage. Please wait a moment.',
         });
         
         // Auto-retry after 3 seconds
         setTimeout(() => {
-          getFeedback(retryCount + 1);
+          setRetryCount(currentRetry + 1);
+          getFeedback(currentRetry + 1);
         }, 3000);
         return;
       }
+
+      // Reset retry count on successful response
+      setRetryCount(0);
 
       // Add user message
       const userMessage: ChatMessage = {
@@ -139,11 +177,7 @@ AREAS FOR IMPROVEMENT:
       setMessages(prev => [...prev, userMessage, aiMessage]);
 
       // Show appropriate toast based on feedback quality
-      if ((feedback as any).isRateLimit) {
-        toast.warning('Temporary feedback provided', {
-          description: 'Try "Get Fresh Feedback" again in a few seconds for detailed analysis.',
-        });
-      } else if (feedback.score !== 'N/A' && feedback.strengths.length > 0) {
+      if (feedback.score !== 'N/A' && feedback.strengths.length > 0) {
         toast.success('Detailed AI feedback received!', {
           description: 'Review the suggestions and decide whether to edit or continue.',
         });
@@ -157,6 +191,7 @@ AREAS FOR IMPROVEMENT:
       console.error('❌ Error getting AI feedback:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       setError(errorMessage);
+      setRetryCount(0); // Reset retry count on error
       
       toast.error('Failed to get AI feedback', {
         description: errorMessage,
@@ -171,6 +206,7 @@ AREAS FOR IMPROVEMENT:
    */
   const handleRetry = () => {
     setError(null);
+    setRetryCount(0);
     getFeedback();
   };
 
@@ -307,7 +343,12 @@ AREAS FOR IMPROVEMENT:
           {isLoading && (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-6 w-6 animate-spin mr-2" />
-              <span>Getting AI feedback...</span>
+              <span>
+                {retryCount > 0 
+                  ? `Getting AI feedback... (attempt ${retryCount + 1}/3)`
+                  : 'Getting AI feedback...'
+                }
+              </span>
             </div>
           )}
 
@@ -337,8 +378,12 @@ AREAS FOR IMPROVEMENT:
               <Button 
                 variant="secondary" 
                 size="sm"
-                onClick={() => getFeedback()}
+                onClick={() => {
+                  setRetryCount(0);
+                  getFeedback();
+                }}
                 className="w-full"
+                disabled={isLoading}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 {lastFeedback && (lastFeedback as any).isRateLimit 

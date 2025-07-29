@@ -1,97 +1,133 @@
+
 /**
  * @fileoverview YFF Team Registration Form Component
  * 
- * Handles team registration with autosave, validation, and data management.
- * Supports both new registrations and updates to existing ones.
+ * A comprehensive registration form for Young Founders Floor participants.
+ * Handles individual and team information collection with validation,
+ * autosave functionality, and duplicate prevention.
  * 
- * @version 1.0.0
+ * @version 1.0.0 
  * @author 26ideas Development Team
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form } from '@/components/ui/form';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { z } from 'zod';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useAutosave } from '@/hooks/useAutosave';
 import { YffAutosaveIndicator } from './YffAutosaveIndicator';
 import { YffRegistrationFormSections } from './YffRegistrationFormSections';
-import { yffRegistrationSchema, FormValues } from '@/utils/yff-form-validation';
-import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
-// Team member interface
-export interface TeamMember {
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  country: string;
-  linkedin?: string;
-  role?: string;
+// Form validation schema
+const yffRegistrationSchema = z.object({
+  full_name: z.string().min(1, 'Full name is required'),
+  email: z.string().email('Please enter a valid email address'),
+  phone_number: z.string().min(1, 'Phone number is required'),
+  country_code: z.string().min(1, 'Country code is required'),
+  date_of_birth: z.string().min(1, 'Date of birth is required'),
+  gender: z.string().min(1, 'Gender is required'),
+  linkedin_profile: z.string().optional(),
+  social_media_handles: z.string().optional(),
+  institution_name: z.string().min(1, 'Institution name is required'),
+  course_program: z.string().min(1, 'Course/Program is required'),
+  current_year_of_study: z.string().min(1, 'Year of study is required'),
+  expected_graduation: z.string().min(1, 'Expected graduation is required'),
+  current_city: z.string().min(1, 'Current city is required'),
+  state: z.string().min(1, 'State is required'),
+  pin_code: z.string().min(1, 'PIN code is required'),
+  permanent_address: z.string().min(1, 'Permanent address is required'),
+  team_name: z.string().optional(),
+  venture_name: z.string().optional(),
+  industry_sector: z.string().optional(),
+  website: z.string().optional(),
+  number_of_team_members: z.number().min(1).max(10).optional(),
+  team_members: z.array(z.object({
+    name: z.string().min(1, 'Team member name is required'),
+    email: z.string().email('Please enter a valid email address'),
+    role: z.string().min(1, 'Role is required'),
+    linkedin: z.string().optional(),
+  })).optional(),
+  referral_id: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof yffRegistrationSchema>;
+
+export interface YffTeamRegistrationData extends FormValues {
+  id?: string;
+  individual_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  application_status?: string;
+  questionnaire_answers?: any;
+  questionnaire_completed_at?: string;
 }
 
 interface YffTeamRegistrationFormProps {
-  onComplete: () => void;
+  onComplete?: () => void;
 }
 
 /**
  * YFF Team Registration Form Component
  * 
- * Main registration form that handles user data collection, validation,
- * autosave functionality, and submission to Supabase.
- * 
- * @param props - Component props
- * @returns {JSX.Element} The team registration form
+ * Comprehensive form for team registration with autosave, validation,
+ * and duplicate prevention. Handles both new registrations and updates
+ * to existing registrations.
  */
-export const YffTeamRegistrationForm: React.FC<YffTeamRegistrationFormProps> = ({
-  onComplete,
-}) => {
-  const { user, userProfile } = useAuth();
+export const YffTeamRegistrationForm: React.FC<YffTeamRegistrationFormProps> = ({ onComplete }) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [existingRegistration, setExistingRegistration] = useState<any>(null);
+  const [isLoadingInitialData, setIsLoadingInitialData] = useState(true);
+  const [existingRegistration, setExistingRegistration] = useState<YffTeamRegistrationData | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(yffRegistrationSchema),
     defaultValues: {
-      fullName: userProfile?.full_name || '',
-      email: userProfile?.email || '',
-      phoneNumber: '',
-      country: 'India',
-      dateOfBirth: '',
+      full_name: '',
+      email: '',
+      phone_number: '',
+      country_code: '+91',
+      date_of_birth: '',
       gender: '',
-      linkedinProfile: '',
-      socialMediaHandles: '',
-      institutionName: '',
-      courseProgram: '',
-      currentYearOfStudy: '',
-      expectedGraduation: '',
-      currentCity: '',
+      linkedin_profile: '',
+      social_media_handles: '',
+      institution_name: '',
+      course_program: '',
+      current_year_of_study: '',
+      expected_graduation: '',
+      current_city: '',
       state: '',
-      pinCode: '',
-      permanentAddress: '',
-      teamName: '',
-      projectName: '',
-      projectDescription: '',
-      industrySector: '',
+      pin_code: '',
+      permanent_address: '',
+      team_name: '',
+      venture_name: '',
+      industry_sector: '',
       website: '',
-      numberOfTeamMembers: 1,
-      teamMembers: [],
-      referralSource: '',
-      termsAccepted: false,
+      number_of_team_members: 1,
+      team_members: [],
+      referral_id: '',
     },
   });
 
-  // Load existing registration data
+  // Autosave configuration
+  const { status: autosaveStatus } = useAutosave({
+    formData: form.watch(),
+    userId: user?.id || '',
+    tableName: 'yff_team_registrations',
+    interval: 5000,
+  });
+
+  // Load existing registration data on mount
   useEffect(() => {
     const loadExistingData = async () => {
       if (!user) return;
 
       try {
-        setIsLoading(true);
-        console.log('🔍 Loading existing registration for user:', user.id);
+        console.log('🔍 Checking for existing registration for user:', user.id);
         
         const { data, error } = await supabase
           .from('yff_team_registrations')
@@ -108,42 +144,43 @@ export const YffTeamRegistrationForm: React.FC<YffTeamRegistrationFormProps> = (
           console.log('✅ Found existing registration:', data);
           setExistingRegistration(data);
           
-          // Pre-populate form with existing data if available
-          if (data.team_members && Array.isArray(data.team_members) && data.team_members.length > 0) {
-            // Safely type cast the first team member
-            const existingData = data.team_members[0] as any;
-            form.setValue('teamName', data.team_name || '');
-            form.setValue('projectName', data.venture_name || '');
-            form.setValue('projectDescription', (existingData?.projectDescription as string) || '');
-            form.setValue('country', (existingData?.country as string) || 'India');
-            form.setValue('industrySector', data.industry_sector || '');
-            form.setValue('referralSource', (existingData?.referralSource as string) || '');
-            form.setValue('termsAccepted', Boolean(existingData?.termsAccepted));
-            
-            // Set other basic fields
-            form.setValue('fullName', data.full_name || '');
-            form.setValue('email', data.email || '');
-            form.setValue('phoneNumber', data.phone_number || '');
-            form.setValue('dateOfBirth', data.date_of_birth || '');
-            form.setValue('gender', data.gender || '');
-            form.setValue('linkedinProfile', data.linkedin_profile || '');
-            form.setValue('socialMediaHandles', data.social_media_handles || '');
-            form.setValue('institutionName', data.institution_name || '');
-            form.setValue('courseProgram', data.course_program || '');
-            form.setValue('currentYearOfStudy', data.current_year_of_study || '');
-            form.setValue('expectedGraduation', data.expected_graduation || '');
-            form.setValue('currentCity', data.current_city || '');
-            form.setValue('state', data.state || '');
-            form.setValue('pinCode', data.pin_code || '');
-            form.setValue('permanentAddress', data.permanent_address || '');
-            form.setValue('website', data.website || '');
-            form.setValue('numberOfTeamMembers', data.number_of_team_members || 1);
-          }
+          // Pre-populate form with existing data
+          const formData: Partial<FormValues> = {
+            full_name: data.full_name || '',
+            email: data.email || '',
+            phone_number: data.phone_number || '',
+            country_code: data.country_code || '+91',
+            date_of_birth: data.date_of_birth || '',
+            gender: data.gender || '',
+            linkedin_profile: data.linkedin_profile || '',
+            social_media_handles: data.social_media_handles || '',
+            institution_name: data.institution_name || '',
+            course_program: data.course_program || '',
+            current_year_of_study: data.current_year_of_study || '',
+            expected_graduation: data.expected_graduation || '',
+            current_city: data.current_city || '',
+            state: data.state || '',
+            pin_code: data.pin_code || '',
+            permanent_address: data.permanent_address || '',
+            team_name: data.team_name || '',
+            venture_name: data.venture_name || '',
+            industry_sector: data.industry_sector || '',
+            website: data.website || '',
+            number_of_team_members: data.number_of_team_members || 1,
+            team_members: Array.isArray(data.team_members) ? data.team_members : [],
+            referral_id: data.referral_id || '',
+          };
+
+          // Reset form with existing data
+          form.reset(formData);
+          console.log('🔄 Form pre-populated with existing data');
+        } else {
+          console.log('ℹ️ No existing registration found - new registration');
         }
       } catch (error) {
         console.error('❌ Error in loadExistingData:', error);
       } finally {
-        setIsLoading(false);
+        setIsLoadingInitialData(false);
       }
     };
 
@@ -153,178 +190,114 @@ export const YffTeamRegistrationForm: React.FC<YffTeamRegistrationFormProps> = (
   /**
    * Handle form submission
    */
-  const handleSubmit = async (values: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     if (!user) {
-      toast.error('Please sign in to submit your registration.');
+      toast.error('You must be logged in to submit the form');
       return;
     }
 
-    setIsSubmitting(true);
+    setIsLoading(true);
 
     try {
-      console.log('📤 Submitting registration data:', values);
-
-      // Prepare team members data
-      const teamMembersData = values.teamMembers.map((member: TeamMember) => ({
-        fullName: member.fullName,
-        email: member.email,
-        phoneNumber: member.phoneNumber,
-        country: member.country,
-        linkedin: member.linkedin || '',
-        role: member.role || '',
-      }));
-
-      // Add the main applicant as the first team member
-      const allTeamMembers = [
-        {
-          fullName: values.fullName,
-          email: values.email,
-          phoneNumber: values.phoneNumber,
-          country: values.country,
-          linkedin: values.linkedinProfile || '',
-          role: 'Team Lead',
-          projectDescription: values.projectDescription,
-          referralSource: values.referralSource,
-          termsAccepted: values.termsAccepted,
-        },
-        ...teamMembersData,
-      ];
+      console.log('📝 Submitting registration form:', data);
 
       const registrationData = {
         individual_id: user.id,
-        full_name: values.fullName,
-        email: values.email,
-        phone_number: values.phoneNumber,
-        country_code: '+91',
-        date_of_birth: values.dateOfBirth,
-        gender: values.gender,
-        linkedin_profile: values.linkedinProfile || null,
-        social_media_handles: values.socialMediaHandles || null,
-        institution_name: values.institutionName,
-        course_program: values.courseProgram,
-        current_year_of_study: values.currentYearOfStudy,
-        expected_graduation: values.expectedGraduation,
-        current_city: values.currentCity,
-        state: values.state,
-        pin_code: values.pinCode,
-        permanent_address: values.permanentAddress,
-        team_name: values.teamName || null,
-        venture_name: values.projectName || null,
-        industry_sector: values.industrySector || null,
-        website: values.website || null,
-        number_of_team_members: values.numberOfTeamMembers,
-        team_members: allTeamMembers,
-        referral_id: values.referralSource || null,
-        application_status: 'registration_completed',
+        ...data,
         updated_at: new Date().toISOString(),
       };
 
-      let result;
-
       if (existingRegistration) {
         // Update existing registration
-        console.log('🔄 Updating existing registration...');
-        result = await supabase
+        const { error } = await supabase
           .from('yff_team_registrations')
           .update(registrationData)
-          .eq('id', existingRegistration.id)
-          .select()
-          .single();
+          .eq('id', existingRegistration.id);
+
+        if (error) {
+          console.error('❌ Error updating registration:', error);
+          toast.error('Failed to update registration. Please try again.');
+          return;
+        }
+
+        console.log('✅ Registration updated successfully');
+        toast.success('Registration updated successfully!');
       } else {
         // Create new registration
-        console.log('➕ Creating new registration...');
-        result = await supabase
+        const { error } = await supabase
           .from('yff_team_registrations')
-          .insert({
+          .insert([{
             ...registrationData,
             created_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
+          }]);
+
+        if (error) {
+          console.error('❌ Error creating registration:', error);
+          toast.error('Failed to submit registration. Please try again.');
+          return;
+        }
+
+        console.log('✅ Registration submitted successfully');
+        toast.success('Registration submitted successfully!');
       }
 
-      if (result.error) {
-        console.error('❌ Supabase error:', result.error);
-        throw result.error;
+      // Call completion callback
+      if (onComplete) {
+        onComplete();
+      } else {
+        // Default navigation to conversational questionnaire
+        navigate('/yff/questionnaire/conversational');
       }
-
-      console.log('✅ Registration submitted successfully:', result.data);
-
-      toast.success(existingRegistration ? 'Registration updated successfully!' : 'Registration submitted successfully!', {
-        description: 'You can now proceed to the questionnaire.',
-      });
-
-      // Call the onComplete callback
-      onComplete();
 
     } catch (error) {
-      console.error('❌ Error submitting registration:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      
-      toast.error('Failed to submit registration', {
-        description: errorMessage,
-      });
+      console.error('❌ Error in form submission:', error);
+      toast.error('An unexpected error occurred. Please try again.');
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
-  if (isLoading) {
+  // Redirect if not authenticated
+  if (!user) {
+    return <Navigate to="/young-founders-floor" replace />;
+  }
+
+  // Show loading spinner while loading initial data
+  if (isLoadingInitialData) {
     return (
-      <Card className="max-w-4xl mx-auto">
-        <CardContent className="p-8 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading your registration data...</p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-gray-900">
-            {existingRegistration ? 'Update Your Registration' : 'Team Registration'}
-          </CardTitle>
-          <p className="text-gray-600">
-            {existingRegistration 
-              ? 'Update your information and continue with your application.' 
-              : 'Complete your registration to participate in the Young Founders Floor program.'}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
-              <YffRegistrationFormSections form={form} />
-              
-              <div className="flex justify-end space-x-4">
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="bg-blue-600 text-white px-8 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      {existingRegistration ? 'Updating...' : 'Submitting...'}
-                    </>
-                  ) : (
-                    existingRegistration ? 'Update Registration' : 'Submit Registration'
-                  )}
-                </Button>
-              </div>
-            </form>
-          </Form>
+    <div className="max-w-4xl mx-auto space-y-8">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          {existingRegistration ? 'Update Your Registration' : 'Young Founders Floor Registration'}
+        </h1>
+        <p className="text-gray-600">
+          {existingRegistration 
+            ? 'Update your registration information below'
+            : 'Please fill out all required information to complete your registration'
+          }
+        </p>
+      </div>
 
-          <YffAutosaveIndicator
-            formData={form.getValues()}
-            userId={user?.id || ''}
-            tableName="yff_team_registration_autosave"
-            interval={30000}
-          />
-        </CardContent>
-      </Card>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <YffRegistrationFormSections 
+          form={form} 
+          isLoading={isLoading}
+          existingData={existingRegistration}
+        />
+      </form>
+
+      {/* Autosave Indicator */}
+      <YffAutosaveIndicator status={autosaveStatus} />
     </div>
   );
 };

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -62,8 +61,8 @@ const questionnaireSchema = z.object({
   .refine(text => countWords(text) >= 20, 'Please provide information about your team (at least 20 words)')
   .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
   timeline: z.string()
-    .refine(text => countWords(text) >= 20, 'Please provide a timeline (at least 20 words)')
-    .refine(text => countWords(text) <= 300, 'Timeline must not exceed 300 words'),
+    .refine(text => countWords(text) >= 20, 'Please provide a timeline (at least 20 words)')
+    .refine(text => countWords(text) <= 300, 'Timeline must not exceed 300 words'),
   // Additional fields for Early Revenue stage - make them optional
   payingCustomers: z.string().optional(),
   workingDuration: z.string().optional(),
@@ -130,10 +129,10 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
 
   const form = useForm<QuestionnaireFormData>({
     resolver: zodResolver(questionnaireSchema),
-    mode: 'onChange', // Validate on change
+    mode: 'onChange',
     defaultValues: {
       ideaDescription: '',
-      productStage: '' as any, // Use empty string instead of undefined
+      productStage: '' as any,
       problemSolved: '',
       targetAudience: '',
       solutionApproach: '',
@@ -154,14 +153,18 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
     formType: 'yff_questionnaire',
   });
 
-  // Don't show conflict status for questionnaire - it's expected to have a registration
   const displayStatus = autosaveStatus === 'conflict' ? 'idle' : autosaveStatus;
 
-  // Load existing questionnaire answers
+  // Load existing questionnaire answers AND conversational answers
   useEffect(() => {
-    if (registration?.questionnaire_answers) {
+    if (!registration) return;
+
+    console.log('🔄 Loading existing answers from registration');
+    
+    // Load from questionnaire_answers first
+    if (registration.questionnaire_answers) {
       const answers = registration.questionnaire_answers;
-      console.log('🔄 Loading existing questionnaire answers:', answers);
+      console.log('📝 Loading questionnaire answers:', answers);
       
       Object.keys(answers).forEach(key => {
         if (key in form.getValues()) {
@@ -171,6 +174,18 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
       
       if (answers.productStage) {
         setProductStage(answers.productStage);
+      }
+    }
+    
+    // Load from conversational_answers and merge
+    if (registration.conversational_answers) {
+      const conversationalAnswers = registration.conversational_answers;
+      console.log('💬 Loading conversational answers:', conversationalAnswers);
+      
+      // Map conversational answers to questionnaire fields
+      if (conversationalAnswers.idea_description && !form.getValues('ideaDescription')) {
+        form.setValue('ideaDescription', conversationalAnswers.idea_description);
+        console.log('✅ Pre-filled idea description from conversational questionnaire');
       }
     }
   }, [registration, form]);

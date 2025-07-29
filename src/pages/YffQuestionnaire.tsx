@@ -5,6 +5,7 @@
  * Conditional questionnaire form that shows different questions based on 
  * the user's selected stage (Idea Stage vs Early Revenue). Integrates with 
  * the unified team registration system for seamless data storage.
+ * Now also loads data from the conversational questionnaire.
  * 
  * @version 1.0.0
  * @author 26ideas Development Team

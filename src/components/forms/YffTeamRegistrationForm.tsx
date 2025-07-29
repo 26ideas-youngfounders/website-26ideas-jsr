@@ -10,7 +10,7 @@
  * @author 26ideas Development Team
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -85,6 +85,7 @@ export const YffTeamRegistrationForm: React.FC<YffTeamRegistrationFormProps> = (
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingRegistration, setExistingRegistration] = useState<any>(null);
 
   const form = useForm<YffTeamRegistrationData>({
     resolver: zodResolver(teamRegistrationSchema),
@@ -99,6 +100,47 @@ export const YffTeamRegistrationForm: React.FC<YffTeamRegistrationFormProps> = (
     },
   });
 
+  // Check for existing registration on component mount
+  useEffect(() => {
+    const checkExistingRegistration = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('yff_team_registrations')
+          .select('*')
+          .eq('individual_id', user.id)
+          .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error checking existing registration:', error);
+          return;
+        }
+
+        if (data) {
+          console.log('Found existing registration:', data);
+          setExistingRegistration(data);
+          
+          // Pre-populate form with existing data if available
+          if (data.team_members && data.team_members.length > 0) {
+            const existingData = data.team_members[0];
+            form.setValue('teamName', data.team_name || '');
+            form.setValue('projectName', data.venture_name || '');
+            form.setValue('projectDescription', existingData.projectDescription || '');
+            form.setValue('country', existingData.country || '');
+            form.setValue('city', data.current_city || '');
+            form.setValue('referralSource', existingData.referralSource || '');
+            form.setValue('termsAccepted', existingData.termsAccepted || false);
+          }
+        }
+      } catch (error) {
+        console.error('Error in checkExistingRegistration:', error);
+      }
+    };
+
+    checkExistingRegistration();
+  }, [user?.id, form]);
+
   const onSubmit = async (data: YffTeamRegistrationData) => {
     if (!user) {
       toast.error('You must be logged in to register.');
@@ -110,7 +152,7 @@ export const YffTeamRegistrationForm: React.FC<YffTeamRegistrationFormProps> = (
     try {
       console.log('📤 Submitting team registration data:', data);
 
-      // Map form data to match Supabase table schema
+      // Prepare the registration data
       const registrationData = {
         individual_id: user.id,
         full_name: user.user_metadata?.full_name || `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || 'Unknown',
@@ -142,14 +184,46 @@ export const YffTeamRegistrationForm: React.FC<YffTeamRegistrationFormProps> = (
         ]
       };
 
-      const { error } = await supabase
-        .from('yff_team_registrations')
-        .insert(registrationData);
+      let result;
+
+      if (existingRegistration) {
+        // Update existing registration
+        console.log('Updating existing registration...');
+        result = await supabase
+          .from('yff_team_registrations')
+          .update(registrationData)
+          .eq('individual_id', user.id);
+      } else {
+        // Insert new registration
+        console.log('Creating new registration...');
+        result = await supabase
+          .from('yff_team_registrations')
+          .insert(registrationData);
+      }
+
+      const { error } = result;
 
       if (error) {
         console.error('❌ Submission error:', error);
-        toast.error('Failed to submit registration. Please try again.');
-        return;
+        
+        // Provide specific error messages based on error code
+        if (error.code === '23505') {
+          toast.error('You have already registered. Your registration has been updated instead.');
+          // Try to update instead
+          const { error: updateError } = await supabase
+            .from('yff_team_registrations')
+            .update(registrationData)
+            .eq('individual_id', user.id);
+            
+          if (updateError) {
+            console.error('❌ Update error:', updateError);
+            toast.error('Failed to update registration. Please try again.');
+            return;
+          }
+        } else {
+          toast.error('Failed to submit registration. Please try again.');
+          return;
+        }
       }
 
       console.log('✅ Team registration submitted successfully');
@@ -176,6 +250,13 @@ export const YffTeamRegistrationForm: React.FC<YffTeamRegistrationFormProps> = (
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-4">YFF Team Registration</h1>
         <p className="text-gray-600">Tell us about your team and project to get started with the Young Founders Floor program.</p>
+        {existingRegistration && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-blue-800 text-sm">
+              ✅ You already have a registration. Any changes you make will update your existing registration.
+            </p>
+          </div>
+        )}
       </div>
 
       <Form {...form}>
@@ -285,7 +366,7 @@ export const YffTeamRegistrationForm: React.FC<YffTeamRegistrationFormProps> = (
             />
           </div>
           <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? 'Submitting...' : 'Register'}
+            {isSubmitting ? 'Submitting...' : existingRegistration ? 'Update Registration' : 'Register'}
           </Button>
         </form>
       </Form>

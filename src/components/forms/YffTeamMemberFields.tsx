@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PhoneInput } from '@/components/ui/phone-input';
 
 // TeamMember interface with optional fields to match form schema for autosave support
-interface TeamMember {
+export interface TeamMember {
   fullName?: string;
   email?: string;
   phoneNumber?: string;
@@ -32,7 +32,7 @@ interface TeamMember {
 }
 
 // FormValues interface with optional fields to match the actual form schema
-interface FormValues {
+export interface FormValues {
   fullName?: string;
   email?: string;
   phoneNumber?: string;

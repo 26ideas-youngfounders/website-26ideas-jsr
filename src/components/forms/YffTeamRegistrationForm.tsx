@@ -122,7 +122,7 @@ export const YffTeamRegistrationForm: React.FC<YffTeamRegistrationFormProps> = (
           setExistingRegistration(data);
           
           // Pre-populate form with existing data if available
-          if (data.team_members && data.team_members.length > 0) {
+          if (data.team_members && Array.isArray(data.team_members) && data.team_members.length > 0) {
             const existingData = data.team_members[0];
             form.setValue('teamName', data.team_name || '');
             form.setValue('projectName', data.venture_name || '');

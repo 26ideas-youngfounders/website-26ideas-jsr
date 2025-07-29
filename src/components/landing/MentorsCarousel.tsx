@@ -17,35 +17,35 @@ export const MentorsCarousel = () => {
     {
       name: "Jagan Gopal Krishna",
       role: "Generative AI • Sales",
-      image: "/lovable-uploads/dcaec285-4185-4107-bdd9-46f3ebbfc024.png",
+      image: "/lovable-uploads/a0f70fe3-5317-4240-b2ae-d53f5e8981e1.png",
       country: "🇸🇬",
       badges: ["AI", "ML", "SaaS"]
     },
     {
       name: "Sanjay Thakur",
       role: "BFSI",
-      image: "/lovable-uploads/bddd61a4-a31d-487e-b9ee-c1980233f655.png",
+      image: "/lovable-uploads/96f06bdf-e752-4d82-89d4-e481c36665af.png",
       country: "🇮🇳",
       badges: ["Finance", "Banking", "Strategy"]
     },
     {
       name: "Jeet Agrawal",
       role: "Engineering",
-      image: "/lovable-uploads/dcaec285-4185-4107-bdd9-46f3ebbfc024.png",
+      image: "/lovable-uploads/1cafaeac-d479-4538-8927-1ec34b3ad0b4.png",
       country: "🇮🇳",
       badges: ["Tech", "Engineering", "Product"]
     },
     {
       name: "Anand Madhavan",
       role: "AI • Product",
-      image: "/lovable-uploads/bddd61a4-a31d-487e-b9ee-c1980233f655.png",
+      image: "/lovable-uploads/72856c44-6ead-48de-8838-a00fe8990bad.png",
       country: "🇺🇸",
       badges: ["AI", "Product", "Strategy"]
     },
     {
       name: "Soumya Pandey",
       role: "AI • Product",
-      image: "/lovable-uploads/dcaec285-4185-4107-bdd9-46f3ebbfc024.png",
+      image: "/lovable-uploads/6a997eaf-715f-489b-8c92-f5af65f362d1.png",
       country: "🇦🇪",
       badges: ["AI", "Product", "Innovation"]
     }

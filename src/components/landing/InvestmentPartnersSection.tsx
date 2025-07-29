@@ -9,13 +9,13 @@ export const InvestmentPartnersSection = () => {
   const partners = [
     {
       name: "Jignesh Kenia",
-      image: "/lovable-uploads/dcaec285-4185-4107-bdd9-46f3ebbfc024.png",
-      logo: "/lovable-uploads/6d503697-5e4a-4472-b4a1-b3e8cce6c4e7.png"
+      image: "/lovable-uploads/c5833fd2-af8d-4cd5-9647-7da7a6982aaa.png",
+      logo: "/lovable-uploads/87ca2695-b8b4-43c0-b2d8-a475495a7a48.png"
     },
     {
       name: "Abhijeet Kumar",
-      image: "/lovable-uploads/bddd61a4-a31d-487e-b9ee-c1980233f655.png",
-      logo: "/lovable-uploads/87ca2695-b8b4-43c0-b2d8-a475495a7a48.png"
+      image: "/lovable-uploads/2802b07c-20e5-4754-a277-cc00fae8b459.png",
+      logo: "/lovable-uploads/6d503697-5e4a-4472-b4a1-b3e8cce6c4e7.png"
     }
   ];
 

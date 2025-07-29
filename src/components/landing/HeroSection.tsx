@@ -51,15 +51,15 @@ export const HeroSection = () => {
             <div className="flex items-center gap-8">
               <div className="flex items-center">
                 <img 
-                  src="/lovable-uploads/6d503697-5e4a-4472-b4a1-b3e8cce6c4e7.png" 
-                  alt="Sprinklr" 
+                  src="/lovable-uploads/87ca2695-b8b4-43c0-b2d8-a475495a7a48.png" 
+                  alt="Company Logo" 
                   className="h-8 filter brightness-0 invert"
                 />
               </div>
               <div className="flex items-center">
                 <img 
-                  src="/lovable-uploads/87ca2695-b8b4-43c0-b2d8-a475495a7a48.png" 
-                  alt="Purdue University" 
+                  src="/lovable-uploads/6d503697-5e4a-4472-b4a1-b3e8cce6c4e7.png" 
+                  alt="Company Logo" 
                   className="h-8 filter brightness-0 invert"
                 />
               </div>

@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, MessageCircle, Edit3, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, MessageCircle, Edit3, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { AIFeedbackResponse, ChatMessage } from '@/types/ai-feedback';
@@ -50,6 +50,7 @@ export const ConversationalAIFeedback: React.FC<ConversationalAIFeedbackProps> =
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastFeedback, setLastFeedback] = useState<AIFeedbackResponse | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -62,7 +63,7 @@ export const ConversationalAIFeedback: React.FC<ConversationalAIFeedbackProps> =
   /**
    * Get AI feedback for the current answer
    */
-  const getFeedback = async () => {
+  const getFeedback = async (retryCount = 0) => {
     if (!answer.trim()) {
       toast.error('Please provide an answer before requesting feedback.');
       return;
@@ -103,6 +104,21 @@ AREAS FOR IMPROVEMENT:
       const feedback: AIFeedbackResponse = data;
       console.log('✅ Received AI feedback:', feedback);
 
+      setLastFeedback(feedback);
+
+      // Handle rate limit case
+      if ((feedback as any).isRateLimit && retryCount < 3) {
+        toast.info('High demand detected - will retry automatically in 3 seconds...', {
+          description: 'The AI is experiencing high usage. Please wait a moment.',
+        });
+        
+        // Auto-retry after 3 seconds
+        setTimeout(() => {
+          getFeedback(retryCount + 1);
+        }, 3000);
+        return;
+      }
+
       // Add user message
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
@@ -122,10 +138,20 @@ AREAS FOR IMPROVEMENT:
 
       setMessages(prev => [...prev, userMessage, aiMessage]);
 
-      // Show success toast
-      toast.success('AI feedback received!', {
-        description: 'Review the suggestions and decide whether to edit or continue.',
-      });
+      // Show appropriate toast based on feedback quality
+      if ((feedback as any).isRateLimit) {
+        toast.warning('Temporary feedback provided', {
+          description: 'Try "Get Fresh Feedback" again in a few seconds for detailed analysis.',
+        });
+      } else if (feedback.score !== 'N/A' && feedback.strengths.length > 0) {
+        toast.success('Detailed AI feedback received!', {
+          description: 'Review the suggestions and decide whether to edit or continue.',
+        });
+      } else {
+        toast.info('Basic feedback received', {
+          description: 'Some suggestions provided - try again for more detailed analysis.',
+        });
+      }
 
     } catch (error) {
       console.error('❌ Error getting AI feedback:', error);
@@ -158,6 +184,11 @@ AREAS FOR IMPROVEMENT:
           <Badge variant="secondary" className="text-lg px-3 py-1">
             Score: {feedback.score}/10
           </Badge>
+          {(feedback as any).isRateLimit && (
+            <Badge variant="outline" className="text-yellow-600">
+              Quick Response
+            </Badge>
+          )}
         </div>
       )}
 
@@ -193,6 +224,15 @@ AREAS FOR IMPROVEMENT:
             ))}
           </ul>
         </div>
+      )}
+
+      {(feedback as any).isRateLimit && (
+        <Alert>
+          <RefreshCw className="h-4 w-4" />
+          <AlertDescription>
+            This was a quick response due to high demand. Click "Get Fresh Feedback" below for more detailed analysis.
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   );
@@ -254,7 +294,7 @@ AREAS FOR IMPROVEMENT:
           {/* Get Feedback Button */}
           {messages.length === 0 && !isLoading && (
             <Button 
-              onClick={getFeedback}
+              onClick={() => getFeedback()}
               disabled={!answer.trim()}
               className="w-full"
             >
@@ -297,10 +337,13 @@ AREAS FOR IMPROVEMENT:
               <Button 
                 variant="secondary" 
                 size="sm"
-                onClick={getFeedback}
+                onClick={() => getFeedback()}
                 className="w-full"
               >
-                Get Fresh Feedback
+                <RefreshCw className="h-4 w-4 mr-2" />
+                {lastFeedback && (lastFeedback as any).isRateLimit 
+                  ? 'Get Detailed Feedback' 
+                  : 'Get Fresh Feedback'}
               </Button>
             </>
           )}

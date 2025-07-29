@@ -4,15 +4,16 @@ import { useLocation } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle } from 'lucide-react';
 
-// Landing page components rebuilt to match reference exactly
+// Landing page components rebuilt to match 26ideas.com exactly
 import { HeroSection } from '@/components/landing/HeroSection';
 import { MentorsCarousel } from '@/components/landing/MentorsCarousel';
 import { InvestmentPartnersSection } from '@/components/landing/InvestmentPartnersSection';
 import { HorizonSection } from '@/components/landing/HorizonSection';
+import { CtaSection } from '@/components/landing/CtaSection';
 
 /**
- * Homepage component - rebuilt to match reference screenshot exactly
- * Each section implemented separately for maintainability
+ * Homepage component - rebuilt to clone 26ideas.com exactly
+ * Pixel-perfect recreation with all sections matching their design
  */
 const Index = () => {
   const location = useLocation();
@@ -61,7 +62,7 @@ const Index = () => {
         </Alert>
       )}
 
-      {/* Hero Section with starry background */}
+      {/* Hero Section with starry background and company logos */}
       <HeroSection />
 
       {/* Mentors Carousel Section */}
@@ -70,8 +71,11 @@ const Index = () => {
       {/* Investment Partners Section */}
       <InvestmentPartnersSection />
 
-      {/* Horizon/Events Section */}
+      {/* Horizon/Events Section with journey CTA */}
       <HorizonSection />
+
+      {/* Final CTA Section */}
+      <CtaSection />
     </div>
   );
 };

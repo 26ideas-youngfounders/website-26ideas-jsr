@@ -159,7 +159,7 @@ Provide feedback that helps the founder improve their pitch and think more deepl
       setCurrentQuestionIndex(prev => prev + 1);
       toast.success('Moving to next question!');
     } else {
-      // Complete the conversational questionnaire
+      // Complete the conversational questionnaire and redirect to full questionnaire
       try {
         await supabase
           .from('yff_team_registrations')
@@ -171,7 +171,7 @@ Provide feedback that helps the founder improve their pitch and think more deepl
           .eq('id', registration!.id);
 
         toast.success('Conversational questionnaire completed!', {
-          description: 'Redirecting to the full application form.',
+          description: 'Now completing your full application...',
         });
 
         // Redirect to full questionnaire

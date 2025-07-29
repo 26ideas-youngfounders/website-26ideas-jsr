@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/hooks/useAuth';
-import { Index } from '@/pages/Index';
+import { YffLandingPage } from '@/pages/YffLandingPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { SignUpPage } from '@/pages/SignUpPage';
 import { Dashboard } from '@/pages/Dashboard';
@@ -22,8 +22,8 @@ function App() {
         <Toaster />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/young-founders-floor" element={<Index />} />
+            <Route path="/" element={<YffLandingPage />} />
+            <Route path="/young-founders-floor" element={<YffLandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignUpPage />} />
             <Route path="/dashboard" element={<Dashboard />} />

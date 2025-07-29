@@ -6,6 +6,7 @@ import { CheckCircle } from 'lucide-react';
 
 // Landing page components rebuilt to match 26ideas.com exactly
 import { HeroSection } from '@/components/landing/HeroSection';
+import { CompanyLogosCarousel } from '@/components/landing/CompanyLogosCarousel';
 import { MentorsCarousel } from '@/components/landing/MentorsCarousel';
 import { InvestmentPartnersSection } from '@/components/landing/InvestmentPartnersSection';
 import { HorizonSection } from '@/components/landing/HorizonSection';
@@ -62,8 +63,11 @@ const Index = () => {
         </Alert>
       )}
 
-      {/* Hero Section with starry background and company logos */}
+      {/* Hero Section with starry background */}
       <HeroSection />
+
+      {/* Company Logos Section */}
+      <CompanyLogosCarousel />
 
       {/* Mentors Carousel Section */}
       <MentorsCarousel />

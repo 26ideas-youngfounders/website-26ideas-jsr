@@ -1,24 +1,9 @@
 
 {
   "rewrites": [
-    {
-      "source": "/admin/(.*)",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/((?!api).*)",
-      "destination": "/index.html"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/admin/(.*)",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/((?!api).*)",
-      "dest": "/index.html"
-    }
+    { "source": "/admin/crm", "destination": "/index.html" },
+    { "source": "/admin/:path*", "destination": "/index.html" },
+    { "source": "/:any*", "destination": "/index.html" }
   ],
   "headers": [
     {

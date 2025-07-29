@@ -15,6 +15,7 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { YffQuestionnaireForm } from '@/components/forms/YffQuestionnaireForm';
+import { YffTeamRegistrationExtended } from '@/types/yff-conversational';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,10 +29,10 @@ import { AlertCircle } from 'lucide-react';
  * 
  * @returns {JSX.Element} The questionnaire page or redirect
  */
-const YffQuestionnaire = () => {
+export const YffQuestionnaire = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [registration, setRegistration] = useState<any>(null);
+  const [registration, setRegistration] = useState<YffTeamRegistrationExtended | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +76,7 @@ const YffQuestionnaire = () => {
         }
 
         console.log('✅ Registration data loaded:', registrationData);
-        setRegistration(registrationData);
+        setRegistration(registrationData as YffTeamRegistrationExtended);
         
       } catch (error) {
         console.error('❌ Error in loadRegistration:', error);
@@ -157,11 +158,9 @@ const YffQuestionnaire = () => {
       </div>
 
       <YffQuestionnaireForm 
-        registration={registration} 
+        registration={registration!} 
         onComplete={handleComplete} 
       />
     </div>
   );
 };
-
-export default YffQuestionnaire;

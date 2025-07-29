@@ -14,6 +14,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { ConversationalQuestionnaire } from '@/components/forms/ConversationalQuestionnaire';
 import { QuestionConfig } from '@/types/ai-feedback';
+import { YffTeamRegistrationExtended } from '@/types/yff-conversational';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,10 +29,10 @@ import { Button } from '@/components/ui/button';
  * 
  * @returns {JSX.Element} The conversational questionnaire page or redirect
  */
-const YffConversationalQuestionnaire = () => {
+export const YffConversationalQuestionnaire = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [registration, setRegistration] = useState<any>(null);
+  const [registration, setRegistration] = useState<YffTeamRegistrationExtended | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -100,11 +101,12 @@ Provide feedback that helps the founder improve their pitch and think more deepl
         }
 
         console.log('✅ Registration data loaded:', registrationData);
-        setRegistration(registrationData);
+        setRegistration(registrationData as YffTeamRegistrationExtended);
         
-        // Load existing answers if available
-        if (registrationData.conversational_answers) {
-          setAnswers(registrationData.conversational_answers);
+        // Load existing answers if available - handle both possible field names
+        const existingAnswers = (registrationData as any).conversational_answers || {};
+        if (Object.keys(existingAnswers).length > 0) {
+          setAnswers(existingAnswers);
           console.log('🔄 Loaded existing conversational answers');
         }
         
@@ -166,7 +168,7 @@ Provide feedback that helps the founder improve their pitch and think more deepl
             conversational_completed_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq('id', registration.id);
+          .eq('id', registration!.id);
 
         toast.success('Conversational questionnaire completed!', {
           description: 'Redirecting to the full application form.',
@@ -273,5 +275,3 @@ Provide feedback that helps the founder improve their pitch and think more deepl
     </div>
   );
 };
-
-export default YffConversationalQuestionnaire;

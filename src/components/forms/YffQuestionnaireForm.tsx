@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { YffAutosaveIndicator } from './YffAutosaveIndicator';
 import { useAutosave } from '@/hooks/useAutosave';
+import { YffTeamRegistrationExtended } from '@/types/yff-conversational';
 
 /**
  * Counts the number of words in a text string
@@ -88,11 +89,11 @@ type QuestionnaireFormData = z.infer<typeof questionnaireSchema>;
  * Props interface for YffQuestionnaireForm
  * 
  * @interface YffQuestionnaireFormProps
- * @property {any} registration - The user's registration data from yff_team_registrations table
+ * @property {YffTeamRegistrationExtended} registration - The user's registration data from yff_team_registrations table
  * @property {() => void} onComplete - Callback function called when questionnaire is successfully submitted
  */
 interface YffQuestionnaireFormProps {
-  registration: any;
+  registration: YffTeamRegistrationExtended;
   onComplete: () => void;
 }
 
@@ -313,6 +314,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
               )}
             </div>
           )}
+          
           {/* Common Questions */}
           <Card>
             <CardHeader>

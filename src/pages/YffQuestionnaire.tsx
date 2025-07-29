@@ -5,7 +5,6 @@
  * Conditional questionnaire form that shows different questions based on 
  * the user's selected stage (Idea Stage vs Early Revenue). Integrates with 
  * the unified team registration system for seamless data storage.
- * Now also loads data from the conversational questionnaire.
  * 
  * @version 1.0.0
  * @author 26ideas Development Team
@@ -15,7 +14,6 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { YffQuestionnaireForm } from '@/components/forms/YffQuestionnaireForm';
-import { YffTeamRegistrationExtended } from '@/types/yff-conversational';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,10 +27,10 @@ import { AlertCircle } from 'lucide-react';
  * 
  * @returns {JSX.Element} The questionnaire page or redirect
  */
-export const YffQuestionnaire = () => {
+const YffQuestionnaire = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [registration, setRegistration] = useState<YffTeamRegistrationExtended | null>(null);
+  const [registration, setRegistration] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,7 +74,7 @@ export const YffQuestionnaire = () => {
         }
 
         console.log('✅ Registration data loaded:', registrationData);
-        setRegistration(registrationData as YffTeamRegistrationExtended);
+        setRegistration(registrationData);
         
       } catch (error) {
         console.error('❌ Error in loadRegistration:', error);
@@ -158,9 +156,11 @@ export const YffQuestionnaire = () => {
       </div>
 
       <YffQuestionnaireForm 
-        registration={registration!} 
+        registration={registration} 
         onComplete={handleComplete} 
       />
     </div>
   );
 };
+
+export default YffQuestionnaire;

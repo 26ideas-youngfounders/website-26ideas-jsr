@@ -22,9 +22,5 @@ export const YffTeamRegistration = () => {
     return <Navigate to="/young-founders-floor" replace />;
   }
 
-  const handleComplete = () => {
-    console.log('✅ Team registration completed');
-  };
-
-  return <YffTeamRegistrationForm onComplete={handleComplete} />;
+  return <YffTeamRegistrationForm />;
 };

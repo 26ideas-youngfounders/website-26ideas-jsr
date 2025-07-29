@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,7 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { YffAutosaveIndicator } from './YffAutosaveIndicator';
 import { useAutosave } from '@/hooks/useAutosave';
-import { YffTeamRegistrationExtended } from '@/types/yff-conversational';
 
 /**
  * Counts the number of words in a text string
@@ -62,8 +62,8 @@ const questionnaireSchema = z.object({
   .refine(text => countWords(text) >= 20, 'Please provide information about your team (at least 20 words)')
   .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
   timeline: z.string()
-    .refine(text => countWords(text) >= 20, 'Please provide a timeline (at least 20 words)')
-    .refine(text => countWords(text) <= 300, 'Timeline must not exceed 300 words'),
+    .refine(text => countWords(text) >= 20, 'Please provide a timeline (at least 20 words)')
+    .refine(text => countWords(text) <= 300, 'Timeline must not exceed 300 words'),
   // Additional fields for Early Revenue stage - make them optional
   payingCustomers: z.string().optional(),
   workingDuration: z.string().optional(),
@@ -89,11 +89,11 @@ type QuestionnaireFormData = z.infer<typeof questionnaireSchema>;
  * Props interface for YffQuestionnaireForm
  * 
  * @interface YffQuestionnaireFormProps
- * @property {YffTeamRegistrationExtended} registration - The user's registration data from yff_team_registrations table
+ * @property {any} registration - The user's registration data from yff_team_registrations table
  * @property {() => void} onComplete - Callback function called when questionnaire is successfully submitted
  */
 interface YffQuestionnaireFormProps {
-  registration: YffTeamRegistrationExtended;
+  registration: any;
   onComplete: () => void;
 }
 
@@ -130,10 +130,10 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
 
   const form = useForm<QuestionnaireFormData>({
     resolver: zodResolver(questionnaireSchema),
-    mode: 'onChange',
+    mode: 'onChange', // Validate on change
     defaultValues: {
       ideaDescription: '',
-      productStage: '' as any,
+      productStage: '' as any, // Use empty string instead of undefined
       problemSolved: '',
       targetAudience: '',
       solutionApproach: '',
@@ -154,18 +154,14 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
     formType: 'yff_questionnaire',
   });
 
+  // Don't show conflict status for questionnaire - it's expected to have a registration
   const displayStatus = autosaveStatus === 'conflict' ? 'idle' : autosaveStatus;
 
-  // Load existing questionnaire answers AND conversational answers
+  // Load existing questionnaire answers
   useEffect(() => {
-    if (!registration) return;
-
-    console.log('🔄 Loading existing answers from registration');
-    
-    // Load from questionnaire_answers first
-    if (registration.questionnaire_answers) {
+    if (registration?.questionnaire_answers) {
       const answers = registration.questionnaire_answers;
-      console.log('📝 Loading questionnaire answers:', answers);
+      console.log('🔄 Loading existing questionnaire answers:', answers);
       
       Object.keys(answers).forEach(key => {
         if (key in form.getValues()) {
@@ -175,18 +171,6 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
       
       if (answers.productStage) {
         setProductStage(answers.productStage);
-      }
-    }
-    
-    // Load from conversational_answers and merge
-    if (registration.conversational_answers) {
-      const conversationalAnswers = registration.conversational_answers;
-      console.log('💬 Loading conversational answers:', conversationalAnswers);
-      
-      // Map conversational answers to questionnaire fields
-      if (conversationalAnswers.idea_description && !form.getValues('ideaDescription')) {
-        form.setValue('ideaDescription', conversationalAnswers.idea_description);
-        console.log('✅ Pre-filled idea description from conversational questionnaire');
       }
     }
   }, [registration, form]);
@@ -314,7 +298,6 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
               )}
             </div>
           )}
-          
           {/* Common Questions */}
           <Card>
             <CardHeader>

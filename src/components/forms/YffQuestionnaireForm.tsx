@@ -93,10 +93,12 @@ type QuestionnaireFormData = z.infer<typeof questionnaireSchema>;
  * @interface YffQuestionnaireFormProps
  * @property {any} registration - The user's registration data from yff_team_registrations table
  * @property {() => void} onComplete - Callback function called when questionnaire is successfully submitted
+ * @property {string} currentStage - The current product stage ('idea' | 'early_revenue')
  */
 interface YffQuestionnaireFormProps {
   registration: any;
   onComplete: () => void;
+  currentStage: 'idea' | 'early_revenue';
 }
 
 /**
@@ -111,6 +113,7 @@ interface YffQuestionnaireFormProps {
 export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   registration,
   onComplete,
+  currentStage,
 }) => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -132,8 +135,12 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
         console.error('❌ YffQuestionnaireForm: Missing required prop "onComplete" or it is not a function');
         toast.error('Developer Error: Missing onComplete callback');
       }
+      if (!currentStage) {
+        console.error('❌ YffQuestionnaireForm: Missing required prop "currentStage"');
+        toast.error('Developer Error: Missing currentStage prop');
+      }
     }
-  }, [registration, onComplete]);
+  }, [registration, onComplete, currentStage]);
 
   const form = useForm<QuestionnaireFormData>({
     resolver: zodResolver(questionnaireSchema),
@@ -268,7 +275,8 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
     }
   };
 
-  const isEarlyRevenue = productStage === 'Early Revenue';
+  // Use currentStage prop instead of local productStage state for AI feedback
+  const isEarlyRevenue = currentStage === 'early_revenue';
 
   const handleRetryFeedback = (questionId: string) => {
     // Reset feedback state and trigger new request
@@ -320,6 +328,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
               )}
             </div>
           )}
+
           {/* Common Questions */}
           <Card>
             <CardHeader>
@@ -405,6 +414,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         <AIFeedbackButton
                           questionId="problemSolved"
                           userAnswer={field.value || ''}
+                          stage={currentStage}
                           onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
                           disabled={isSubmitting}
                         />
@@ -436,6 +446,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                       <AIFeedbackButton
                         questionId="targetAudience"
                         userAnswer={field.value || ''}
+                        stage={currentStage}
                         onFeedbackReceived={targetAudienceFeedback.handleFeedbackReceived}
                         disabled={isSubmitting}
                       />
@@ -466,6 +477,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                       <AIFeedbackButton
                         questionId="solutionApproach"
                         userAnswer={field.value || ''}
+                        stage={currentStage}
                         onFeedbackReceived={solutionApproachFeedback.handleFeedbackReceived}
                         disabled={isSubmitting}
                       />
@@ -515,6 +527,15 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         <Textarea {...field} placeholder="Describe your customer acquisition strategy..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
+                      
+                      {/* AI Feedback Integration for customer acquisition */}
+                      <AIFeedbackButton
+                        questionId="customerAcquisition"
+                        userAnswer={field.value || ''}
+                        stage={currentStage}
+                        onFeedbackReceived={() => {}} // Add proper feedback handler if needed
+                        disabled={isSubmitting}
+                      />
                     </FormItem>
                   )}
                 />

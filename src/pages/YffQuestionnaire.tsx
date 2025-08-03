@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview YFF Questionnaire Page
  * 
@@ -20,6 +19,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
 
 /**
+ * Interface for YFF Team Registration data
+ * Ensures type safety for the registration object
+ */
+interface YffTeamRegistration {
+  id: string;
+  individual_id: string;
+  product_stage?: string;
+  questionnaire_answers?: any;
+  application_status?: string;
+  // Add other fields as needed
+  [key: string]: any;
+}
+
+/**
  * YFF Questionnaire Page Component
  * 
  * Protected page that requires authentication and completed team registration.
@@ -30,7 +43,7 @@ import { AlertCircle } from 'lucide-react';
 const YffQuestionnaire = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [registration, setRegistration] = useState<any>(null);
+  const [registration, setRegistration] = useState<YffTeamRegistration | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,8 +87,22 @@ const YffQuestionnaire = () => {
         }
 
         console.log('✅ Registration data loaded:', registrationData);
-        console.log('🎯 Product stage from registration:', registrationData.product_stage);
-        setRegistration(registrationData);
+        
+        // Since product_stage might not exist in the database yet, we'll determine it from questionnaire answers
+        // or default to 'idea' stage
+        const stage = registrationData.questionnaire_answers?.productStage === 'Early Revenue' 
+          ? 'early_revenue' 
+          : 'idea';
+        
+        console.log('🎯 Determined stage from data:', stage);
+        
+        // Add the determined stage to the registration data
+        const enrichedRegistration: YffTeamRegistration = {
+          ...registrationData,
+          product_stage: stage,
+        };
+        
+        setRegistration(enrichedRegistration);
         
       } catch (error) {
         console.error('❌ Error in loadRegistration:', error);
@@ -144,8 +171,10 @@ const YffQuestionnaire = () => {
     );
   }
 
-  // Determine the current stage from registration data
-  const currentStage = registration?.product_stage === 'early_revenue' ? 'early_revenue' : 'idea';
+  // Determine the current stage from registration data with proper fallback
+  const currentStage: 'idea' | 'early_revenue' = registration?.product_stage === 'early_revenue' 
+    ? 'early_revenue' 
+    : 'idea';
   
   console.log('🎯 Current stage determined for AI feedback:', currentStage);
 
@@ -158,7 +187,7 @@ const YffQuestionnaire = () => {
         </h1>
         <p className="text-gray-600">
           Please complete the following questions to finalize your application.
-          {registration?.product_stage === 'early_revenue' && (
+          {currentStage === 'early_revenue' && (
             <span className="block mt-1 text-blue-600 font-medium">
               Early Revenue Stage Questions
             </span>

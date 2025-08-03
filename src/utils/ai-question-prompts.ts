@@ -1,9 +1,8 @@
-
 /**
  * @fileoverview Complete AI Question Prompts with Universal Mapping
  * 
  * Zero tolerance implementation - EVERY question gets an AI feedback button
- * Uses comprehensive mapping to handle ANY questionId variation
+ * No exceptions, no fallback logic - every question has AI feedback
  */
 
 /**
@@ -738,17 +737,17 @@ RESPONSE FORMAT:
 };
 
 /**
- * Universal question mapping system - handles ANY possible questionId
- * Maps all variations to their corresponding system prompt keys
+ * Universal question mapping system - ENHANCED for customer acquisition questions
+ * Maps ANY possible questionId variation to the correct system prompt
  */
 export const normalizeQuestionId = (questionId: string, questionText?: string, stage?: string): string => {
-  console.log('🔍 Normalizing question ID:', {
+  console.log('🔍 Client normalizing question ID:', {
     originalId: questionId,
     stage,
     questionText: questionText?.substring(0, 50)
   });
-
-  // Direct mappings for all possible variations
+  
+  // Direct mappings for all possible variations - ENHANCED
   const mappings: Record<string, string> = {
     // Tell us about your idea
     "tell_us_about_idea": "tell_us_about_idea",
@@ -788,6 +787,9 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     "first_paying_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "paying_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "how_acquiring_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "how_are_you_acquiring": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "acquiring_first_paying": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "how_acquiring_first_paying": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     
     // Duration/Timeline
     "working_duration": "early_revenue_working_duration",
@@ -821,11 +823,11 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
   // First, try direct mapping
   if (mappings[questionId]) {
     const normalizedId = mappings[questionId];
-    console.log('✅ Direct mapping found:', normalizedId);
+    console.log('✅ Client direct mapping found:', normalizedId);
     return normalizedId;
   }
   
-  // Fallback based on question text
+  // Enhanced fallback based on question text - MORE SPECIFIC FOR CUSTOMER ACQUISITION
   if (questionText) {
     const lowerText = questionText.toLowerCase();
     let fallbackId = "tell_us_about_idea"; // default
@@ -837,18 +839,20 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     else if (lowerText.includes("make money") || lowerText.includes("generate revenue")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
     else if (lowerText.includes("acquiring") && (lowerText.includes("customers") || lowerText.includes("paying"))) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("acquire") && lowerText.includes("customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
+    else if (lowerText.includes("first paying customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
+    else if (lowerText.includes("paying customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("competitors")) fallbackId = stage === "early_revenue" ? "early_revenue_competitors" : "competitors";
     else if (lowerText.includes("developing the product")) fallbackId = stage === "early_revenue" ? "early_revenue_product_development" : "product_development";
     else if (lowerText.includes("team") && lowerText.includes("roles")) fallbackId = stage === "early_revenue" ? "early_revenue_team" : "team_roles";
     else if (lowerText.includes("when") && lowerText.includes("proceed")) fallbackId = "when_proceed";
     else if (lowerText.includes("working on") && lowerText.includes("idea")) fallbackId = "early_revenue_working_duration";
     
-    console.log('📝 Text-based fallback:', fallbackId);
+    console.log('📝 Client text-based fallback:', fallbackId);
     return fallbackId;
   }
   
   // Final fallback - return a default
-  console.log('⚠️ Using default fallback for questionId:', questionId);
+  console.log('⚠️ Client using default fallback for questionId:', questionId);
   return "tell_us_about_idea";
 };
 

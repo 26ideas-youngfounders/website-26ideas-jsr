@@ -741,7 +741,7 @@ RESPONSE FORMAT:
  * Must match the client-side normalizeQuestionId function
  */
 export const normalizeQuestionId = (questionId: string, questionText?: string, stage?: string): string => {
-  // Direct mappings for all possible variations
+  // Direct mappings for all possible variations - ENHANCED
   const mappings: Record<string, string> = {
     // Tell us about your idea
     "tell_us_about_idea": "tell_us_about_idea",
@@ -781,6 +781,9 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     "first_paying_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "paying_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "how_acquiring_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "how_are_you_acquiring": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "acquiring_first_paying": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "how_acquiring_first_paying": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     
     // Duration/Timeline
     "working_duration": "early_revenue_working_duration",
@@ -824,7 +827,7 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     return normalizedId;
   }
   
-  // Fallback based on question text
+  // Enhanced fallback based on question text - MORE SPECIFIC FOR CUSTOMER ACQUISITION
   if (questionText) {
     const lowerText = questionText.toLowerCase();
     let fallbackId = "tell_us_about_idea"; // default
@@ -836,6 +839,8 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     else if (lowerText.includes("make money") || lowerText.includes("generate revenue")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
     else if (lowerText.includes("acquiring") && (lowerText.includes("customers") || lowerText.includes("paying"))) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("acquire") && lowerText.includes("customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
+    else if (lowerText.includes("first paying customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
+    else if (lowerText.includes("paying customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("competitors")) fallbackId = stage === "early_revenue" ? "early_revenue_competitors" : "competitors";
     else if (lowerText.includes("developing the product")) fallbackId = stage === "early_revenue" ? "early_revenue_product_development" : "product_development";
     else if (lowerText.includes("team") && lowerText.includes("roles")) fallbackId = stage === "early_revenue" ? "early_revenue_team" : "team_roles";

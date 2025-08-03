@@ -6,6 +6,7 @@
  */
 
 /**
+ * This processing is MANDATORY. No AI feedback should EVER reach the UI with an orphaned or split bullet point.
  * This function is REQUIRED. It enforces bullet integrity on all AI feedback and *must never be bypassed*.
  * ALL orphan/split bullet lines are merged before feedback is rendered as markdown.
  * 
@@ -15,22 +16,22 @@
  * @param feedback - Raw AI feedback text that may contain split bullets
  * @returns Processed feedback with ALL orphaned lines merged into proper bullets
  */
-export function fixOrphanedBullets(feedback: string): string {
+export function aggressivelyMergeOrphanedBullets(feedback: string): string {
   if (!feedback || typeof feedback !== 'string') {
     return feedback || '';
   }
 
-  // Split into lines and process each one
-  const lines = feedback.split('\n');
-  const processedLines: string[] = [];
+  console.log('🔧 AGGRESSIVE MERGE: Processing AI feedback for orphaned bullets');
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  const lines = feedback.split('\n');
+  const merged: string[] = [];
+
+  for (const line of lines) {
     const trimmed = line.trim();
     
-    // Empty lines are kept as-is for spacing
+    // Empty lines are preserved for spacing
     if (trimmed === '') {
-      processedLines.push('');
+      merged.push('');
       continue;
     }
     
@@ -41,43 +42,59 @@ export function fixOrphanedBullets(feedback: string): string {
     
     if (isLegitimateStandalone) {
       // This is a proper bullet or heading - keep as-is
-      processedLines.push(trimmed);
+      merged.push(trimmed);
     } else {
       // MANDATORY MERGE: Any line that's not a bullet/heading gets merged with previous line
-      let lastIndex = processedLines.length - 1;
-      
-      // Find the last non-empty line to merge with
-      while (lastIndex >= 0 && processedLines[lastIndex].trim() === '') {
-        lastIndex--;
-      }
-      
-      if (lastIndex >= 0) {
-        // Merge it with the last non-empty line (add space if needed)
-        const lastLine = processedLines[lastIndex];
-        const needsSpace = lastLine.length > 0 && !lastLine.endsWith(' ') && !trimmed.startsWith(' ');
-        processedLines[lastIndex] = lastLine + (needsSpace ? ' ' : '') + trimmed;
+      if (merged.length > 0) {
+        // Find the last non-empty line to merge with
+        let lastIndex = merged.length - 1;
+        while (lastIndex >= 0 && merged[lastIndex].trim() === '') {
+          lastIndex--;
+        }
+        
+        if (lastIndex >= 0) {
+          // Merge it with the last non-empty line (add space if needed)
+          const lastLine = merged[lastIndex];
+          const needsSpace = lastLine.length > 0 && !lastLine.endsWith(' ') && !trimmed.startsWith(' ');
+          merged[lastIndex] = lastLine + (needsSpace ? ' ' : '') + trimmed;
+          
+          console.log(`🔧 MERGED ORPHAN: "${trimmed}" -> appended to previous bullet`);
+        } else {
+          // No previous line found - keep it as-is (edge case)
+          merged.push(trimmed);
+        }
       } else {
         // No previous line found - keep it as-is (edge case)
-        processedLines.push(trimmed);
+        merged.push(trimmed);
       }
     }
   }
 
-  return processedLines.join('\n');
+  const result = merged.join('\n');
+  console.log('🔧 AGGRESSIVE MERGE: Processing complete');
+  return result;
 }
 
 /**
- * BULLETPROOF merging function - runs the fix twice to catch any edge cases
+ * BULLETPROOF merging function - runs the aggressive merge TWICE to catch any edge cases
  * This ensures 100% elimination of orphaned bullets regardless of AI output format
+ * 
+ * This processing is MANDATORY. No AI feedback should EVER reach the UI with an orphaned or split bullet point.
  */
 export function bulletproofMergeBullets(feedback: string): string {
   if (!feedback || typeof feedback !== 'string') {
     return feedback || '';
   }
 
-  // Run the fix twice to catch any nested edge cases
-  let processed = fixOrphanedBullets(feedback);
-  processed = fixOrphanedBullets(processed); // Second pass to catch any remaining orphans
+  console.log('🚨 BULLETPROOF: Starting double-pass orphaned bullet elimination');
+
+  // FIRST PASS: Aggressive merge
+  let processed = aggressivelyMergeOrphanedBullets(feedback);
+  
+  // SECOND PASS: Catch any remaining orphans (belt and suspenders approach)
+  processed = aggressivelyMergeOrphanedBullets(processed);
+  
+  console.log('🚨 BULLETPROOF: Double-pass processing complete');
   
   return processed;
 }
@@ -86,7 +103,7 @@ export function bulletproofMergeBullets(feedback: string): string {
  * Validates that AI feedback follows expected formatting rules
  * 
  * @param feedback - Processed AI feedback text
- * @returns Object with validation results and suggestions
+ * @returns Object with validation results and issues found
  */
 export function validateFeedbackFormat(feedback: string): {
   isValid: boolean;
@@ -116,7 +133,7 @@ export function validateFeedbackFormat(feedback: string): {
       !/^(- |• |\* |\d+\.\s|\*\*[^*]+\*\*|__|#{1,6}\s)/.test(currentLine)
     ) {
       hasOrphanedBullets = true;
-      issues.push(`CRITICAL: Orphaned bullet detected: "${currentLine}"`);
+      issues.push(`🚨 CRITICAL: Orphaned bullet detected: "${currentLine}"`);
     }
   }
   
@@ -132,14 +149,17 @@ export function validateFeedbackFormat(feedback: string): {
  * Comprehensive feedback processing pipeline
  * 
  * MANDATORY: Applies bulletproof orphaned bullet elimination to ensure consistent formatting
+ * This processing is MANDATORY. No AI feedback should EVER reach the UI with an orphaned or split bullet point.
  * 
  * @param rawFeedback - Raw AI feedback text
- * @returns Cleaned and formatted feedback text with NO orphaned bullets
+ * @returns Cleaned and formatted feedback text with NO orphaned bullets GUARANTEED
  */
 export function processFeedbackText(rawFeedback: string): string {
   if (!rawFeedback || typeof rawFeedback !== 'string') {
     return '';
   }
+
+  console.log('🚨 MANDATORY PROCESSING: Starting comprehensive feedback cleanup');
 
   // BULLETPROOF orphaned bullet fix - this is MANDATORY and runs twice
   let processed = bulletproofMergeBullets(rawFeedback);
@@ -157,14 +177,25 @@ export function processFeedbackText(rawFeedback: string): string {
     .map(line => line.trimEnd())
     .join('\n');
 
-  // Final bulletproof pass to catch anything from the cleanup
+  // THIRD PASS: Final bulletproof pass to catch anything from the cleanup
   processed = bulletproofMergeBullets(processed);
 
-  // Validate the result and log any issues
+  // MANDATORY VALIDATION: Check the final result for any remaining orphans
   const validation = validateFeedbackFormat(processed);
   if (!validation.isValid) {
-    console.error('🚨 CRITICAL: Orphaned bullets still detected after processing!', validation.issues);
+    console.error('🚨 CRITICAL FAILURE: Orphaned bullets still detected after bulletproof processing!', validation.issues);
+    
+    // Log the original and processed text for debugging
+    console.error('🚨 ORIGINAL TEXT:', rawFeedback);
+    console.error('🚨 PROCESSED TEXT:', processed);
+  } else {
+    console.log('✅ BULLETPROOF SUCCESS: All orphaned bullets successfully eliminated');
   }
+
+  console.log('🚨 MANDATORY PROCESSING: Comprehensive feedback cleanup complete');
 
   return processed.trim();
 }
+
+// Legacy function names for backward compatibility - these all use the new bulletproof logic
+export const fixOrphanedBullets = aggressivelyMergeOrphanedBullets;

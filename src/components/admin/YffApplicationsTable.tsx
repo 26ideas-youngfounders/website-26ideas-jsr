@@ -52,7 +52,12 @@ import {
 } from 'lucide-react';
 import { YffApplicationEvaluationDialog } from './YffApplicationEvaluationDialog';
 import type { YffApplicationWithIndividual } from '@/types/yff-application';
-import { parseApplicationAnswers, parseEvaluationData } from '@/types/yff-application';
+import { 
+  parseApplicationAnswers, 
+  parseEvaluationData,
+  getDisplayScore,
+  isApplicationEvaluated
+} from '@/types/yff-application';
 
 export interface YffApplicationsTableProps {
   applications: YffApplicationWithIndividual[];
@@ -98,8 +103,8 @@ const getEvaluationStatusColor = (status?: string): "default" | "secondary" | "d
 /**
  * Get score color based on value
  */
-const getScoreColor = (score?: number): string => {
-  if (!score) return 'text-gray-400';
+const getScoreColor = (score: number | null | undefined): string => {
+  if (score === null || score === undefined) return 'text-gray-400';
   if (score >= 8) return 'text-green-600';
   if (score >= 6) return 'text-yellow-600';
   if (score >= 4) return 'text-orange-600';
@@ -171,10 +176,13 @@ export const YffApplicationsTable: React.FC<YffApplicationsTableProps> = ({
     const total = applications.length;
     const submitted = applications.filter(app => app.status === 'submitted').length;
     const underReview = applications.filter(app => app.status === 'under_review').length;
-    const evaluated = applications.filter(app => app.evaluation_status === 'completed').length;
-    const avgScore = applications
-      .filter(app => app.overall_score && app.overall_score > 0)
-      .reduce((acc, app) => acc + (app.overall_score || 0), 0) / Math.max(evaluated, 1);
+    const evaluated = applications.filter(app => isApplicationEvaluated(app)).length;
+    
+    // Calculate average score only from evaluated applications
+    const evaluatedApps = applications.filter(app => isApplicationEvaluated(app));
+    const avgScore = evaluatedApps.length > 0 
+      ? evaluatedApps.reduce((acc, app) => acc + (app.overall_score || 0), 0) / evaluatedApps.length
+      : 0;
 
     return { total, submitted, underReview, evaluated, avgScore: Math.round(avgScore * 10) / 10 };
   }, [applications]);
@@ -251,7 +259,7 @@ export const YffApplicationsTable: React.FC<YffApplicationsTableProps> = ({
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${getScoreColor(stats.avgScore)}`}>
-              {stats.avgScore || '—'}/10
+              {stats.avgScore > 0 ? `${stats.avgScore}/10` : '—'}
             </div>
           </CardContent>
         </Card>
@@ -388,13 +396,9 @@ export const YffApplicationsTable: React.FC<YffApplicationsTableProps> = ({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {application.overall_score ? (
-                      <div className={`font-semibold ${getScoreColor(application.overall_score)}`}>
-                        {application.overall_score}/10
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
+                    <div className={`font-semibold ${getScoreColor(application.overall_score)}`}>
+                      {getDisplayScore(application.overall_score)}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant={getEvaluationStatusColor(application.evaluation_status)}>

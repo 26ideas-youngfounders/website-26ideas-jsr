@@ -15,14 +15,19 @@ export type BaseYffApplication = Database['public']['Tables']['yff_applications'
 export type BaseYffApplicationInsert = Database['public']['Tables']['yff_applications']['Insert'];
 export type BaseYffApplicationUpdate = Database['public']['Tables']['yff_applications']['Update'];
 
-// Extended types that include the missing timestamp columns
+// Extended types that include the missing timestamp columns and related data
 export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evaluation_completed_at'> {
   created_at: string;
   updated_at: string;
   evaluation_status?: string;
   overall_score?: number;
   evaluation_completed_at?: string | null;
-  evaluation_data?: Record<string, any>;
+  evaluation_data: Record<string, any>; // Make required to match base type
+  individuals?: {
+    first_name: string;
+    last_name: string;
+    email?: string;
+  } | null;
 }
 
 export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {
@@ -41,6 +46,17 @@ export interface ExtendedYffApplicationUpdate extends BaseYffApplicationUpdate {
   overall_score?: number;
   evaluation_completed_at?: string | null;
   evaluation_data?: Record<string, any>;
+}
+
+/**
+ * Type for applications with joined individual data (used in queries with joins)
+ */
+export interface YffApplicationWithIndividual extends ExtendedYffApplication {
+  individuals: {
+    first_name: string;
+    last_name: string;
+    email?: string;
+  } | null;
 }
 
 /**

@@ -132,15 +132,10 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
     return <Sparkles className="h-4 w-4" />;
   };
 
-  const getButtonVariant = () => {
-    if (lastError && !hasReceived) return "outline";
-    return "outline";
-  };
-
   return (
     <Button
       type="button"
-      variant={getButtonVariant()}
+      variant="outline"
       size="sm"
       onClick={handleGetFeedback}
       disabled={disabled || isLoading}

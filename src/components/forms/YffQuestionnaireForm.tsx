@@ -137,10 +137,10 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
 
   const form = useForm<QuestionnaireFormData>({
     resolver: zodResolver(questionnaireSchema),
-    mode: 'onChange', // Validate on change
+    mode: 'onChange',
     defaultValues: {
       ideaDescription: '',
-      productStage: '' as any, // Use empty string instead of undefined
+      productStage: '' as any,
       problemSolved: '',
       targetAudience: '',
       solutionApproach: '',
@@ -378,6 +378,13 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                       <FormMessage />
                       
                       {/* AI Feedback Integration */}
+                      {console.log('🔍 AI Feedback Debug:', {
+                        questionId: 'problemSolved',
+                        answerLength: (field.value || '').length,
+                        shouldShow: (field.value || '').length >= 10,
+                        fieldValue: field.value
+                      })}
+                      
                       <AIFeedbackButton
                         questionId="problemSolved"
                         userAnswer={field.value || ''}

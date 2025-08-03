@@ -70,3 +70,24 @@ export interface YffFormData {
   // Additional fields
   referralId: string;
 }
+
+/**
+ * Team Member interface for form data
+ */
+export interface YffTeamMember {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  countryCode: string;
+  dateOfBirth: string;
+  currentCity: string;
+  state: string;
+  pinCode: string;
+  permanentAddress: string;
+  gender: string;
+  institutionName: string;
+  courseProgram: string;
+  currentYearOfStudy: string;
+  expectedGraduation: string;
+  linkedinProfile?: string;
+}

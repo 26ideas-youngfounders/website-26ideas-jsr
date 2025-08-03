@@ -268,7 +268,7 @@ const YffQuestionnaireForm: React.FC = () => {
             <YffFormSections
               currentStep={currentStep}
               formData={formData}
-              onFieldChange={updateFormData}
+              updateFormData={updateFormData}
             />
           </CardContent>
         </Card>

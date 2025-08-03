@@ -9,7 +9,6 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { questionPrompts, getSystemPrompt } from '@/utils/ai-feedback-prompts';
 
 interface AIFeedbackButtonProps {
   questionId: string;
@@ -43,14 +42,8 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
   const [hasReceived, setHasReceived] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
 
-  // Check if this question has AI feedback enabled
-  const promptConfig = questionPrompts[questionId];
-  if (!promptConfig?.enabled) {
-    return null;
-  }
-
   // Don't show if answer is too short
-  if (userAnswer.length < promptConfig.minCharacters) {
+  if (userAnswer.length < 10) {
     return null;
   }
 
@@ -61,17 +54,13 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
     setLastError(null);
     
     try {
-      // Get the system prompt with the user's answer
-      const prompt = getSystemPrompt(questionId, userAnswer);
-      
       console.log('🤖 Requesting AI feedback for question:', questionId);
       console.log('🤖 Answer length:', userAnswer.length);
       
       const { data, error } = await supabase.functions.invoke('ai-feedback', {
         body: {
-          prompt: prompt,
-          answer: userAnswer,
-          questionId: questionId
+          questionId: questionId,
+          userAnswer: userAnswer.trim()
         }
       });
 
@@ -86,11 +75,66 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
       if (data.error && data.message) {
         setLastError(data.message);
         onFeedbackReceived({
-          ...data,
-          message: data.message
+          score: "N/A",
+          strengths: [],
+          improvements: [],
+          rawFeedback: "",
+          questionId: questionId,
+          timestamp: new Date().toISOString(),
+          message: data.message,
+          error: data.error,
+          canRetry: data.code === 'RATE_LIMITED' || data.code === 'SERVICE_BUSY'
+        });
+      } else if (data.error) {
+        // Handle specific error codes
+        let userMessage = "Unable to get feedback at the moment. Please try again later.";
+        let canRetry = true;
+        
+        switch (data.code) {
+          case 'FEEDBACK_NOT_ENABLED':
+            userMessage = "AI feedback is not available for this question.";
+            canRetry = false;
+            break;
+          case 'INVALID_ANSWER_LENGTH':
+            userMessage = "Please provide a more detailed answer (at least 10 characters).";
+            canRetry = false;
+            break;
+          case 'RATE_LIMITED':
+            userMessage = data.error || "You've reached the limit for AI feedback. Please try again later.";
+            canRetry = true;
+            break;
+          case 'SERVICE_BUSY':
+            userMessage = data.error || "AI service is temporarily busy. Please try again in a few minutes.";
+            canRetry = true;
+            break;
+          default:
+            userMessage = data.error || "Unable to get feedback at the moment. Please try again later.";
+        }
+        
+        setLastError(userMessage);
+        onFeedbackReceived({
+          score: "N/A",
+          strengths: [],
+          improvements: [],
+          rawFeedback: "",
+          questionId: questionId,
+          timestamp: new Date().toISOString(),
+          message: userMessage,
+          error: data.error,
+          canRetry: canRetry
         });
       } else {
-        onFeedbackReceived(data);
+        // Success case - parse the feedback response
+        const result = {
+          score: data.score || "N/A",
+          strengths: data.strengths || [],
+          improvements: data.improvements || [],
+          rawFeedback: data.feedback || data.rawFeedback || "",
+          questionId: questionId,
+          timestamp: data.timestamp || new Date().toISOString()
+        };
+        
+        onFeedbackReceived(result);
         setHasReceived(true);
         setLastError(null);
       }

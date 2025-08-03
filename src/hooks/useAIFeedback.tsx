@@ -11,13 +11,16 @@ interface UseAIFeedbackReturn {
   setFeedback: (feedback: AIFeedbackResponse | null) => void;
   handleFeedbackReceived: (feedback: AIFeedbackResponse) => void;
   handleDismiss: () => void;
+  handleRetry: (() => void) | null;
   shouldShowFeedback: boolean;
+  isError: boolean;
+  isRetryable: boolean;
 }
 
 /**
  * Custom hook for managing AI feedback state and user interactions
  */
-export const useAIFeedback = (): UseAIFeedbackReturn => {
+export const useAIFeedback = (retryCallback?: () => void): UseAIFeedbackReturn => {
   const [feedback, setFeedback] = useState<AIFeedbackResponse | null>(null);
 
   const handleFeedbackReceived = useCallback((newFeedback: AIFeedbackResponse) => {
@@ -28,13 +31,25 @@ export const useAIFeedback = (): UseAIFeedbackReturn => {
     setFeedback(null);
   }, []);
 
+  const handleRetry = useCallback(() => {
+    if (feedback?.canRetry && retryCallback) {
+      setFeedback(null);
+      retryCallback();
+    }
+  }, [feedback, retryCallback]);
+
   const shouldShowFeedback = Boolean(feedback);
+  const isError = Boolean(feedback?.error || feedback?.message);
+  const isRetryable = Boolean(feedback?.canRetry);
 
   return {
     feedback,
     setFeedback,
     handleFeedbackReceived,
     handleDismiss,
-    shouldShowFeedback
+    handleRetry: isRetryable ? handleRetry : null,
+    shouldShowFeedback,
+    isError,
+    isRetryable
   };
 };

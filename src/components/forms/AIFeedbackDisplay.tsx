@@ -28,7 +28,7 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
   // Handle error cases with retry option
   if (feedback.error || feedback.message) {
     const isRetryable = feedback.canRetry !== false;
-    const isRateLimit = feedback.message?.includes('limit') || feedback.message?.includes('busy');
+    const isRateLimit = feedback.message?.includes('limit') || feedback.message?.includes('busy') || feedback.error?.includes('RATE_LIMITED');
     
     return (
       <Card className={`mt-3 ${isRateLimit ? 'border-orange-200 bg-orange-50' : 'border-amber-200 bg-amber-50'}`}>
@@ -141,7 +141,7 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
         {/* Fallback for raw feedback if structured data is not available */}
         {feedback.strengths.length === 0 && feedback.improvements.length === 0 && feedback.rawFeedback && (
           <div>
-            <p className="text-sm text-blue-700 leading-relaxed">
+            <p className="text-sm text-blue-700 leading-relaxed whitespace-pre-wrap">
               {feedback.rawFeedback}
             </p>
           </div>

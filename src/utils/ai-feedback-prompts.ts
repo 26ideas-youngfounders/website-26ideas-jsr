@@ -11,9 +11,11 @@ export interface QuestionPromptConfig {
   minCharacters: number;
 }
 
-export const questionPrompts: Record<string, QuestionPromptConfig> = {
-  problemSolved: {
-    systemPrompt: `Analyze this startup problem statement and provide specific feedback in this format:
+/**
+ * Generates system prompt for problem statement analysis
+ */
+const getProblemStatementPrompt = (answer: string): string => {
+  return `Analyze this startup problem statement and provide specific feedback in this format:
 
 SCORE: [Rate from 1-10 based on clarity, specificity, and market potential]
 
@@ -25,12 +27,14 @@ AREAS FOR IMPROVEMENT:
 
 Focus on: clarity of the problem, target audience specificity, market size indication, urgency/pain level, and validation evidence. Be constructive and encouraging while providing actionable advice.
 
-Problem statement to analyze: "${answer}"`,
-    enabled: true,
-    minCharacters: 10
-  },
-  targetAudience: {
-    systemPrompt: `Analyze this target audience description and provide feedback in this format:
+Problem statement to analyze: "${answer}"`;
+};
+
+/**
+ * Generates system prompt for target audience analysis
+ */
+const getTargetAudiencePrompt = (answer: string): string => {
+  return `Analyze this target audience description and provide feedback in this format:
 
 SCORE: [Rate from 1-10 based on specificity, market understanding, and accessibility]
 
@@ -42,12 +46,14 @@ AREAS FOR IMPROVEMENT:
 
 Focus on: demographic specificity, behavioral characteristics, market size, accessibility, and willingness to pay. Encourage more detailed persona development.
 
-Target audience description: "${answer}"`,
-    enabled: true,
-    minCharacters: 10
-  },
-  solutionApproach: {
-    systemPrompt: `Analyze this solution approach and provide feedback in this format:
+Target audience description: "${answer}"`;
+};
+
+/**
+ * Generates system prompt for solution approach analysis
+ */
+const getSolutionApproachPrompt = (answer: string): string => {
+  return `Analyze this solution approach and provide feedback in this format:
 
 SCORE: [Rate from 1-10 based on innovation, feasibility, and problem fit]
 
@@ -59,8 +65,39 @@ AREAS FOR IMPROVEMENT:
 
 Focus on: problem-solution fit, technical feasibility, competitive differentiation, scalability, and user experience. Encourage specificity and validation.
 
-Solution approach: "${answer}"`,
+Solution approach: "${answer}"`;
+};
+
+export const questionPrompts: Record<string, QuestionPromptConfig> = {
+  problemSolved: {
+    systemPrompt: getProblemStatementPrompt(''), // Will be replaced with actual answer
     enabled: true,
     minCharacters: 10
+  },
+  targetAudience: {
+    systemPrompt: getTargetAudiencePrompt(''), // Will be replaced with actual answer
+    enabled: true,
+    minCharacters: 10
+  },
+  solutionApproach: {
+    systemPrompt: getSolutionApproachPrompt(''), // Will be replaced with actual answer
+    enabled: true,
+    minCharacters: 10
+  }
+};
+
+/**
+ * Gets the system prompt for a specific question with the user's answer
+ */
+export const getSystemPrompt = (questionId: string, answer: string): string => {
+  switch (questionId) {
+    case 'problemSolved':
+      return getProblemStatementPrompt(answer);
+    case 'targetAudience':
+      return getTargetAudiencePrompt(answer);
+    case 'solutionApproach':
+      return getSolutionApproachPrompt(answer);
+    default:
+      return `Analyze this answer and provide constructive feedback: "${answer}"`;
   }
 };

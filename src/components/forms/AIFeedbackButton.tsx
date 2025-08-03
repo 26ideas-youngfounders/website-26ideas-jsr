@@ -9,7 +9,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { questionPrompts } from '@/utils/ai-feedback-prompts';
+import { questionPrompts, getSystemPrompt } from '@/utils/ai-feedback-prompts';
 
 interface AIFeedbackButtonProps {
   questionId: string;
@@ -56,8 +56,8 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
     setIsLoading(true);
     
     try {
-      // Prepare the prompt with the user's answer
-      const prompt = promptConfig.systemPrompt.replace('${answer}', userAnswer);
+      // Get the system prompt with the user's answer
+      const prompt = getSystemPrompt(questionId, userAnswer);
       
       console.log('🤖 Requesting AI feedback for question:', questionId);
       

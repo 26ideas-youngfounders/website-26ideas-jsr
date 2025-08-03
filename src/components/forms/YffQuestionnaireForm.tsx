@@ -369,37 +369,40 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                 <FormField
                   control={form.control}
                   name="problemSolved"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>What problem does your idea solve? *</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Describe the problem you're solving..." className="h-[120px] resize-none" />
-                      </FormControl>
-                      <FormMessage />
-                      
-                      {/* AI Feedback Integration */}
-                      {console.log('🔍 AI Feedback Debug:', {
-                        questionId: 'problemSolved',
-                        answerLength: (field.value || '').length,
-                        shouldShow: (field.value || '').length >= 10,
-                        fieldValue: field.value
-                      })}
-                      
-                      <AIFeedbackButton
-                        questionId="problemSolved"
-                        userAnswer={field.value || ''}
-                        onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
-                        disabled={isSubmitting}
-                      />
-                      
-                      {problemSolvedFeedback.shouldShowFeedback && problemSolvedFeedback.feedback && (
-                        <AIFeedbackDisplay
-                          feedback={problemSolvedFeedback.feedback}
-                          onDismiss={problemSolvedFeedback.handleDismiss}
+                  render={({ field }) => {
+                    // Debug logging outside of JSX
+                    console.log('🔍 AI Feedback Debug:', {
+                      questionId: 'problemSolved',
+                      answerLength: (field.value || '').length,
+                      shouldShow: (field.value || '').length >= 10,
+                      fieldValue: field.value
+                    });
+
+                    return (
+                      <FormItem>
+                        <FormLabel>What problem does your idea solve? *</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="Describe the problem you're solving..." className="h-[120px] resize-none" />
+                        </FormControl>
+                        <FormMessage />
+                        
+                        {/* AI Feedback Integration */}
+                        <AIFeedbackButton
+                          questionId="problemSolved"
+                          userAnswer={field.value || ''}
+                          onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
+                          disabled={isSubmitting}
                         />
-                      )}
-                    </FormItem>
-                  )}
+                        
+                        {problemSolvedFeedback.shouldShowFeedback && problemSolvedFeedback.feedback && (
+                          <AIFeedbackDisplay
+                            feedback={problemSolvedFeedback.feedback}
+                            onDismiss={problemSolvedFeedback.handleDismiss}
+                          />
+                        )}
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField

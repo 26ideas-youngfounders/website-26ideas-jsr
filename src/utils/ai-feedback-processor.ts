@@ -1,3 +1,4 @@
+
 /**
  * AI Feedback Text Processing Utilities
  * 
@@ -25,7 +26,8 @@ export function fixOrphanedBullets(feedback: string): string {
   const lines = feedback.split('\n');
   const processedLines: string[] = [];
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
     
     // Skip empty lines - they're intentional formatting/spacing
@@ -35,8 +37,8 @@ export function fixOrphanedBullets(feedback: string): string {
     }
     
     // Check if this line starts with a proper bullet point, number, or heading marker
-    const isBulletPoint = /^(- |• |\d+\. )/.test(trimmed);
-    const isHeading = /^(\*\*|__|#{1,6}\s)/.test(trimmed); // Bold text or markdown heading
+    const isBulletPoint = /^(- |• |\* |\d+\.\s)/.test(trimmed);
+    const isHeading = /^(\*\*[^*]+\*\*|__|#{1,6}\s)/.test(trimmed); // Bold text or markdown heading
     const isStandaloneFormat = isBulletPoint || isHeading;
     
     if (isStandaloneFormat) {
@@ -94,9 +96,9 @@ export function validateFeedbackFormat(feedback: string): {
     
     // If previous line was a bullet and current line is short and doesn't start with bullet/heading
     if (
-      /^(- |• |\d+\. )/.test(previousLine) &&
+      /^(- |• |\* |\d+\.\s)/.test(previousLine) &&
       currentLine.length < 50 &&
-      !/^(- |• |\d+\. |\*\*|__|#{1,6}\s)/.test(currentLine)
+      !/^(- |• |\* |\d+\.\s|\*\*[^*]+\*\*|__|#{1,6}\s)/.test(currentLine)
     ) {
       hasOrphanedBullets = true;
       issues.push(`Potential orphaned bullet: "${currentLine}"`);

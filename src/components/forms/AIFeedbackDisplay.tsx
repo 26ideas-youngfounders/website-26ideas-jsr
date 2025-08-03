@@ -1,3 +1,4 @@
+
 /**
  * AI Feedback Display Component
  * 
@@ -10,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Sparkles, TrendingUp, Target, AlertTriangle, RefreshCw } from 'lucide-react';
 import { AIFeedbackResponse } from './AIFeedbackButton';
-import { processFeedbackText } from '@/utils/ai-feedback-processor';
+import { processFeedbackText, validateFeedbackFormat } from '@/utils/ai-feedback-processor';
 import './ai-feedback-styles.css';
 
 interface AIFeedbackDisplayProps {
@@ -130,6 +131,20 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
   const processedFeedback = feedback.rawFeedback 
     ? processFeedbackText(feedback.rawFeedback)
     : '';
+
+  // Debug logging to help identify formatting issues
+  if (feedback.rawFeedback && processedFeedback !== feedback.rawFeedback) {
+    console.log('🔧 AI Feedback processed for bullet point fixes:', {
+      original: feedback.rawFeedback,
+      processed: processedFeedback
+    });
+    
+    // Validate the processed feedback
+    const validation = validateFeedbackFormat(processedFeedback);
+    if (!validation.isValid) {
+      console.warn('⚠️ AI Feedback formatting issues detected:', validation.issues);
+    }
+  }
 
   return (
     <Card className="mt-3 border-blue-200 bg-blue-50">

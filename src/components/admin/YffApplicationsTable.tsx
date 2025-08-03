@@ -26,10 +26,15 @@ import {
   ChevronUp,
   ChevronDown,
   ArrowUpDown,
-  Star
+  Star,
+  BarChart3,
+  Clock,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { YffApplicationDetailsDialog } from './YffApplicationDetailsDialog';
+import { YffApplicationEvaluationDialog } from './YffApplicationEvaluationDialog';
 
 interface YffRegistration {
   id: string;
@@ -62,13 +67,17 @@ interface YffRegistration {
   referral_id: string | null;
   team_members: any[];
   questionnaire_answers: any;
+  // New evaluation fields
+  evaluation_status?: string;
+  overall_score?: number;
+  evaluation_completed_at?: string;
 }
 
-type SortField = 'created_at' | 'full_name' | 'team_name' | 'application_status' | 'venture_name';
+type SortField = 'created_at' | 'full_name' | 'team_name' | 'application_status' | 'venture_name' | 'overall_score';
 type SortDirection = 'asc' | 'desc';
 
 /**
- * Real-time YFF Applications Table with comprehensive admin features
+ * Real-time YFF Applications Table with comprehensive admin features and AI evaluation
  */
 export const YffApplicationsTable = () => {
   const [applications, setApplications] = useState<YffRegistration[]>([]);
@@ -112,16 +121,23 @@ export const YffApplicationsTable = () => {
   };
 
   /**
-   * Fetch all applications from the database
+   * Fetch all applications from the database with evaluation data
    */
   const fetchApplications = async () => {
     try {
       setLoading(true);
-      console.log('📊 Fetching YFF team registrations...');
+      console.log('📊 Fetching YFF team registrations with evaluation data...');
       
       const { data, error } = await supabase
         .from('yff_team_registrations')
-        .select('*')
+        .select(`
+          *,
+          yff_applications!inner(
+            evaluation_status,
+            overall_score,
+            evaluation_completed_at
+          )
+        `)
         .order(sortField, { ascending: sortDirection === 'asc' });
 
       if (error) {
@@ -136,11 +152,14 @@ export const YffApplicationsTable = () => {
 
       console.log('✅ Applications loaded:', data?.length || 0);
       
-      // Parse and normalize the data
+      // Parse and normalize the data with evaluation info
       const normalizedData = (data || []).map(app => ({
         ...app,
         team_members: parseTeamMembers(app.team_members),
-        questionnaire_answers: parseQuestionnaireAnswers(app.questionnaire_answers)
+        questionnaire_answers: parseQuestionnaireAnswers(app.questionnaire_answers),
+        evaluation_status: app.yff_applications?.[0]?.evaluation_status || 'pending',
+        overall_score: app.yff_applications?.[0]?.overall_score || 0,
+        evaluation_completed_at: app.yff_applications?.[0]?.evaluation_completed_at || null
       }));
       
       setApplications(normalizedData);
@@ -165,6 +184,9 @@ export const YffApplicationsTable = () => {
       individual_id: registration.individual_id,
       status: registration.application_status,
       application_round: 'current',
+      evaluation_status: registration.evaluation_status,
+      overall_score: registration.overall_score,
+      evaluation_completed_at: registration.evaluation_completed_at,
       answers: {
         team: {
           fullName: registration.full_name,
@@ -196,7 +218,7 @@ export const YffApplicationsTable = () => {
         },
         questionnaire_answers: registration.questionnaire_answers
       },
-      cumulative_score: 0,
+      cumulative_score: registration.overall_score || 0,
       submitted_at: registration.created_at,
       individuals: {
         first_name: registration.full_name.split(' ')[0] || '',
@@ -353,6 +375,45 @@ export const YffApplicationsTable = () => {
   };
 
   /**
+   * Get evaluation status badge and icon
+   */
+  const getEvaluationStatusDisplay = (status: string, score: number) => {
+    switch (status) {
+      case 'completed':
+        return {
+          icon: CheckCircle,
+          badge: (
+            <Badge 
+              variant={score >= 8 ? 'default' : score >= 6 ? 'secondary' : score >= 4 ? 'outline' : 'destructive'}
+              className="text-xs"
+            >
+              {score.toFixed(1)}/10
+            </Badge>
+          ),
+          color: score >= 8 ? 'text-green-600' : score >= 6 ? 'text-yellow-600' : score >= 4 ? 'text-orange-600' : 'text-red-600'
+        };
+      case 'processing':
+        return {
+          icon: RefreshCw,
+          badge: <Badge variant="outline" className="text-xs">Processing</Badge>,
+          color: 'text-blue-600'
+        };
+      case 'failed':
+        return {
+          icon: AlertTriangle,
+          badge: <Badge variant="destructive" className="text-xs">Failed</Badge>,
+          color: 'text-red-600'
+        };
+      default:
+        return {
+          icon: Clock,
+          badge: <Badge variant="outline" className="text-xs">Pending</Badge>,
+          color: 'text-gray-600'
+        };
+    }
+  };
+
+  /**
    * Manual refresh
    */
   const handleRefresh = () => {
@@ -380,6 +441,9 @@ export const YffApplicationsTable = () => {
           {feedbackData.length > 0 && (
             <Badge variant="secondary">{feedbackData.length} with feedback</Badge>
           )}
+          <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+            {applications.filter(app => app.evaluation_status === 'completed').length} evaluated
+          </Badge>
         </div>
         
         <div className="flex items-center gap-2">
@@ -422,7 +486,13 @@ export const YffApplicationsTable = () => {
               </TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Education</TableHead>
-              <TableHead>Feedback & Score</TableHead>
+              <TableHead>Manual Feedback</TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort('overall_score')}>
+                <div className="flex items-center gap-2">
+                  AI Evaluation
+                  {getSortIcon('overall_score')}
+                </div>
+              </TableHead>
               <TableHead className="cursor-pointer" onClick={() => handleSort('application_status')}>
                 <div className="flex items-center gap-2">
                   Status
@@ -441,13 +511,19 @@ export const YffApplicationsTable = () => {
           <TableBody>
             {filteredApplications.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                   {searchTerm ? 'No applications match your search.' : 'No applications found.'}
                 </TableCell>
               </TableRow>
             ) : (
               filteredApplications.map((application) => {
                 const feedback = matchFeedbackData(application.team_name, feedbackData);
+                const evaluationDisplay = getEvaluationStatusDisplay(
+                  application.evaluation_status || 'pending', 
+                  application.overall_score || 0
+                );
+                const EvaluationIcon = evaluationDisplay.icon;
+                
                 return (
                   <TableRow key={application.id}>
                     <TableCell>
@@ -520,6 +596,23 @@ export const YffApplicationsTable = () => {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <EvaluationIcon 
+                            className={`h-3 w-3 ${evaluationDisplay.color} ${
+                              application.evaluation_status === 'processing' ? 'animate-spin' : ''
+                            }`} 
+                          />
+                          {evaluationDisplay.badge}
+                        </div>
+                        {application.evaluation_completed_at && (
+                          <div className="text-xs text-gray-500">
+                            {format(new Date(application.evaluation_completed_at), 'MMM dd, HH:mm')}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
                         <Badge variant={getStatusBadgeVariant(application.application_status)}>
                           {application.application_status.replace('_', ' ')}
                         </Badge>
@@ -542,9 +635,14 @@ export const YffApplicationsTable = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <YffApplicationDetailsDialog 
-                        application={convertToApplicationFormat(application)}
-                      />
+                      <div className="flex gap-1">
+                        <YffApplicationDetailsDialog 
+                          application={convertToApplicationFormat(application)}
+                        />
+                        <YffApplicationEvaluationDialog 
+                          application={convertToApplicationFormat(application)}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

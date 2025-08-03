@@ -256,7 +256,11 @@ export type Database = {
           application_round: string | null
           created_at: string
           cumulative_score: number | null
+          evaluation_completed_at: string | null
+          evaluation_data: Json | null
+          evaluation_status: string | null
           individual_id: string
+          overall_score: number | null
           reviewer_scores: Json | null
           status: string
           submitted_at: string | null
@@ -268,7 +272,11 @@ export type Database = {
           application_round?: string | null
           created_at?: string
           cumulative_score?: number | null
+          evaluation_completed_at?: string | null
+          evaluation_data?: Json | null
+          evaluation_status?: string | null
           individual_id: string
+          overall_score?: number | null
           reviewer_scores?: Json | null
           status?: string
           submitted_at?: string | null
@@ -280,7 +288,11 @@ export type Database = {
           application_round?: string | null
           created_at?: string
           cumulative_score?: number | null
+          evaluation_completed_at?: string | null
+          evaluation_data?: Json | null
+          evaluation_status?: string | null
           individual_id?: string
+          overall_score?: number | null
           reviewer_scores?: Json | null
           status?: string
           submitted_at?: string | null
@@ -293,6 +305,50 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "individuals"
             referencedColumns: ["individual_id"]
+          },
+        ]
+      }
+      yff_evaluations: {
+        Row: {
+          application_id: string | null
+          created_at: string | null
+          evaluation_completed_at: string | null
+          evaluation_metadata: Json | null
+          id: string
+          idea_summary: string | null
+          overall_score: number | null
+          question_scores: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          application_id?: string | null
+          created_at?: string | null
+          evaluation_completed_at?: string | null
+          evaluation_metadata?: Json | null
+          id?: string
+          idea_summary?: string | null
+          overall_score?: number | null
+          question_scores?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          application_id?: string | null
+          created_at?: string | null
+          evaluation_completed_at?: string | null
+          evaluation_metadata?: Json | null
+          id?: string
+          idea_summary?: string | null
+          overall_score?: number | null
+          question_scores?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "yff_evaluations_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "yff_applications"
+            referencedColumns: ["application_id"]
           },
         ]
       }

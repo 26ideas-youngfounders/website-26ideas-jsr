@@ -1,20 +1,13 @@
 /**
- * @fileoverview AI Question Prompts Configuration for Edge Function
+ * @fileoverview Complete AI Question Prompts for Edge Function
  * 
- * Complete, definitive mapping: Every single YFF question gets exactly one system prompt.
- * No exceptions, no fallbacks, no "question not found" logic.
- * 
- * Note: This is a copy of src/utils/ai-question-prompts.ts specifically 
- * for the edge function deployment, as edge functions are sandboxed 
- * and cannot import from the main src/ directory.
- * 
- * @version 3.0.0 - Complete question coverage
- * @author 26ideas Development Team
+ * This is the server-side copy of ai-question-prompts.ts
+ * Must be kept in sync with the client-side version
  */
 
 /**
  * Complete mapping of ALL YFF questions to their AI system prompts
- * Every question ID maps to exactly one comprehensive prompt
+ * Server-side version for the edge function
  */
 export const aiQuestionPrompts: Record<string, string> = {
   // === GENERAL QUESTIONS ===
@@ -744,69 +737,125 @@ RESPONSE FORMAT:
 };
 
 /**
- * Helper function to get system prompt for a specific question
- * 
- * @param questionId - The unique identifier for the question
- * @returns The system prompt for the question, or null if not found
+ * Universal question mapping system - server-side version
+ * Must match the client-side normalizeQuestionId function
  */
-export const getSystemPrompt = (questionId: string): string => {
-  return aiQuestionPrompts[questionId] || aiQuestionPrompts["tell_us_about_idea"];
-};
-
-/**
- * Helper function to check if a question has AI feedback enabled
- * 
- * @param questionId - The unique identifier for the question
- * @returns True if AI feedback is available for this question
- */
-export const hasAIFeedback = (questionId: string): boolean => {
-  return true; // EVERY question has AI feedback
-};
-
-/**
- * Get all available question IDs that have AI feedback enabled
- * 
- * @returns Array of question IDs with AI feedback support
- */
-export const getAIEnabledQuestions = (): string[] => {
-  return Object.keys(aiQuestionPrompts);
-};
-
-/**
- * Type for question IDs that have AI feedback enabled
- * Ensures type safety when working with AI-enabled questions
- */
-export type AIEnabledQuestionId = keyof typeof aiQuestionPrompts;
-
-/**
- * Validation function to ensure all required questions have prompts
- * Useful for testing and debugging
- * 
- * @param requiredQuestions - Array of question IDs that must have prompts
- * @returns Object with missing questions and validation status
- */
-export const validateQuestionPrompts = (requiredQuestions: string[]) => {
-  return {
-    isValid: true,
-    missingQuestions: [],
-    totalPrompts: Object.keys(aiQuestionPrompts).length,
-    requiredCount: requiredQuestions.length
+export const normalizeQuestionId = (questionId: string, questionText?: string, stage?: string): string => {
+  // Direct mappings for all possible variations
+  const mappings: Record<string, string> = {
+    // Tell us about your idea
+    "tell_us_about_idea": "tell_us_about_idea",
+    "ideaDescription": "tell_us_about_idea",
+    "idea_description": "tell_us_about_idea",
+    "business_idea": "tell_us_about_idea",
+    
+    // Problem statement
+    "problem_statement": stage === "early_revenue" ? "early_revenue_problem" : "problem_statement",
+    "problemSolved": stage === "early_revenue" ? "early_revenue_problem" : "problem_statement",
+    "what_problem": stage === "early_revenue" ? "early_revenue_problem" : "problem_statement",
+    "problem_solved": stage === "early_revenue" ? "early_revenue_problem" : "problem_statement",
+    
+    // Target audience
+    "whose_problem": stage === "early_revenue" ? "early_revenue_whose_problem" : "whose_problem",
+    "targetAudience": stage === "early_revenue" ? "early_revenue_whose_problem" : "whose_problem",
+    "target_audience": stage === "early_revenue" ? "early_revenue_whose_problem" : "whose_problem",
+    "target_market": stage === "early_revenue" ? "early_revenue_whose_problem" : "whose_problem",
+    
+    // Solution approach
+    "how_solve_problem": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
+    "solutionApproach": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
+    "solution_approach": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
+    "solution": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
+    
+    // Monetization
+    "how_make_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "making_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "monetizationStrategy": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "revenue_model": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    
+    // Customer acquisition
+    "acquire_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "acquiring_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "customerAcquisition": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "customer_acquisition": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    
+    // Duration/Timeline
+    "working_duration": "early_revenue_working_duration",
+    "workingDuration": "early_revenue_working_duration",
+    "how_long_working": "early_revenue_working_duration",
+    "duration": "early_revenue_working_duration",
+    "when_proceed": "when_proceed",
+    "timeline": "when_proceed",
+    "proceed_timeline": "when_proceed",
+    
+    // Competitors
+    "competitors": stage === "early_revenue" ? "early_revenue_competitors" : "competitors",
+    "competitor_analysis": stage === "early_revenue" ? "early_revenue_competitors" : "competitors",
+    "list_competitors": stage === "early_revenue" ? "early_revenue_competitors" : "competitors",
+    "competition": stage === "early_revenue" ? "early_revenue_competitors" : "competitors",
+    
+    // Product development
+    "product_development": stage === "early_revenue" ? "early_revenue_product_development" : "product_development",
+    "developmentApproach": stage === "early_revenue" ? "early_revenue_product_development" : "product_development",
+    "development_approach": stage === "early_revenue" ? "early_revenue_product_development" : "product_development",
+    "tech_approach": stage === "early_revenue" ? "early_revenue_product_development" : "product_development",
+    
+    // Team
+    "team_roles": stage === "early_revenue" ? "early_revenue_team" : "team_roles",
+    "teamInfo": stage === "early_revenue" ? "early_revenue_team" : "team_roles",
+    "team_info": stage === "early_revenue" ? "early_revenue_team" : "team_roles",
+    "who_on_team": stage === "early_revenue" ? "early_revenue_team" : "team_roles",
+    "team": stage === "early_revenue" ? "early_revenue_team" : "team_roles"
   };
+  
+  console.log('🔍 Server normalizing question ID:', {
+    originalId: questionId,
+    stage,
+    questionText: questionText?.substring(0, 50)
+  });
+  
+  // First, try direct mapping
+  if (mappings[questionId]) {
+    const normalizedId = mappings[questionId];
+    console.log('✅ Server direct mapping found:', normalizedId);
+    return normalizedId;
+  }
+  
+  // Fallback based on question text
+  if (questionText) {
+    const lowerText = questionText.toLowerCase();
+    let fallbackId = "tell_us_about_idea"; // default
+    
+    if (lowerText.includes("tell us about your idea")) fallbackId = "tell_us_about_idea";
+    else if (lowerText.includes("what problem does your idea solve")) fallbackId = stage === "early_revenue" ? "early_revenue_problem" : "problem_statement";
+    else if (lowerText.includes("whose problem")) fallbackId = stage === "early_revenue" ? "early_revenue_whose_problem" : "whose_problem";
+    else if (lowerText.includes("how does your idea solve")) fallbackId = stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem";
+    else if (lowerText.includes("make money") || lowerText.includes("generate revenue")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
+    else if (lowerText.includes("acquire") && lowerText.includes("customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
+    else if (lowerText.includes("competitors")) fallbackId = stage === "early_revenue" ? "early_revenue_competitors" : "competitors";
+    else if (lowerText.includes("developing the product")) fallbackId = stage === "early_revenue" ? "early_revenue_product_development" : "product_development";
+    else if (lowerText.includes("team") && lowerText.includes("roles")) fallbackId = stage === "early_revenue" ? "early_revenue_team" : "team_roles";
+    else if (lowerText.includes("when") && lowerText.includes("proceed")) fallbackId = "when_proceed";
+    else if (lowerText.includes("working on") && lowerText.includes("idea")) fallbackId = "early_revenue_working_duration";
+    
+    console.log('📝 Server text-based fallback:', fallbackId);
+    return fallbackId;
+  }
+  
+  // Final fallback - return a default
+  console.log('⚠️ Server using default fallback for questionId:', questionId);
+  return "tell_us_about_idea";
 };
 
 /**
- * Debug function to validate and inspect the mapping system
+ * Server-side helper functions
  */
-export const debugMappingSystem = () => {
-  console.log('🔍 Complete AI Feedback Mapping System:');
-  console.log('📊 Total questions with AI feedback:', Object.keys(aiQuestionPrompts).length);
-  
-  const promptKeys = Object.keys(aiQuestionPrompts);
-  console.log('✅ All question IDs with prompts:', promptKeys);
-  
-  return {
-    totalPrompts: Object.keys(aiQuestionPrompts).length,
-    promptKeys,
-    coverage: "100% - Every question has AI feedback"
-  };
+export const getSystemPrompt = (questionId: string, questionText?: string, stage?: string): string => {
+  const normalizedId = normalizeQuestionId(questionId, questionText, stage);
+  return aiQuestionPrompts[normalizedId] || aiQuestionPrompts["tell_us_about_idea"];
+};
+
+export const hasAIFeedback = (): boolean => {
+  // EVERY question has AI feedback - no exceptions
+  return true;
 };

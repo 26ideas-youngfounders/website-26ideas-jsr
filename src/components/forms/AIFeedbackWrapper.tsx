@@ -2,13 +2,12 @@
 /**
  * AI Feedback Wrapper Component
  * 
- * Simplified wrapper that shows AI feedback buttons for ALL questions
- * Every single question in the YFF questionnaire gets an AI feedback button
+ * Zero tolerance wrapper - EVERY question gets an AI feedback button
+ * Uses universal question mapping system for 100% coverage
  */
 
 import React from 'react';
 import { AIFeedbackButton, AIFeedbackResponse } from './AIFeedbackButton';
-import { hasAIFeedback, getSystemPrompt } from '@/utils/ai-question-prompts';
 
 interface AIFeedbackWrapperProps {
   baseQuestionId: string;
@@ -21,7 +20,7 @@ interface AIFeedbackWrapperProps {
 }
 
 /**
- * Wrapper component that shows AI feedback button for ALL questions
+ * Zero Tolerance Wrapper - AI feedback for EVERY question
  * No exceptions, no fallback logic - every question gets AI feedback
  */
 export const AIFeedbackWrapper: React.FC<AIFeedbackWrapperProps> = ({
@@ -55,8 +54,7 @@ export const AIFeedbackWrapper: React.FC<AIFeedbackWrapperProps> = ({
     answerLength: answer.length,
     minCharacters,
     meetMinLength,
-    shouldShowButton,
-    hasPrompt: hasAIFeedback(baseQuestionId)
+    shouldShowButton: shouldShowButton && answer.length >= minCharacters
   });
 
   // Always render the wrapper div to maintain consistent spacing
@@ -67,6 +65,7 @@ export const AIFeedbackWrapper: React.FC<AIFeedbackWrapperProps> = ({
           questionId={baseQuestionId}
           questionText={questionText}
           userAnswer={answer}
+          stage={currentStage}
           onFeedbackReceived={onFeedbackReceived}
           disabled={disabled}
         />

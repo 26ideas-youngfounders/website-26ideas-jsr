@@ -2,21 +2,22 @@
 /**
  * AI Feedback Button Component
  * 
- * Provides AI-powered feedback on questionnaire answers
- * Every question has AI feedback available
+ * Zero tolerance implementation - EVERY question gets an AI feedback button
+ * Uses universal question mapping to handle ANY questionId variation
  */
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { getSystemPrompt, hasAIFeedback } from '@/utils/ai-question-prompts';
+import { normalizeQuestionId } from '@/utils/ai-question-prompts';
 
 interface AIFeedbackButtonProps {
   questionId: string;
   questionText?: string;
   userAnswer: string;
   onFeedbackReceived: (feedback: AIFeedbackResponse) => void;
+  stage?: string; // "idea" or "early_revenue"
   disabled?: boolean;
 }
 
@@ -33,13 +34,15 @@ export interface AIFeedbackResponse {
 }
 
 /**
- * AI Feedback Button - shows for ALL questions since every question has a prompt
+ * AI Feedback Button - Zero Tolerance Implementation
+ * Shows for ALL questions when answer is 10+ characters - NO EXCEPTIONS
  */
 export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
   questionId,
   questionText,
   userAnswer,
   onFeedbackReceived,
+  stage,
   disabled = false
 }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -48,15 +51,19 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
 
   // Ensure userAnswer is defined
   const answer = userAnswer || '';
+  
+  // ALWAYS normalize to get the correct prompt key
+  const normalizedQuestionId = normalizeQuestionId(questionId, questionText, stage);
 
   console.log('🤖 AIFeedbackButton render:', {
-    questionId,
+    originalQuestionId: questionId,
+    normalizedQuestionId,
+    stage,
     questionText: questionText?.substring(0, 50) || 'undefined',
-    answerLength: answer.length,
-    hasPrompt: hasAIFeedback(questionId)
+    answerLength: answer.length
   });
 
-  // Only hide if answer is too short (every question has a prompt)
+  // ALWAYS show button if answer is long enough - NO EXCEPTIONS
   if (answer.length < 10) {
     console.log('❌ AIFeedbackButton hidden - answer too short:', { 
       answerLength: answer.length 
@@ -71,12 +78,14 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
     setLastError(null);
     
     try {
-      console.log('🤖 Requesting AI feedback for questionId:', questionId);
+      console.log('🤖 Requesting AI feedback for normalizedQuestionId:', normalizedQuestionId);
+      console.log('🤖 Original questionId:', questionId);
+      console.log('🤖 Stage:', stage);
       console.log('🤖 Answer length:', answer.length);
       
       const { data, error } = await supabase.functions.invoke('ai-feedback', {
         body: {
-          questionId: questionId, // Use the question ID directly
+          questionId: normalizedQuestionId, // Use the normalized ID
           userAnswer: answer.trim()
         }
       });
@@ -96,7 +105,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
           strengths: [],
           improvements: [],
           rawFeedback: "",
-          questionId: questionId,
+          questionId: normalizedQuestionId,
           timestamp: new Date().toISOString(),
           message: data.message,
           error: data.error,
@@ -134,7 +143,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
           strengths: [],
           improvements: [],
           rawFeedback: "",
-          questionId: questionId,
+          questionId: normalizedQuestionId,
           timestamp: new Date().toISOString(),
           message: userMessage,
           error: data.error,
@@ -147,7 +156,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
           strengths: data.strengths || [],
           improvements: data.improvements || [],
           rawFeedback: data.feedback || data.rawFeedback || "",
-          questionId: questionId,
+          questionId: normalizedQuestionId,
           timestamp: data.timestamp || new Date().toISOString()
         };
         
@@ -168,7 +177,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
         strengths: [],
         improvements: [],
         rawFeedback: "",
-        questionId: questionId,
+        questionId: normalizedQuestionId,
         timestamp: new Date().toISOString(),
         message: "Unable to get feedback at the moment. Please try again later.",
         error: errorMessage,
@@ -194,16 +203,26 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
   };
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={handleGetFeedback}
-      disabled={disabled || isLoading}
-      className={`mt-2 gap-2 text-xs ${lastError && !hasReceived ? 'border-amber-300 text-amber-700 hover:bg-amber-50' : ''}`}
-    >
-      {getButtonIcon()}
-      {getButtonText()}
-    </Button>
+    <div className="ai-feedback-section">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleGetFeedback}
+        disabled={disabled || isLoading}
+        className={`mt-2 gap-2 text-xs bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 ${
+          lastError && !hasReceived ? 'border-amber-300 text-amber-700 hover:bg-amber-50' : ''
+        }`}
+      >
+        {getButtonIcon()}
+        {getButtonText()}
+      </Button>
+      
+      {lastError && (
+        <div className="error-message text-red-600 mt-2 text-sm">
+          {lastError}
+        </div>
+      )}
+    </div>
   );
 };

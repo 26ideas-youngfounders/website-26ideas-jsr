@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview YFF Questionnaire Page
  * 
@@ -29,6 +30,14 @@ interface YffTeamRegistration {
   questionnaire_answers?: any;
   application_status?: string;
   // Add other fields as needed
+  [key: string]: any;
+}
+
+/**
+ * Interface for questionnaire answers stored as JSON
+ */
+interface QuestionnaireAnswers {
+  productStage?: string;
   [key: string]: any;
 }
 
@@ -88,13 +97,29 @@ const YffQuestionnaire = () => {
 
         console.log('✅ Registration data loaded:', registrationData);
         
+        // Safely parse questionnaire_answers if it exists
+        let parsedAnswers: QuestionnaireAnswers | null = null;
+        if (registrationData.questionnaire_answers) {
+          try {
+            // Handle both object and string cases for questionnaire_answers
+            if (typeof registrationData.questionnaire_answers === 'string') {
+              parsedAnswers = JSON.parse(registrationData.questionnaire_answers) as QuestionnaireAnswers;
+            } else if (typeof registrationData.questionnaire_answers === 'object') {
+              parsedAnswers = registrationData.questionnaire_answers as QuestionnaireAnswers;
+            }
+          } catch (parseError) {
+            console.warn('⚠️ Failed to parse questionnaire answers:', parseError);
+            parsedAnswers = null;
+          }
+        }
+        
         // Since product_stage might not exist in the database yet, we'll determine it from questionnaire answers
         // or default to 'idea' stage
-        const stage = registrationData.questionnaire_answers?.productStage === 'Early Revenue' 
+        const stage = parsedAnswers?.productStage === 'Early Revenue' 
           ? 'early_revenue' 
           : 'idea';
         
-        console.log('🎯 Determined stage from data:', stage);
+        console.log('🎯 Determined stage from data:', stage, 'from parsed answers:', parsedAnswers);
         
         // Add the determined stage to the registration data
         const enrichedRegistration: YffTeamRegistration = {

@@ -36,14 +36,17 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     "solution_approach": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
     "solution": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
     
-    // Monetization - ENHANCED MAPPING FOR EARLY REVENUE
+    // Monetization - ENHANCED MAPPING FOR EARLY REVENUE - CRITICAL FIX
     "how_make_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "making_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "monetizationStrategy": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "monetization_strategy": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money", 
     "revenue_model": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
-    "monetization_strategy": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "how_making_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "idea_making_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "generate_revenue": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "solve_problem_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "money_solving": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     
     // Customer acquisition - ENHANCED MAPPING
     "acquire_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
@@ -113,7 +116,11 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     else if (lowerText.includes("what problem does your idea solve")) fallbackId = stage === "early_revenue" ? "early_revenue_problem" : "problem_statement";
     else if (lowerText.includes("whose problem")) fallbackId = stage === "early_revenue" ? "early_revenue_whose_problem" : "whose_problem";
     else if (lowerText.includes("how does your idea solve")) fallbackId = stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem";
+    // ENHANCED MONETIZATION TEXT MATCHING - CRITICAL FIX
     else if (lowerText.includes("make money") || lowerText.includes("making money") || lowerText.includes("generate revenue")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
+    else if (lowerText.includes("money by solving") || lowerText.includes("money solving")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
+    else if (lowerText.includes("idea making money")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
+    else if (lowerText.includes("revenue") && lowerText.includes("problem")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
     else if (lowerText.includes("acquiring") && (lowerText.includes("customers") || lowerText.includes("paying"))) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("acquire") && lowerText.includes("customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("first paying customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
@@ -127,7 +134,7 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     else if (lowerText.includes("team") && lowerText.includes("roles")) fallbackId = stage === "early_revenue" ? "early_revenue_team" : "team_roles";
     else if (lowerText.includes("when") && lowerText.includes("proceed")) fallbackId = "when_proceed";
     
-    console.log('📝 Client text-based fallback:', fallbackId);
+    console.log('📝 Client text-based fallback:', fallbackId, 'for text:', lowerText.substring(0, 50));
     return fallbackId;
   }
   

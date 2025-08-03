@@ -1,21 +1,65 @@
-
 /**
  * AI Feedback Display Component
  * 
- * Shows AI-generated feedback in a styled card format
+ * Shows AI-generated feedback in a styled card format with enhanced formatting
  */
 
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Sparkles, TrendingUp, Target, AlertTriangle, RefreshCw } from 'lucide-react';
 import { AIFeedbackResponse } from './AIFeedbackButton';
+import './ai-feedback-styles.css';
 
 interface AIFeedbackDisplayProps {
   feedback: AIFeedbackResponse;
   onDismiss: () => void;
   onRetry?: () => void;
 }
+
+/**
+ * Custom markdown components for consistent styling
+ */
+const markdownComponents = {
+  h3: ({ children }: { children: React.ReactNode }) => {
+    const childText = children?.toString() || '';
+    let iconAndColor = { icon: '', colorClass: 'text-gray-700' };
+    
+    if (childText.toLowerCase().includes('strength')) {
+      iconAndColor = { icon: '✅', colorClass: 'text-green-700' };
+    } else if (childText.toLowerCase().includes('improvement')) {
+      iconAndColor = { icon: '🔧', colorClass: 'text-orange-700' };
+    } else if (childText.toLowerCase().includes('tip')) {
+      iconAndColor = { icon: '💡', colorClass: 'text-blue-700' };
+    }
+    
+    return (
+      <h3 className={`${iconAndColor.colorClass} font-semibold mb-2 mt-4 first:mt-0 flex items-center gap-2 border-b border-gray-200 pb-1`}>
+        <span>{iconAndColor.icon}</span>
+        {children}
+      </h3>
+    );
+  },
+  strong: ({ children }: { children: React.ReactNode }) => (
+    <strong className="font-semibold text-gray-800">{children}</strong>
+  ),
+  ul: ({ children }: { children: React.ReactNode }) => (
+    <ul className="space-y-2 ml-4 my-2">{children}</ul>
+  ),
+  ol: ({ children }: { children: React.ReactNode }) => (
+    <ol className="space-y-2 ml-4 my-2 list-decimal">{children}</ol>
+  ),
+  li: ({ children }: { children: React.ReactNode }) => (
+    <li className="text-gray-700 leading-relaxed relative pl-2">
+      <span className="absolute left-0 top-0 text-blue-500 font-bold">•</span>
+      {children}
+    </li>
+  ),
+  p: ({ children }: { children: React.ReactNode }) => (
+    <p className="text-gray-700 leading-relaxed mb-3">{children}</p>
+  )
+};
 
 /**
  * Display component for AI-generated feedback with scoring and suggestions
@@ -102,17 +146,17 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
       </CardHeader>
       
       <CardContent className="pt-0 space-y-4">
-        {/* Strengths Section */}
+        {/* Structured Strengths and Improvements Sections */}
         {feedback.strengths.length > 0 && (
           <div>
-            <h4 className="text-sm font-semibold text-green-700 flex items-center gap-2 mb-2">
+            <h4 className="text-sm font-semibold text-green-700 flex items-center gap-2 mb-2 border-b border-green-200 pb-1">
               <TrendingUp className="h-4 w-4" />
               Strengths
             </h4>
-            <ul className="space-y-1">
+            <ul className="space-y-2 ml-4">
               {feedback.strengths.map((strength, index) => (
-                <li key={index} className="text-sm text-green-600 flex items-start gap-2">
-                  <span className="w-1 h-1 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
+                <li key={index} className="text-sm text-green-700 flex items-start gap-2 leading-relaxed">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
                   <span>{strength}</span>
                 </li>
               ))}
@@ -120,17 +164,16 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
           </div>
         )}
 
-        {/* Improvements Section */}
         {feedback.improvements.length > 0 && (
           <div>
-            <h4 className="text-sm font-semibold text-orange-700 flex items-center gap-2 mb-2">
+            <h4 className="text-sm font-semibold text-orange-700 flex items-center gap-2 mb-2 border-b border-orange-200 pb-1">
               <Target className="h-4 w-4" />
               Areas for Improvement
             </h4>
-            <ul className="space-y-1">
+            <ul className="space-y-2 ml-4">
               {feedback.improvements.map((improvement, index) => (
-                <li key={index} className="text-sm text-orange-600 flex items-start gap-2">
-                  <span className="w-1 h-1 bg-orange-500 rounded-full mt-2 flex-shrink-0"></span>
+                <li key={index} className="text-sm text-orange-700 flex items-start gap-2 leading-relaxed">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></span>
                   <span>{improvement}</span>
                 </li>
               ))}
@@ -138,16 +181,19 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
           </div>
         )}
 
-        {/* Fallback for raw feedback if structured data is not available */}
+        {/* Enhanced Raw Feedback with Markdown Rendering */}
         {feedback.strengths.length === 0 && feedback.improvements.length === 0 && feedback.rawFeedback && (
-          <div>
-            <p className="text-sm text-blue-700 leading-relaxed whitespace-pre-wrap">
+          <div className="ai-feedback-content">
+            <ReactMarkdown
+              components={markdownComponents}
+              className="prose prose-sm max-w-none"
+            >
               {feedback.rawFeedback}
-            </p>
+            </ReactMarkdown>
           </div>
         )}
 
-        <div className="text-xs text-blue-500 mt-3 pt-3 border-t border-blue-200">
+        <div className="text-xs text-blue-500 mt-4 pt-3 border-t border-blue-200 bg-blue-50/50 rounded p-2">
           💡 This feedback is generated by AI to help improve your answer. Feel free to use these suggestions as inspiration!
         </div>
       </CardContent>

@@ -1,0 +1,76 @@
+
+/* AI Feedback Display Custom Styles */
+.ai-feedback-content {
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.ai-feedback-content h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+}
+
+.ai-feedback-content h3:first-child {
+  margin-top: 0;
+}
+
+.ai-feedback-content ul {
+  padding-left: 0;
+  margin: 0.75rem 0;
+}
+
+.ai-feedback-content ol {
+  padding-left: 0;
+  margin: 0.75rem 0;
+}
+
+.ai-feedback-content li {
+  margin-bottom: 0.75rem;
+  padding-left: 1rem;
+  position: relative;
+  line-height: 1.6;
+}
+
+.ai-feedback-content ul li::before {
+  content: "•";
+  color: #3b82f6;
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.ai-feedback-content ol li::before {
+  content: counter(list-item) ".";
+  color: #3b82f6;
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.ai-feedback-content p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.ai-feedback-content strong {
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .ai-feedback-content {
+    font-size: 0.875rem;
+  }
+  
+  .ai-feedback-content h3 {
+    font-size: 0.9rem;
+  }
+  
+  .ai-feedback-content li {
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+  }
+}

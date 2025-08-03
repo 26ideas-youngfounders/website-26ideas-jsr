@@ -16,12 +16,12 @@ export type BaseYffApplicationInsert = Database['public']['Tables']['yff_applica
 export type BaseYffApplicationUpdate = Database['public']['Tables']['yff_applications']['Update'];
 
 // Extended types that include the missing timestamp columns
-export interface ExtendedYffApplication extends BaseYffApplication {
+export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evaluation_completed_at'> {
   created_at: string;
   updated_at: string;
   evaluation_status?: string;
   overall_score?: number;
-  evaluation_completed_at?: string;
+  evaluation_completed_at?: string | null;
   evaluation_data?: Record<string, any>;
 }
 
@@ -30,7 +30,7 @@ export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {
   updated_at?: string;
   evaluation_status?: string;
   overall_score?: number;
-  evaluation_completed_at?: string;
+  evaluation_completed_at?: string | null;
   evaluation_data?: Record<string, any>;
 }
 
@@ -39,7 +39,7 @@ export interface ExtendedYffApplicationUpdate extends BaseYffApplicationUpdate {
   updated_at?: string;
   evaluation_status?: string;
   overall_score?: number;
-  evaluation_completed_at?: string;
+  evaluation_completed_at?: string | null;
   evaluation_data?: Record<string, any>;
 }
 

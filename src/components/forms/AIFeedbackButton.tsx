@@ -2,17 +2,18 @@
 /**
  * AI Feedback Button Component
  * 
- * Provides AI-powered feedback on questionnaire answers with three-tier resolution system
+ * Provides AI-powered feedback on questionnaire answers
+ * Every question has AI feedback available
  */
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { resolvePromptKey, hasAIFeedback } from '@/utils/ai-question-prompts';
+import { getSystemPrompt, hasAIFeedback } from '@/utils/ai-question-prompts';
 
 interface AIFeedbackButtonProps {
-  questionId?: string;
+  questionId: string;
   questionText?: string;
   userAnswer: string;
   onFeedbackReceived: (feedback: AIFeedbackResponse) => void;
@@ -32,8 +33,7 @@ export interface AIFeedbackResponse {
 }
 
 /**
- * AI Feedback Button for getting personalized suggestions on answers
- * Uses three-tier resolution system to match questions to prompts
+ * AI Feedback Button - shows for ALL questions since every question has a prompt
  */
 export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
   questionId,
@@ -49,23 +49,16 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
   // Ensure userAnswer is defined
   const answer = userAnswer || '';
 
-  // Use three-tier resolution to get the prompt key
-  const promptKey = resolvePromptKey(questionId, questionText);
-  const feedbackAvailable = hasAIFeedback(questionId, questionText);
-
   console.log('🤖 AIFeedbackButton render:', {
     questionId,
     questionText: questionText?.substring(0, 50) || 'undefined',
-    promptKey,
-    feedbackAvailable,
-    answerLength: answer.length
+    answerLength: answer.length,
+    hasPrompt: hasAIFeedback(questionId)
   });
 
-  // Don't show if no prompt available or answer is too short
-  if (!feedbackAvailable || !promptKey || answer.length < 10) {
-    console.log('❌ AIFeedbackButton hidden:', { 
-      feedbackAvailable, 
-      promptKey, 
+  // Only hide if answer is too short (every question has a prompt)
+  if (answer.length < 10) {
+    console.log('❌ AIFeedbackButton hidden - answer too short:', { 
       answerLength: answer.length 
     });
     return null;
@@ -78,12 +71,12 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
     setLastError(null);
     
     try {
-      console.log('🤖 Requesting AI feedback with resolved prompt key:', promptKey);
+      console.log('🤖 Requesting AI feedback for questionId:', questionId);
       console.log('🤖 Answer length:', answer.length);
       
       const { data, error } = await supabase.functions.invoke('ai-feedback', {
         body: {
-          questionId: promptKey, // Use the resolved prompt key
+          questionId: questionId, // Use the question ID directly
           userAnswer: answer.trim()
         }
       });
@@ -103,7 +96,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
           strengths: [],
           improvements: [],
           rawFeedback: "",
-          questionId: promptKey,
+          questionId: questionId,
           timestamp: new Date().toISOString(),
           message: data.message,
           error: data.error,
@@ -141,7 +134,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
           strengths: [],
           improvements: [],
           rawFeedback: "",
-          questionId: promptKey,
+          questionId: questionId,
           timestamp: new Date().toISOString(),
           message: userMessage,
           error: data.error,
@@ -154,7 +147,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
           strengths: data.strengths || [],
           improvements: data.improvements || [],
           rawFeedback: data.feedback || data.rawFeedback || "",
-          questionId: promptKey,
+          questionId: questionId,
           timestamp: data.timestamp || new Date().toISOString()
         };
         
@@ -175,7 +168,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
         strengths: [],
         improvements: [],
         rawFeedback: "",
-        questionId: promptKey,
+        questionId: questionId,
         timestamp: new Date().toISOString(),
         message: "Unable to get feedback at the moment. Please try again later.",
         error: errorMessage,

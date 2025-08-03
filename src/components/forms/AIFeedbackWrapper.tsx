@@ -2,16 +2,16 @@
 /**
  * AI Feedback Wrapper Component
  * 
- * Handles dynamic display of AI feedback buttons using the three-tier resolution system
- * Ensures comprehensive coverage of all questions with available prompts
+ * Simplified wrapper that shows AI feedback buttons for ALL questions
+ * Every single question in the YFF questionnaire gets an AI feedback button
  */
 
 import React from 'react';
 import { AIFeedbackButton, AIFeedbackResponse } from './AIFeedbackButton';
-import { hasAIFeedback, resolvePromptKey, debugMappingSystem } from '@/utils/ai-question-prompts';
+import { hasAIFeedback, getSystemPrompt } from '@/utils/ai-question-prompts';
 
 interface AIFeedbackWrapperProps {
-  baseQuestionId?: string;
+  baseQuestionId: string;
   questionText?: string;
   userAnswer: string;
   currentStage?: 'idea' | 'early_revenue';
@@ -21,8 +21,8 @@ interface AIFeedbackWrapperProps {
 }
 
 /**
- * Wrapper component that conditionally shows AI feedback button
- * Uses comprehensive three-tier resolution system to match questions to prompts
+ * Wrapper component that shows AI feedback button for ALL questions
+ * No exceptions, no fallback logic - every question gets AI feedback
  */
 export const AIFeedbackWrapper: React.FC<AIFeedbackWrapperProps> = ({
   baseQuestionId,
@@ -44,21 +44,19 @@ export const AIFeedbackWrapper: React.FC<AIFeedbackWrapperProps> = ({
   // Ensure userAnswer is defined
   const answer = userAnswer || '';
   
-  // Use the three-tier resolution system
-  const promptKey = resolvePromptKey(baseQuestionId, questionText);
-  const hasFeedbackAvailable = hasAIFeedback(baseQuestionId, questionText);
+  // Check minimum length requirement
   const meetMinLength = answer.length >= minCharacters;
-  const shouldShowButton = hasFeedbackAvailable && meetMinLength;
+  
+  // EVERY question has AI feedback, so we only check length requirement
+  const shouldShowButton = meetMinLength;
 
-  console.log('🔍 AIFeedbackWrapper Resolution:', {
+  console.log('🔍 AIFeedbackWrapper Decision:', {
     baseQuestionId,
-    promptKey,
-    currentStage,
     answerLength: answer.length,
     minCharacters,
-    hasFeedbackAvailable,
     meetMinLength,
-    shouldShowButton
+    shouldShowButton,
+    hasPrompt: hasAIFeedback(baseQuestionId)
   });
 
   // Always render the wrapper div to maintain consistent spacing

@@ -6,15 +6,14 @@
  */
 
 /**
- * This function guarantees no list bullets are ever split across lines in AI feedback.
- * All partial lines (non-bullet, non-heading) are always merged with the prior bullet.
- * It is applied to every AI feedback string before markdown rendering.
+ * This function is REQUIRED. It enforces bullet integrity on all AI feedback and *must never be bypassed*.
+ * ALL orphan/split bullet lines are merged before feedback is rendered as markdown.
  * 
- * Fixes orphaned bullet points in AI feedback text by merging lines that don't start 
- * with proper bullet points as continuation of the previous list item.
+ * MANDATORY: Eliminates ALL orphaned bullet points by merging any line that doesn't start 
+ * with proper bullet points, headings, or empty lines into the previous line.
  * 
  * @param feedback - Raw AI feedback text that may contain split bullets
- * @returns Processed feedback with orphaned lines merged into proper bullets
+ * @returns Processed feedback with ALL orphaned lines merged into proper bullets
  */
 export function fixOrphanedBullets(feedback: string): string {
   if (!feedback || typeof feedback !== 'string') {
@@ -29,51 +28,58 @@ export function fixOrphanedBullets(feedback: string): string {
     const line = lines[i];
     const trimmed = line.trim();
     
-    // Skip empty lines - they're intentional formatting/spacing
+    // Empty lines are kept as-is for spacing
     if (trimmed === '') {
       processedLines.push('');
       continue;
     }
     
-    // Check if this line starts with a proper bullet point, number, or heading marker
+    // Check if this line starts with a legitimate marker
     const isBulletPoint = /^(- |• |\* |\d+\.\s)/.test(trimmed);
     const isHeading = /^(\*\*[^*]+\*\*|__|#{1,6}\s)/.test(trimmed);
-    const isStandaloneFormat = isBulletPoint || isHeading;
+    const isLegitimateStandalone = isBulletPoint || isHeading;
     
-    // ULTRA AGGRESSIVE: If it's not a bullet or heading, it's a continuation
-    // Only allow lines that are clearly new sentences (start with capital, reasonable length)
-    const isDefinitelyNewSentence = !isStandaloneFormat && 
-      /^[A-Z]/.test(trimmed) && 
-      trimmed.length > 40 && 
-      /^[A-Z][a-z]/.test(trimmed) && // Starts with capital followed by lowercase
-      !/(^(and|or|but|also|however|therefore|furthermore|moreover|additionally|specifically|particularly|especially|including|such as|for example|like|with|without|by|through|via|using|during|while|when|where|how|why|what|which|that|this|these|those|it|they|them|their|his|her|its|our|your|my)\b)/i.test(trimmed);
-    
-    if (isStandaloneFormat) {
-      // This is a proper list item or heading - add it as-is
+    if (isLegitimateStandalone) {
+      // This is a proper bullet or heading - keep as-is
       processedLines.push(trimmed);
-    } else if (!isDefinitelyNewSentence) {
-      // This appears to be a continuation - merge it with the last non-empty line
+    } else {
+      // MANDATORY MERGE: Any line that's not a bullet/heading gets merged with previous line
       let lastIndex = processedLines.length - 1;
+      
+      // Find the last non-empty line to merge with
       while (lastIndex >= 0 && processedLines[lastIndex].trim() === '') {
         lastIndex--;
       }
       
       if (lastIndex >= 0) {
-        // Merge it with the last non-empty line (separated by a space if needed)
+        // Merge it with the last non-empty line (add space if needed)
         const lastLine = processedLines[lastIndex];
         const needsSpace = lastLine.length > 0 && !lastLine.endsWith(' ') && !trimmed.startsWith(' ');
         processedLines[lastIndex] = lastLine + (needsSpace ? ' ' : '') + trimmed;
       } else {
-        // No previous line found - keep it as-is
+        // No previous line found - keep it as-is (edge case)
         processedLines.push(trimmed);
       }
-    } else {
-      // This is definitely a new sentence - keep as separate line
-      processedLines.push(trimmed);
     }
   }
 
   return processedLines.join('\n');
+}
+
+/**
+ * BULLETPROOF merging function - runs the fix twice to catch any edge cases
+ * This ensures 100% elimination of orphaned bullets regardless of AI output format
+ */
+export function bulletproofMergeBullets(feedback: string): string {
+  if (!feedback || typeof feedback !== 'string') {
+    return feedback || '';
+  }
+
+  // Run the fix twice to catch any nested edge cases
+  let processed = fixOrphanedBullets(feedback);
+  processed = fixOrphanedBullets(processed); // Second pass to catch any remaining orphans
+  
+  return processed;
 }
 
 /**
@@ -110,7 +116,7 @@ export function validateFeedbackFormat(feedback: string): {
       !/^(- |• |\* |\d+\.\s|\*\*[^*]+\*\*|__|#{1,6}\s)/.test(currentLine)
     ) {
       hasOrphanedBullets = true;
-      issues.push(`Potential orphaned bullet: "${currentLine}"`);
+      issues.push(`CRITICAL: Orphaned bullet detected: "${currentLine}"`);
     }
   }
   
@@ -125,18 +131,18 @@ export function validateFeedbackFormat(feedback: string): {
 /**
  * Comprehensive feedback processing pipeline
  * 
- * Applies all necessary preprocessing to ensure consistent formatting
+ * MANDATORY: Applies bulletproof orphaned bullet elimination to ensure consistent formatting
  * 
  * @param rawFeedback - Raw AI feedback text
- * @returns Cleaned and formatted feedback text
+ * @returns Cleaned and formatted feedback text with NO orphaned bullets
  */
 export function processFeedbackText(rawFeedback: string): string {
   if (!rawFeedback || typeof rawFeedback !== 'string') {
     return '';
   }
 
-  // Apply orphaned bullet fix first - this is the most important step
-  let processed = fixOrphanedBullets(rawFeedback);
+  // BULLETPROOF orphaned bullet fix - this is MANDATORY and runs twice
+  let processed = bulletproofMergeBullets(rawFeedback);
   
   // Additional cleanup: ensure consistent spacing and remove asterisk bullets
   processed = processed
@@ -151,8 +157,14 @@ export function processFeedbackText(rawFeedback: string): string {
     .map(line => line.trimEnd())
     .join('\n');
 
-  // Apply the fix one more time to catch any edge cases from the cleanup
-  processed = fixOrphanedBullets(processed);
+  // Final bulletproof pass to catch anything from the cleanup
+  processed = bulletproofMergeBullets(processed);
+
+  // Validate the result and log any issues
+  const validation = validateFeedbackFormat(processed);
+  if (!validation.isValid) {
+    console.error('🚨 CRITICAL: Orphaned bullets still detected after processing!', validation.issues);
+  }
 
   return processed.trim();
 }

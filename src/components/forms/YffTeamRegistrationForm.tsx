@@ -330,7 +330,7 @@ export const YffTeamRegistrationForm = () => {
   });
 
   const watchedValues = form.watch();
-  const { status: autosaveStatus, loadSavedData, clearSavedData, isLoading: autosaveLoading } = useAutosave({
+  const { status: autosaveStatus, loadSavedData, clearSavedData, isLoading: autosaveLoading, lastSaved, isSaving } = useAutosave({
     formData: watchedValues,
     formType: 'yff_team_registration',
   });
@@ -838,7 +838,11 @@ export const YffTeamRegistrationForm = () => {
         </form>
       </Form>
 
-      <YffAutosaveIndicator status={autosaveStatus} />
+      <YffAutosaveIndicator 
+        status={autosaveStatus}
+        lastSaved={lastSaved}
+        isSaving={isSaving}
+      />
     </div>
   );
 };

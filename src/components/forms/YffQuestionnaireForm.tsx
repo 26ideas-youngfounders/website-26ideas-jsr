@@ -119,10 +119,19 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [productStage, setProductStage] = useState<string>('');
 
-  // AI Feedback hooks for different questions
+  // AI Feedback hooks for ALL questions that need feedback
+  const ideaDescriptionFeedback = useAIFeedback();
   const problemSolvedFeedback = useAIFeedback();
   const targetAudienceFeedback = useAIFeedback();
   const solutionApproachFeedback = useAIFeedback();
+  const monetizationStrategyFeedback = useAIFeedback();
+  const customerAcquisitionFeedback = useAIFeedback();
+  const competitorsFeedback = useAIFeedback();
+  const developmentApproachFeedback = useAIFeedback();
+  const teamInfoFeedback = useAIFeedback();
+  const timelineFeedback = useAIFeedback();
+  const payingCustomersFeedback = useAIFeedback();
+  const workingDurationFeedback = useAIFeedback();
 
   // Validate required props at runtime in development
   useEffect(() => {
@@ -278,9 +287,13 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   // Use currentStage prop instead of local productStage state for AI feedback
   const isEarlyRevenue = currentStage === 'early_revenue';
 
+  // Enhanced retry handler for all questions
   const handleRetryFeedback = (questionId: string) => {
-    // Reset feedback state and trigger new request
+    console.log('🔄 Retrying AI feedback for:', questionId);
     switch (questionId) {
+      case 'ideaDescription':
+        ideaDescriptionFeedback.setFeedback(null);
+        break;
       case 'problemSolved':
         problemSolvedFeedback.setFeedback(null);
         break;
@@ -289,6 +302,30 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
         break;
       case 'solutionApproach':
         solutionApproachFeedback.setFeedback(null);
+        break;
+      case 'monetizationStrategy':
+        monetizationStrategyFeedback.setFeedback(null);
+        break;
+      case 'customerAcquisition':
+        customerAcquisitionFeedback.setFeedback(null);
+        break;
+      case 'competitors':
+        competitorsFeedback.setFeedback(null);
+        break;
+      case 'developmentApproach':
+        developmentApproachFeedback.setFeedback(null);
+        break;
+      case 'teamInfo':
+        teamInfoFeedback.setFeedback(null);
+        break;
+      case 'timeline':
+        timelineFeedback.setFeedback(null);
+        break;
+      case 'payingCustomers':
+        payingCustomersFeedback.setFeedback(null);
+        break;
+      case 'workingDuration':
+        workingDurationFeedback.setFeedback(null);
         break;
     }
   };
@@ -349,6 +386,24 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                       />
                     </FormControl>
                     <FormMessage />
+                    
+                    {/* AI Feedback for ideaDescription */}
+                    <AIFeedbackButton
+                      questionId="ideaDescription"
+                      questionText="Tell us about your idea"
+                      userAnswer={field.value || ''}
+                      stage={currentStage}
+                      onFeedbackReceived={ideaDescriptionFeedback.handleFeedbackReceived}
+                      disabled={isSubmitting}
+                    />
+                    
+                    {ideaDescriptionFeedback.shouldShowFeedback && ideaDescriptionFeedback.feedback && (
+                      <AIFeedbackDisplay
+                        feedback={ideaDescriptionFeedback.feedback}
+                        onDismiss={ideaDescriptionFeedback.handleDismiss}
+                        onRetry={() => handleRetryFeedback('ideaDescription')}
+                      />
+                    )}
                   </FormItem>
                 )}
               />
@@ -393,42 +448,32 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                 <FormField
                   control={form.control}
                   name="problemSolved"
-                  render={({ field }) => {
-                    // Debug logging outside of JSX
-                    console.log('🔍 AI Feedback Debug:', {
-                      questionId: 'problemSolved',
-                      answerLength: (field.value || '').length,
-                      shouldShow: (field.value || '').length >= 10,
-                      fieldValue: field.value
-                    });
-
-                    return (
-                      <FormItem>
-                        <FormLabel>What problem does your idea solve? *</FormLabel>
-                        <FormControl>
-                          <Textarea {...field} placeholder="Describe the problem you're solving..." className="h-[120px] resize-none" />
-                        </FormControl>
-                        <FormMessage />
-                        
-                        {/* AI Feedback Integration */}
-                        <AIFeedbackButton
-                          questionId="problemSolved"
-                          userAnswer={field.value || ''}
-                          stage={currentStage}
-                          onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
-                          disabled={isSubmitting}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>What problem does your idea solve? *</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} placeholder="Describe the problem you're solving..." className="h-[120px] resize-none" />
+                      </FormControl>
+                      <FormMessage />
+                      
+                      <AIFeedbackButton
+                        questionId="problemSolved"
+                        questionText="What problem does your idea solve?"
+                        userAnswer={field.value || ''}
+                        stage={currentStage}
+                        onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
+                        disabled={isSubmitting}
+                      />
+                      
+                      {problemSolvedFeedback.shouldShowFeedback && problemSolvedFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={problemSolvedFeedback.feedback}
+                          onDismiss={problemSolvedFeedback.handleDismiss}
+                          onRetry={() => handleRetryFeedback('problemSolved')}
                         />
-                        
-                        {problemSolvedFeedback.shouldShowFeedback && problemSolvedFeedback.feedback && (
-                          <AIFeedbackDisplay
-                            feedback={problemSolvedFeedback.feedback}
-                            onDismiss={problemSolvedFeedback.handleDismiss}
-                            onRetry={() => handleRetryFeedback('problemSolved')}
-                          />
-                        )}
-                      </FormItem>
-                    );
-                  }}
+                      )}
+                    </FormItem>
+                  )}
                 />
 
                 <FormField
@@ -442,9 +487,9 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                       </FormControl>
                       <FormMessage />
                       
-                      {/* AI Feedback Integration */}
                       <AIFeedbackButton
                         questionId="targetAudience"
+                        questionText="Whose problem does your idea solve for?"
                         userAnswer={field.value || ''}
                         stage={currentStage}
                         onFeedbackReceived={targetAudienceFeedback.handleFeedbackReceived}
@@ -473,9 +518,9 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                       </FormControl>
                       <FormMessage />
                       
-                      {/* AI Feedback Integration */}
                       <AIFeedbackButton
                         questionId="solutionApproach"
+                        questionText="How does your idea solve this problem?"
                         userAnswer={field.value || ''}
                         stage={currentStage}
                         onFeedbackReceived={solutionApproachFeedback.handleFeedbackReceived}
@@ -508,6 +553,27 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         <Textarea {...field} placeholder="Describe your monetization strategy..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
+                      
+                      {/* CRITICAL: AI Feedback for monetizationStrategy - EARLY REVENUE MISSING */}
+                      <AIFeedbackButton
+                        questionId="monetizationStrategy"
+                        questionText={isEarlyRevenue 
+                          ? "How is your idea making money by solving the problem?" 
+                          : "How does your idea plan to make money by solving this problem?"
+                        }
+                        userAnswer={field.value || ''}
+                        stage={currentStage}
+                        onFeedbackReceived={monetizationStrategyFeedback.handleFeedbackReceived}
+                        disabled={isSubmitting}
+                      />
+                      
+                      {monetizationStrategyFeedback.shouldShowFeedback && monetizationStrategyFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={monetizationStrategyFeedback.feedback}
+                          onDismiss={monetizationStrategyFeedback.handleDismiss}
+                          onRetry={() => handleRetryFeedback('monetizationStrategy')}
+                        />
+                      )}
                     </FormItem>
                   )}
                 />
@@ -528,30 +594,60 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                       </FormControl>
                       <FormMessage />
                       
-                      {/* AI Feedback Integration for customer acquisition */}
+                      {/* CRITICAL: AI Feedback for customerAcquisition - EARLY REVENUE MISSING */}
                       <AIFeedbackButton
                         questionId="customerAcquisition"
+                        questionText={isEarlyRevenue 
+                          ? "How are you acquiring first paying customers?" 
+                          : "How do you plan to acquire first paying customers?"
+                        }
                         userAnswer={field.value || ''}
                         stage={currentStage}
-                        onFeedbackReceived={() => {}} // Add proper feedback handler if needed
+                        onFeedbackReceived={customerAcquisitionFeedback.handleFeedbackReceived}
                         disabled={isSubmitting}
                       />
+                      
+                      {customerAcquisitionFeedback.shouldShowFeedback && customerAcquisitionFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={customerAcquisitionFeedback.feedback}
+                          onDismiss={customerAcquisitionFeedback.handleDismiss}
+                          onRetry={() => handleRetryFeedback('customerAcquisition')}
+                        />
+                      )}
                     </FormItem>
                   )}
                 />
 
                 {isEarlyRevenue && (
                   <>
-                  <FormField
-                    control={form.control}
-                    name="payingCustomers"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>How many paying customers does your idea already have? *</FormLabel>
-                        <FormControl>
+                    <FormField
+                      control={form.control}
+                      name="payingCustomers"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>How many paying customers does your idea already have? *</FormLabel>
+                          <FormControl>
                             <Textarea {...field} placeholder="Describe your number of paying customers..." className="h-[120px] resize-none" />
                           </FormControl>
                           <FormMessage />
+                          
+                          {/* CRITICAL: AI Feedback for payingCustomers - EARLY REVENUE MISSING */}
+                          <AIFeedbackButton
+                            questionId="payingCustomers"
+                            questionText="How many paying customers does your idea already have?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={payingCustomersFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {payingCustomersFeedback.shouldShowFeedback && payingCustomersFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={payingCustomersFeedback.feedback}
+                              onDismiss={payingCustomersFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('payingCustomers')}
+                            />
+                          )}
                         </FormItem>
                       )}
                     />
@@ -564,11 +660,29 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                           <FormLabel>How long have you been working on this idea? *</FormLabel>
                           <FormControl>
                             <Textarea {...field} placeholder="Describe how long you've been working on this idea..." className="h-[120px] resize-none" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          {/* CRITICAL: AI Feedback for workingDuration - EARLY REVENUE MISSING */}
+                          <AIFeedbackButton
+                            questionId="workingDuration"
+                            questionText="How long have you been working on this idea?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={workingDurationFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {workingDurationFeedback.shouldShowFeedback && workingDurationFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={workingDurationFeedback.feedback}
+                              onDismiss={workingDurationFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('workingDuration')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
                   </>
                 )}
 
@@ -582,6 +696,23 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         <Textarea {...field} placeholder="List your competitors..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
+                      
+                      <AIFeedbackButton
+                        questionId="competitors"
+                        questionText="List 3 potential competitors in the similar space or attempting to solve a similar problem?"
+                        userAnswer={field.value || ''}
+                        stage={currentStage}
+                        onFeedbackReceived={competitorsFeedback.handleFeedbackReceived}
+                        disabled={isSubmitting}
+                      />
+                      
+                      {competitorsFeedback.shouldShowFeedback && competitorsFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={competitorsFeedback.feedback}
+                          onDismiss={competitorsFeedback.handleDismiss}
+                          onRetry={() => handleRetryFeedback('competitors')}
+                        />
+                      )}
                     </FormItem>
                   )}
                 />
@@ -596,6 +727,23 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         <Textarea {...field} placeholder="Describe your development approach..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
+                      
+                      <AIFeedbackButton
+                        questionId="developmentApproach"
+                        questionText="How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner?"
+                        userAnswer={field.value || ''}
+                        stage={currentStage}
+                        onFeedbackReceived={developmentApproachFeedback.handleFeedbackReceived}
+                        disabled={isSubmitting}
+                      />
+                      
+                      {developmentApproachFeedback.shouldShowFeedback && developmentApproachFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={developmentApproachFeedback.feedback}
+                          onDismiss={developmentApproachFeedback.handleDismiss}
+                          onRetry={() => handleRetryFeedback('developmentApproach')}
+                        />
+                      )}
                     </FormItem>
                   )}
                 />
@@ -605,11 +753,28 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                   name="teamInfo"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Who is on your team, and what are their roles?</FormLabel>
+                      <FormLabel>Who is on your team, and what are their roles? *</FormLabel>
                       <FormControl>
                         <Textarea {...field} placeholder="Describe your team members and their roles..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
+                      
+                      <AIFeedbackButton
+                        questionId="teamInfo"
+                        questionText="Who is on your team, and what are their roles?"
+                        userAnswer={field.value || ''}
+                        stage={currentStage}
+                        onFeedbackReceived={teamInfoFeedback.handleFeedbackReceived}
+                        disabled={isSubmitting}
+                      />
+                      
+                      {teamInfoFeedback.shouldShowFeedback && teamInfoFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={teamInfoFeedback.feedback}
+                          onDismiss={teamInfoFeedback.handleDismiss}
+                          onRetry={() => handleRetryFeedback('teamInfo')}
+                        />
+                      )}
                     </FormItem>
                   )}
                 />
@@ -629,6 +794,26 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         <Textarea {...field} placeholder={isEarlyRevenue ? "e.g., January 2024" : "e.g., Next month"} className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
+                      
+                      <AIFeedbackButton
+                        questionId="timeline"
+                        questionText={isEarlyRevenue 
+                          ? "Since when have you been working on the idea?" 
+                          : "When do you plan to proceed with the idea?"
+                        }
+                        userAnswer={field.value || ''}
+                        stage={currentStage}
+                        onFeedbackReceived={timelineFeedback.handleFeedbackReceived}
+                        disabled={isSubmitting}
+                      />
+                      
+                      {timelineFeedback.shouldShowFeedback && timelineFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={timelineFeedback.feedback}
+                          onDismiss={timelineFeedback.handleDismiss}
+                          onRetry={() => handleRetryFeedback('timeline')}
+                        />
+                      )}
                     </FormItem>
                   )}
                 />

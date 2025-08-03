@@ -10,7 +10,7 @@
  * Must match the server-side normalizeQuestionId function exactly
  */
 export const normalizeQuestionId = (questionId: string, questionText?: string, stage?: string): string => {
-  // Enhanced direct mappings for all possible variations
+  // Enhanced direct mappings for all possible variations - COMPLETE COVERAGE
   const mappings: Record<string, string> = {
     // Tell us about your idea
     "tell_us_about_idea": "tell_us_about_idea",
@@ -113,10 +113,7 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     originalId: questionId,
     stage,
     questionText: questionText?.substring(0, 50),
-    mappingResult: mappings[questionId] || 'NO_DIRECT_MAPPING',
-    availableMoneyKeys: Object.keys(mappings).filter(key => key.includes('money') || key.includes('monetiz') || key.includes('revenue')).slice(0, 5),
-    availableCustomerKeys: Object.keys(mappings).filter(key => key.includes('customer') || key.includes('paying')).slice(0, 5),
-    availableDurationKeys: Object.keys(mappings).filter(key => key.includes('duration') || key.includes('working')).slice(0, 5)
+    mappingResult: mappings[questionId] || 'NO_DIRECT_MAPPING'
   });
   
   // First, try direct mapping

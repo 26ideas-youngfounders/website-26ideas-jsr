@@ -773,11 +773,14 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     "monetizationStrategy": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "revenue_model": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     
-    // Customer acquisition
+    // Customer acquisition - ENHANCED MAPPING
     "acquire_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "acquiring_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "customerAcquisition": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "customer_acquisition": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "first_paying_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "paying_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "how_acquiring_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     
     // Duration/Timeline
     "working_duration": "early_revenue_working_duration",
@@ -831,6 +834,7 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     else if (lowerText.includes("whose problem")) fallbackId = stage === "early_revenue" ? "early_revenue_whose_problem" : "whose_problem";
     else if (lowerText.includes("how does your idea solve")) fallbackId = stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem";
     else if (lowerText.includes("make money") || lowerText.includes("generate revenue")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
+    else if (lowerText.includes("acquiring") && (lowerText.includes("customers") || lowerText.includes("paying"))) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("acquire") && lowerText.includes("customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("competitors")) fallbackId = stage === "early_revenue" ? "early_revenue_competitors" : "competitors";
     else if (lowerText.includes("developing the product")) fallbackId = stage === "early_revenue" ? "early_revenue_product_development" : "product_development";

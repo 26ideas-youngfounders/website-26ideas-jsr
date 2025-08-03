@@ -1,747 +1,16 @@
+
 /**
- * @fileoverview Complete AI Question Prompts for Edge Function
+ * @fileoverview Server-side AI Question Prompts Configuration
  * 
- * This is the server-side copy of ai-question-prompts.ts
- * Must be kept in sync with the client-side version
+ * This file must be kept in sync with the client-side version in src/utils/ai-feedback-prompts.ts
  */
-
-/**
- * Complete mapping of ALL YFF questions to their AI system prompts
- * Server-side version for the edge function
- */
-export const aiQuestionPrompts: Record<string, string> = {
-  // === GENERAL QUESTIONS ===
-  "tell_us_about_idea": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: Tell us about your idea
-SUB-QUESTION: Please articulate your business idea with specificity and clarity. Avoid using vague and generic statements.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To ensure every participant articulates their business idea with maximum clarity, originality, and feasibility, enabling evaluators to distinguish between truly innovative, actionable ventures and generic or vague submissions.
-
-KEY AREAS TO ASSESS:
-- Problem-Solution Fit: Precise statement of a meaningful problem and a logical solution
-- Innovation: Novelty or differentiated approach versus existing alternatives
-- Realism: Plausible execution path given typical resource and market constraints
-- Communication Clarity: Specific, concrete language that avoids jargon and vagueness
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  // === IDEA STAGE QUESTIONS ===
-  "problem_statement": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: What problem does your idea solve?
-SUB-QUESTION: What is the specific problem your business idea aims to solve? Explain its significance, include relevant data or statistics to quantify its impact, and cite any sources or research that support your answer.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To ensure each participant articulates the problem their business idea addresses with maximum specificity, significance, and credibility. The aim is to encourage responses that are not only clear but also supported by concrete data, quantifiable impact, and a demonstration of why the problem is important and worth solving.
-
-KEY AREAS TO ASSESS:
-- Problem Specificity: Clear definition of the pain point, not a vague or generic issue
-- Significance: Demonstrates the problem's importance on a realistic scale
-- Quantifiable Impact: Incorporates relevant data, statistics, or research to substantiate the problem
-- Credibility: Uses cited evidence, research, or logical reasoning to support claims
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "whose_problem": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: Whose problem does your idea solve for?
-SUB-QUESTION: Who is your ideal customer, and what solutions do they currently use to address the problem you are solving? Describe how these customers are addressing the problem today, provide evidence of their pain points, and support your answer with relevant market research and data.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To ensure participants demonstrate a nuanced understanding of the current landscape by clearly identifying existing solutions, providing concrete evidence of customer pain points, and supporting their claims with relevant market research—all while focusing on their ideal customer profile.
-
-KEY AREAS TO ASSESS:
-- Customer Definition: Clearly identifies a specific, well-described ideal customer or customer segment
-- Current Solutions: Provides detailed, accurate picture of existing alternatives or workarounds customers use today
-- Pain Evidence: Presents concrete examples of customer frustration, limitations, or dissatisfaction with existing solutions
-- Market Research: Supports claims about customer behavior or pain points with relevant market data or research
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "how_solve_problem": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: How does your idea solve this problem?
-SUB-QUESTION: How does your idea solve the problem? Please explain your approach and the specific actions your solution takes to address this issue.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To ensure each participant clearly explains how their solution directly addresses the core problem, demonstrating a logical, actionable, and realistic approach to solving it. The aim is to encourage responses that are focused, feasible, and tailored to solving the stated issue.
-
-KEY AREAS TO ASSESS:
-- Solution Clarity: Clear, step-by-step explanation of how the solution works and addresses the identified problem
-- Logical Connection: Direct, logical link between the solution's features/actions and the core problem's resolution
-- Practical Actions: Realistic, specific, and actionable steps and processes that can be implemented
-- Intended Outcomes: Clear articulation of what changes or results are expected if this solution is applied
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "how_make_money": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: How does your idea plan to make money by solving this problem?
-SUB-QUESTION: How will your business generate revenue? Please describe all the ways you plan to earn income (e.g., product sales, subscriptions, services, advertising, etc.). Provide your Annual Recurring Revenue (ARR) or Monthly Recurring Revenue (MRR) projections, and explain how you arrived at these numbers.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To ensure participants present a comprehensive, data-backed revenue model for their business idea, highlighting multiple streams of revenue and, where applicable, providing clear Annual Recurring Revenue (ARR) or Monthly Recurring Revenue (MRR) projections.
-
-KEY AREAS TO ASSESS:
-- Revenue Streams: Multiple, diversified, and specific ways of generating income
-- Model Clarity: Clear and understandable monetization strategy
-- Projections: ARR or MRR estimates supported by transparent calculations and logic
-- Industry Fit: Revenue model reflects proven business practices for the given sector
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "acquire_customers": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: How do you plan to acquire first paying customers?
-SUB-QUESTION: How will you build and maintain relationships with your customers? Describe your customer relationship strategy, key touchpoints, and how you plan to ensure customer retention and satisfaction.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To ensure each participant articulates their customer relationship strategy with maximum depth, touchpoint clarity, and retention focus. The aim is to encourage responses that demonstrate comprehensive relationship planning and customer lifecycle management.
-
-KEY AREAS TO ASSESS:
-- Relationship Strategy: Comprehensive approach to building and maintaining customer relationships
-- Touchpoint Planning: Clear identification of key customer interaction points
-- Retention Focus: Specific strategies for ensuring customer retention and satisfaction
-- Lifecycle Management: Understanding of how relationships evolve over the customer journey
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "competitors": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: List 3 potential competitors in the similar space or attempting to solve a similar problem?
-SUB-QUESTION: Who are your main competitors (both direct and indirect), and how does your idea stand out from them? Identify two existing competitors, explain their strengths and weaknesses, and describe the specific ways your idea is different or better. If you believe there are no competitors in this space, please support this claim with credible data or evidence.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-Ensure participants demonstrate a thorough, evidence-based understanding of their competitive landscape by accurately identifying direct and indirect competitors, clearly articulating how their idea is differentiated, and showing a nuanced grasp of market dynamics.
-
-KEY AREAS TO ASSESS:
-- Competitor Identification: Accurately names direct or indirect competitors solving similar problems
-- Competitive Analysis: Provides specific analysis of competitors' strengths and weaknesses
-- Differentiation: Clearly explains unique value proposition or advantages that set the idea apart
-- Market Understanding: Shows evidence of nuanced perspective on market dynamics, gaps, and opportunities
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "product_development": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: How are you developing the product : in-house, with a technical co-founder, or outsourcing to an agency/partner?
-SUB-QUESTION: How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner? Specify your product development approach. Clearly state whether you are building the product in-house (using your own team or resources), in partnership with a technical co-founder, or by outsourcing the work to an external agency or development partner. If your approach is hybrid or changed over time, explain how and why.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-Ensure participants demonstrate clear decision-making around product development by transparently explaining their chosen method, reasons for this choice, and how it impacts speed, quality, ownership, and control. The aim is to surface thoughtful, realistic assessments of development strategy, resource allocation, and team capabilities at this stage.
-
-KEY AREAS TO ASSESS:
-- Development Mode Clarity: Clearly and unambiguously states the chosen product development model
-- Strategic Fit: Justifies why this development mode is best for the current stage
-- Resource Alignment: Explains the technical skills available within the founding team or partners
-- Risk Awareness: Recognizes potential risks and includes realistic mitigation steps
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "team_roles": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: Who is on your team, and what are their roles?
-SUB-QUESTION: Describe how you/your team's background, skills, and experience uniquely qualify you to tackle this problem. What insights or advantages do you/your team have that make you the right person to build this solution?
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To assess whether the founder/founding team has the relevant background, domain expertise, and unique advantages necessary to successfully execute this specific business idea.
-
-KEY AREAS TO ASSESS:
-- Relevant Experience: Background and skills directly related to the problem/industry
-- Domain Expertise: Depth of knowledge in the specific market or technology area
-- Unique Insights: Special perspectives or advantages that other teams are unlikely to have
-- Passion/Commitment: Evidence of genuine, sustained interest and drive to build this solution
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "when_proceed": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: When do you plan to proceed with the idea?
-SUB-QUESTION: Please specify your planned timeline or schedule for moving forward with your business idea, including key milestones or phases if applicable.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To assess whether the founder demonstrates a clear, specific, and realistic timeline for advancing their business idea, reflecting strong commitment and readiness to execute.
-
-KEY AREAS TO ASSESS:
-- Timeline Specificity: States exact start dates, expected phases, or defined milestones
-- Readiness to Execute: Provides evidence of groundwork or clearly outlines immediate next steps
-- Sense of Urgency: Shows active intent and a bias toward starting or building quickly
-- Proactive Commitment: Describes steps already taken to prioritize the venture
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  // === EARLY REVENUE STAGE QUESTIONS ===
-  "early_revenue_problem": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: What problem does your idea solve? (Early Revenue Stage)
-SUB-QUESTION: What is the specific problem your business idea aims to solve? Explain its significance, include relevant data or statistics to quantify its impact, and cite any sources or research that support your answer.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To ensure each participant articulates the problem their business idea addresses with maximum specificity, significance, and credibility. The aim is to encourage responses that are not only clear but also supported by concrete data, quantifiable impact, and a demonstration of why the problem is important and worth solving.
-
-KEY AREAS TO ASSESS:
-- Problem Specificity: Clear definition of the pain point, not a vague or generic issue
-- Significance: Demonstrates the problem's importance on a realistic scale
-- Quantifiable Impact: Incorporates relevant data, statistics, or research to substantiate the problem
-- Credibility: Uses cited evidence, research, or logical reasoning to support claims
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "early_revenue_whose_problem": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: Whose problem does your idea solve for? (Early Revenue Stage)
-SUB-QUESTION: Who is your ideal customer, and what solutions do they currently use to address the problem you are solving? Describe how these customers are addressing the problem today, provide evidence of their pain points, and support your answer with relevant market research and data.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To ensure participants demonstrate a nuanced understanding of the current landscape by clearly identifying existing solutions, providing concrete evidence of customer pain points, and supporting their claims with relevant market research—all while focusing on their ideal customer profile.
-
-KEY AREAS TO ASSESS:
-- Customer Definition: Clearly identifies a specific, well-described ideal customer or customer segment
-- Current Solutions: Provides detailed, accurate picture of existing alternatives or workarounds customers use today
-- Pain Evidence: Presents concrete examples of customer frustration, limitations, or dissatisfaction with existing solutions
-- Market Research: Supports claims about customer behavior or pain points with relevant market data or research
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "early_revenue_how_solve": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: How does your idea solve this problem? (Early Revenue Stage)
-SUB-QUESTION: How does your idea solve the problem? Please explain your approach and the specific actions your solution takes to address this issue.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To ensure each participant clearly explains how their solution directly addresses the core problem, demonstrating a logical, actionable, and realistic approach to solving it. The aim is to encourage responses that are focused, feasible, and tailored to solving the stated issue.
-
-KEY AREAS TO ASSESS:
-- Solution Clarity: Clear, step-by-step explanation of how the solution works and addresses the identified problem
-- Logical Connection: Direct, logical link between the solution's features/actions and the core problem's resolution
-- Practical Actions: Realistic, specific, and actionable steps and processes that can be implemented
-- Intended Outcomes: Clear articulation of what changes or results are expected if this solution is applied
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "early_revenue_making_money": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: How is your idea making money by solving the problem?
-SUB-QUESTION: What revenue have you generated or validated through your early market activities? Describe your current revenue status, pricing validation experiments, customer payment behaviors, and evidence of monetization potential.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To ensure each participant articulates their revenue validation with maximum transparency, realism, and monetization evidence. The aim is to encourage responses that demonstrate actual or validated revenue potential through customer payment behavior and monetization experiments.
-
-KEY AREAS TO ASSESS:
-- Revenue Generation: Details of actual revenue generated from real customers, or strong validation of monetization
-- Pricing Validation: Evidence of experiments or customer feedback to validate pricing models
-- Payment Behavior: Clear evidence of real customer payment behaviors
-- Monetization Evidence: Credible, verifiable indicators of monetization potential
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "early_revenue_acquiring_customers": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: How are you acquiring first paying customers? How many paying customers does your idea already have?
-SUB-QUESTION: How are you currently delivering your product or service to customers and what structured feedback mechanisms have you implemented? Describe your delivery process, feedback collection methods, and key insights gained from customer interactions.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To ensure each participant articulates their customer delivery process with maximum clarity, structure, and learning integration. The aim is to encourage responses that demonstrate systematic customer engagement and meaningful feedback collection from actual users.
-
-KEY AREAS TO ASSESS:
-- Structured Delivery Process: Clear, step-by-step process for delivering the product or service to paying customers
-- Systematic Feedback Collection: Organized, repeatable feedback mechanisms tailored to actual customers
-- Meaningful Customer Insights: Specific, actionable insights gained from customer feedback
-- Actionable Learning Integration: How insights from feedback have concretely improved the product or service
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "early_revenue_competitors": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: List 3 potential competitors in the similar space or attempting to solve a similar problem? (Early Revenue Stage)
-SUB-QUESTION: Who are your main competitors (both direct and indirect), and how does your idea stand out from them? Identify two existing competitors, explain their strengths and weaknesses, and describe the specific ways your idea is different or better. If you believe there are no competitors in this space, please support this claim with credible data or evidence.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-Ensure participants demonstrate a thorough, evidence-based understanding of their competitive landscape by accurately identifying direct and indirect competitors, clearly articulating how their idea is differentiated, and showing a nuanced grasp of market dynamics.
-
-KEY AREAS TO ASSESS:
-- Competitor Identification: Accurately names direct or indirect competitors solving similar problems
-- Competitive Analysis: Provides specific analysis of competitors' strengths and weaknesses
-- Differentiation: Clearly explains unique value proposition or advantages that set the idea apart
-- Market Understanding: Shows evidence of nuanced perspective on market dynamics, gaps, and opportunities
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "early_revenue_product_development": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: How are you developing the product : in-house, with a technical co-founder, or outsourcing to an agency/partner? (Early Revenue Stage)
-SUB-QUESTION: How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner? Specify your product development approach. Clearly state whether you are building the product in-house (using your own team or resources), in partnership with a technical co-founder, or by outsourcing the work to an external agency or development partner. If your approach is hybrid or changed over time, explain how and why.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-Ensure participants demonstrate clear decision-making around product development by transparently explaining their chosen method, reasons for this choice, and how it impacts speed, quality, ownership, and control. The aim is to surface thoughtful, realistic assessments of development strategy, resource allocation, and team capabilities at this stage.
-
-KEY AREAS TO ASSESS:
-- Development Mode Clarity: Clearly and unambiguously states the chosen product development model
-- Strategic Fit: Justifies why this development mode is best for the current stage
-- Resource Alignment: Explains the technical skills available within the founding team or partners
-- Risk Awareness: Recognizes potential risks and includes realistic mitigation steps
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "early_revenue_team": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: Who is on your team, and what are their roles? (Early Revenue Stage)
-SUB-QUESTION: Describe how you/your team's background, skills, and experience uniquely qualify you to tackle this problem. What insights or advantages do you/your team have that make you the right person to build this solution?
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-To assess whether the founder/founding team has the relevant background, domain expertise, and unique advantages necessary to successfully execute this specific business idea.
-
-KEY AREAS TO ASSESS:
-- Relevant Experience: Background and skills directly related to the problem/industry
-- Domain Expertise: Depth of knowledge in the specific market or technology area
-- Unique Insights: Special perspectives or advantages that other teams are unlikely to have
-- Passion/Commitment: Evidence of genuine, sustained interest and drive to build this solution
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`,
-
-  "early_revenue_working_duration": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
-
-QUESTION: Since when have you been working on the idea?
-SUB-QUESTION: Specify the duration for which you and your team have been working on your business idea. Include any relevant milestones or stages you have reached over this period.
-
-Your task is to analyze the participant's response and provide constructive feedback on how they can strengthen their answer.
-
-EVALUATION FOCUS:
-Ensure participants provide a clear timeline of their journey with the idea, showcasing commitment, progress, and key achievements. The aim is to understand the maturity and dedication behind the venture, reflecting how long the team has been evolving and refining the concept.
-
-KEY AREAS TO ASSESS:
-- Timeline Specificity: Clear statement of exact or approximate start date and duration of work on the idea
-- Milestone Documentation: Mention of key milestones, stages, or achievements reached over the period
-- Sustained Commitment: Evidence of continuous effort and dedication over time
-- Progress Demonstration: Clear progression and evolution of the concept, showing growth and learning
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-- Each bullet point should be a single, full point on one line, without splitting over to new lines
-- Never start a new bullet for the remainder of a sentence/phrase
-- Use dash-bulleted lists for list items, never asterisks
-
-RESPONSE FORMAT:
-**Strengths in your current response:**
-- [List 2-3 specific positive aspects]
-
-**Areas for improvement:**
-- [Provide 2-4 specific, actionable suggestions with examples]
-
-**Quick tip:**
-[One key insight that could significantly strengthen their response]`
-};
 
 /**
  * Universal question mapping system - server-side version
- * Must match the client-side normalizeQuestionId function
+ * Must match the client-side normalizeQuestionId function exactly
  */
 export const normalizeQuestionId = (questionId: string, questionText?: string, stage?: string): string => {
-  // Direct mappings for all possible variations - ENHANCED
+  // Enhanced direct mappings for all possible variations - COMPLETE COVERAGE
   const mappings: Record<string, string> = {
     // Tell us about your idea
     "tell_us_about_idea": "tell_us_about_idea",
@@ -767,75 +36,24 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     "solution_approach": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
     "solution": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
     
-    // MONETIZATION - COMPREHENSIVE MAPPING FOR "How is your idea making money by solving the problem?"
+    // Monetization
     "how_make_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "making_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "monetizationStrategy": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "monetization_strategy": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "revenue_model": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
-    "how_making_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
-    "idea_making_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
-    "generate_revenue": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
-    "solve_problem_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
-    "money_solving": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
-    "makingMoney": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
-    "revenueGeneration": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
-    "earlyRevenueMoney": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
-    "problemMoney": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     
-    // CUSTOMER ACQUISITION - COMPREHENSIVE MAPPING FOR "How are you acquiring first paying customers?"
+    // Customer acquisition
     "acquire_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "acquiring_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "customerAcquisition": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "customer_acquisition": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "first_paying_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    "paying_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    "how_acquiring_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    "how_are_you_acquiring": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    "acquiring_first_paying": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    "how_acquiring_first_paying": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    "payingCustomers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    
-    // PAYING CUSTOMERS COUNT - SPECIFIC MAPPING FOR "How many paying customers does your idea already have?"
-    "paying_customers_count": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    "customers_count": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    "number_paying_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    "total_paying_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    
-    // WORKING DURATION - COMPREHENSIVE MAPPING FOR "How long have you been working on this idea?"
-    "working_duration": "early_revenue_working_duration",
-    "workingDuration": "early_revenue_working_duration",
-    "how_long_working": "early_revenue_working_duration",
-    "duration": "early_revenue_working_duration",
-    "how_long_been_working": "early_revenue_working_duration",
-    "since_when_working": "early_revenue_working_duration",
-    "been_working_on": "early_revenue_working_duration",
-    "working_on_idea": "early_revenue_working_duration",
-    "idea_duration": "early_revenue_working_duration",
-    "time_working": "early_revenue_working_duration",
-    
-    // Timeline/Proceed
-    "when_proceed": "when_proceed",
-    "timeline": "when_proceed",
-    "proceed_timeline": "when_proceed",
-    
-    // Competitors
-    "competitors": stage === "early_revenue" ? "early_revenue_competitors" : "competitors",
-    "competitor_analysis": stage === "early_revenue" ? "early_revenue_competitors" : "competitors",
-    "list_competitors": stage === "early_revenue" ? "early_revenue_competitors" : "competitors",
-    "competition": stage === "early_revenue" ? "early_revenue_competitors" : "competitors",
-    
-    // Product development
-    "product_development": stage === "early_revenue" ? "early_revenue_product_development" : "product_development",
-    "developmentApproach": stage === "early_revenue" ? "early_revenue_product_development" : "product_development",
-    "development_approach": stage === "early_revenue" ? "early_revenue_product_development" : "product_development",
-    "tech_approach": stage === "early_revenue" ? "early_revenue_product_development" : "product_development",
     
     // Team
     "team_roles": stage === "early_revenue" ? "early_revenue_team" : "team_roles",
     "teamInfo": stage === "early_revenue" ? "early_revenue_team" : "team_roles",
     "team_info": stage === "early_revenue" ? "early_revenue_team" : "team_roles",
-    "who_on_team": stage === "early_revenue" ? "early_revenue_team" : "team_roles",
     "team": stage === "early_revenue" ? "early_revenue_team" : "team_roles"
   };
   
@@ -843,69 +61,262 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     originalId: questionId,
     stage,
     questionText: questionText?.substring(0, 50),
-    mappingResult: mappings[questionId] || 'NO_DIRECT_MAPPING',
-    availableMoneyKeys: Object.keys(mappings).filter(key => key.includes('money') || key.includes('monetiz') || key.includes('revenue')).slice(0, 5),
-    availableCustomerKeys: Object.keys(mappings).filter(key => key.includes('customer') || key.includes('paying')).slice(0, 5),
-    availableDurationKeys: Object.keys(mappings).filter(key => key.includes('duration') || key.includes('working')).slice(0, 5)
+    mappingResult: mappings[questionId] || 'NO_DIRECT_MAPPING'
   });
   
-  // First, try direct mapping
+  // Direct mapping first
   if (mappings[questionId]) {
     const normalizedId = mappings[questionId];
     console.log('✅ Server direct mapping found:', normalizedId);
     return normalizedId;
   }
   
-  // Enhanced fallback based on question text - MORE COMPREHENSIVE MATCHING
+  // Text-based fallback
   if (questionText) {
     const lowerText = questionText.toLowerCase();
-    let fallbackId = "tell_us_about_idea"; // default
+    let fallbackId = "tell_us_about_idea";
     
     if (lowerText.includes("tell us about your idea")) fallbackId = "tell_us_about_idea";
     else if (lowerText.includes("what problem does your idea solve")) fallbackId = stage === "early_revenue" ? "early_revenue_problem" : "problem_statement";
     else if (lowerText.includes("whose problem")) fallbackId = stage === "early_revenue" ? "early_revenue_whose_problem" : "whose_problem";
     else if (lowerText.includes("how does your idea solve")) fallbackId = stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem";
-    
-    // MONETIZATION TEXT MATCHING - "How is your idea making money by solving the problem?"
-    else if (lowerText.includes("making money by solving") || lowerText.includes("money by solving")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
-    else if (lowerText.includes("idea making money") || lowerText.includes("make money")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
-    else if (lowerText.includes("generate revenue") || lowerText.includes("revenue")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
-    
-    // CUSTOMER ACQUISITION TEXT MATCHING
-    else if (lowerText.includes("acquiring") && (lowerText.includes("customers") || lowerText.includes("paying"))) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
-    else if (lowerText.includes("first paying customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
-    else if (lowerText.includes("paying customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
-    else if (lowerText.includes("how many") && lowerText.includes("paying")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
-    
-    // WORKING DURATION TEXT MATCHING - "How long have you been working on this idea?"
-    else if (lowerText.includes("how long") && lowerText.includes("working")) fallbackId = "early_revenue_working_duration";
-    else if (lowerText.includes("been working on") && lowerText.includes("idea")) fallbackId = "early_revenue_working_duration";
-    else if (lowerText.includes("since when") && lowerText.includes("working")) fallbackId = "early_revenue_working_duration";
-    else if (lowerText.includes("working on") && lowerText.includes("idea")) fallbackId = "early_revenue_working_duration";
-    
-    else if (lowerText.includes("competitors")) fallbackId = stage === "early_revenue" ? "early_revenue_competitors" : "competitors";
-    else if (lowerText.includes("developing the product")) fallbackId = stage === "early_revenue" ? "early_revenue_product_development" : "product_development";
+    else if (lowerText.includes("making money") || lowerText.includes("revenue")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
+    else if (lowerText.includes("acquiring") && lowerText.includes("customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("team") && lowerText.includes("roles")) fallbackId = stage === "early_revenue" ? "early_revenue_team" : "team_roles";
-    else if (lowerText.includes("when") && lowerText.includes("proceed")) fallbackId = "when_proceed";
     
     console.log('📝 Server text-based fallback:', fallbackId);
     return fallbackId;
   }
   
-  // Final fallback - return a default
   console.log('⚠️ Server using default fallback for questionId:', questionId);
   return "tell_us_about_idea";
 };
 
 /**
- * Server-side helper functions
+ * Universal bullet integrity instructions - MANDATORY for ALL prompts
+ * This prevents orphaned bullets from being generated at the source
  */
-export const getSystemPrompt = (questionId: string, questionText?: string, stage?: string): string => {
-  const normalizedId = normalizeQuestionId(questionId, questionText, stage);
-  return aiQuestionPrompts[normalizedId] || aiQuestionPrompts["tell_us_about_idea"];
+const BULLET_INTEGRITY_INSTRUCTIONS = `
+BULLET INTEGRITY REQUIREMENT - MANDATORY:
+- Each bullet/list item ("- Example feedback here") MUST be a COMPLETE, self-contained point, all on a SINGLE line.
+- Do NOT split a single bullet point across multiple lines—never spill part of a point onto a new line.
+- NEVER emit "orphaned" bullets or lines (e.g. a bullet with just a few words separated from its main point).
+- If a bullet point is long, continue the sentence on the same line; if a new point is needed, start a new dash.
+- Use ONLY dash-style ("- ") bullets. NO asterisks (*), NO numbered lists, NO other markers.
+
+BAD EXAMPLE (Do NOT do this):
+- Good point start
+continued here
+- Next full point
+orphaned words
+
+GOOD EXAMPLE (Do this):
+- This is a complete and correctly formatted bullet point, with nothing split over two lines.
+- This is another, equally well-formed bullet that contains its entire thought on one line.
+
+RESPONSE FORMAT TEMPLATE:
+**Strengths in your current response:**
+- [bullet 1: single line, complete point]
+- [bullet 2: single line, complete point]
+
+**Areas for improvement:**
+- [bullet 1: single line, complete point]
+- [bullet 2: single line, complete point]
+`;
+
+/**
+ * Gets system prompt for problem statement analysis
+ */
+const getProblemStatementPrompt = (answer: string): string => {
+  return `Analyze this startup problem statement and provide specific feedback in this exact format:
+
+${BULLET_INTEGRITY_INSTRUCTIONS}
+
+**Strengths in your current response:**
+- [First strength with specific details about clarity and specificity - complete thought on one line]
+- [Second strength highlighting market potential aspects - complete thought on one line]
+
+**Areas for improvement:**
+- [First improvement suggestion with concrete examples - complete thought on one line]
+- [Second suggestion for strengthening the problem statement - complete thought on one line]
+- [Third actionable recommendation for better validation - complete thought on one line]
+
+Focus on: clarity of the problem, target audience specificity, market size indication, urgency/pain level, and validation evidence.
+
+Problem statement: "${answer}"`;
 };
 
-export const hasAIFeedback = (): boolean => {
-  // EVERY question has AI feedback - no exceptions
+/**
+ * Gets system prompt for target audience analysis
+ */
+const getTargetAudiencePrompt = (answer: string): string => {
+  return `Analyze this target audience description and provide feedback in this exact format:
+
+${BULLET_INTEGRITY_INSTRUCTIONS}
+
+**Strengths in your current response:**
+- [First strength about demographic specificity - complete thought on one line]
+- [Second strength regarding market understanding - complete thought on one line]
+
+**Areas for improvement:**
+- [First improvement suggestion with concrete examples - complete thought on one line]
+- [Second suggestion for better audience precision - complete thought on one line]
+- [Third actionable recommendation for persona development - complete thought on one line]
+
+Focus on: demographic specificity, behavioral characteristics, market size, accessibility, and willingness to pay.
+
+Target audience: "${answer}"`;
+};
+
+/**
+ * Gets system prompt for solution approach analysis
+ */
+const getSolutionApproachPrompt = (answer: string): string => {
+  return `Analyze this solution approach and provide feedback in this exact format:
+
+${BULLET_INTEGRITY_INSTRUCTIONS}
+
+**Strengths in your current response:**
+- [First strength about innovation and feasibility - complete thought on one line]
+- [Second strength regarding problem-solution fit - complete thought on one line]
+
+**Areas for improvement:**
+- [First improvement suggestion with concrete examples - complete thought on one line]
+- [Second suggestion for strengthening the solution - complete thought on one line]
+- [Third actionable recommendation for better validation - complete thought on one line]
+
+Focus on: problem-solution fit, technical feasibility, competitive differentiation, scalability, and user experience.
+
+Solution approach: "${answer}"`;
+};
+
+/**
+ * Gets system prompt for monetization strategy analysis
+ */
+const getMonetizationPrompt = (answer: string): string => {
+  return `Analyze this monetization strategy and provide feedback in this exact format:
+
+${BULLET_INTEGRITY_INSTRUCTIONS}
+
+**Strengths in your current response:**
+- [First strength about revenue model clarity - complete thought on one line]
+- [Second strength regarding market fit or pricing strategy - complete thought on one line]
+
+**Areas for improvement:**
+- [First improvement suggestion about revenue diversification - complete thought on one line]
+- [Second suggestion for pricing validation or market research - complete thought on one line]
+- [Third actionable recommendation for scaling revenue - complete thought on one line]
+
+Focus on: revenue model viability, pricing strategy, market validation, scalability, and competitive positioning.
+
+Monetization strategy: "${answer}"`;
+};
+
+/**
+ * Gets system prompt for customer acquisition analysis
+ */
+const getCustomerAcquisitionPrompt = (answer: string): string => {
+  return `Analyze this customer acquisition approach and provide feedback in this exact format:
+
+${BULLET_INTEGRITY_INSTRUCTIONS}
+
+**Strengths in your current response:**
+- [First strength about acquisition strategy clarity - complete thought on one line]
+- [Second strength regarding channel selection or targeting - complete thought on one line]
+
+**Areas for improvement:**
+- [First improvement suggestion about channel optimization - complete thought on one line]
+- [Second suggestion for customer retention or conversion - complete thought on one line]
+- [Third actionable recommendation for scaling acquisition - complete thought on one line]
+
+Focus on: acquisition channels, cost effectiveness, customer lifetime value, conversion rates, and scalable growth strategies.
+
+Customer acquisition: "${answer}"`;
+};
+
+/**
+ * Gets system prompt for team composition analysis
+ */
+const getTeamPrompt = (answer: string): string => {
+  return `Analyze this team composition and provide feedback in this exact format:
+
+${BULLET_INTEGRITY_INSTRUCTIONS}
+
+**Strengths in your current response:**
+- [First strength about team skills or experience - complete thought on one line]
+- [Second strength regarding team balance or complementary abilities - complete thought on one line]
+
+**Areas for improvement:**
+- [First improvement suggestion about skill gaps or hiring needs - complete thought on one line]
+- [Second suggestion for team development or role clarity - complete thought on one line]
+- [Third actionable recommendation for team growth - complete thought on one line]
+
+Focus on: skill coverage, experience relevance, team balance, leadership, and growth potential.
+
+Team composition: "${answer}"`;
+};
+
+/**
+ * Server-side system prompt generator with bulletproof formatting
+ */
+export const getSystemPrompt = (questionId: string, answer?: string): string => {
+  const userAnswer = answer || '';
+  
+  // Normalize the question ID first
+  const normalizedId = normalizeQuestionId(questionId);
+  
+  console.log('🤖 Server generating system prompt for:', {
+    originalId: questionId,
+    normalizedId,
+    hasAnswer: Boolean(userAnswer)
+  });
+  
+  switch (normalizedId) {
+    case 'problem_statement':
+    case 'early_revenue_problem':
+      return getProblemStatementPrompt(userAnswer);
+      
+    case 'whose_problem':
+    case 'early_revenue_whose_problem':
+      return getTargetAudiencePrompt(userAnswer);
+      
+    case 'how_solve_problem':
+    case 'early_revenue_how_solve':
+      return getSolutionApproachPrompt(userAnswer);
+      
+    case 'how_make_money':
+    case 'early_revenue_making_money':
+      return getMonetizationPrompt(userAnswer);
+      
+    case 'acquire_customers':
+    case 'early_revenue_acquiring_customers':
+      return getCustomerAcquisitionPrompt(userAnswer);
+      
+    case 'team_roles':
+    case 'early_revenue_team':
+      return getTeamPrompt(userAnswer);
+      
+    default:
+      return `Analyze this answer and provide constructive feedback with BULLETPROOF formatting:
+
+${BULLET_INTEGRITY_INSTRUCTIONS}
+
+**Strengths in your current response:**
+- [First strength - complete thought on one line]
+- [Second strength - complete thought on one line]
+
+**Areas for improvement:**
+- [First improvement suggestion - complete thought on one line]
+- [Second improvement suggestion - complete thought on one line]
+
+Answer: "${userAnswer}"`;
+  }
+};
+
+/**
+ * Check if AI feedback is available for a question
+ */
+export const hasAIFeedback = (questionId: string): boolean => {
+  // AI feedback is available for all questions
   return true;
 };

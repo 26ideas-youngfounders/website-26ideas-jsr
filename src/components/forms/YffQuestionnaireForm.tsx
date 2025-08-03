@@ -119,9 +119,9 @@ const YffQuestionnaireForm: React.FC = () => {
   const totalSteps = steps.length;
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
-  // Handle form field updates
-  const updateFormData = (updates: Partial<YffFormData>) => {
-    setFormData(prev => ({ ...prev, ...updates }));
+  // Handle form field updates - renamed to match YffFormSections expected prop
+  const onFieldChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   // Navigation handlers
@@ -268,7 +268,7 @@ const YffQuestionnaireForm: React.FC = () => {
             <YffFormSections
               currentStep={currentStep}
               formData={formData}
-              updateFormData={updateFormData}
+              onFieldChange={onFieldChange}
             />
           </CardContent>
         </Card>

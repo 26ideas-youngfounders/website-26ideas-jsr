@@ -10,7 +10,73 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { evaluateApplication } from './ai-evaluation-service';
+import { evaluateApplication } from '@/services/ai-evaluation-service';
+import type { YffFormData } from '@/types/yff-form';
+
+/**
+ * Transform YFF form data into the format expected by the database
+ */
+const transformFormDataForDB = (formData: YffFormData, individualId: string) => {
+  return {
+    // Personal information
+    personal_info: {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phoneNumber: formData.phoneNumber,
+      countryCode: formData.countryCode,
+      dateOfBirth: formData.dateOfBirth,
+      gender: formData.gender,
+    },
+    
+    // Team information
+    team: {
+      ventureName: formData.ventureName,
+      teamName: formData.teamName,
+      numberOfTeamMembers: formData.numberOfTeamMembers,
+      teamMembers: formData.teamMembers || [],
+    },
+    
+    // Location and education
+    location_education: {
+      currentCity: formData.currentCity,
+      state: formData.state,
+      pinCode: formData.pinCode,
+      permanentAddress: formData.permanentAddress,
+      institutionName: formData.institutionName,
+      courseProgram: formData.courseProgram,
+      currentYearOfStudy: formData.currentYearOfStudy,
+      expectedGraduation: formData.expectedGraduation,
+    },
+    
+    // Professional details
+    professional: {
+      industrySector: formData.industrySector,
+      website: formData.website,
+      linkedinProfile: formData.linkedinProfile,
+      socialMediaHandles: formData.socialMediaHandles,
+    },
+    
+    // Questionnaire answers - the key data for AI evaluation
+    questionnaire_answers: {
+      productStage: formData.productStage,
+      businessModel: formData.businessModel,
+      targetMarket: formData.targetMarket,
+      problemSolution: formData.problemSolution,
+      marketSize: formData.marketSize,
+      competitiveAdvantage: formData.competitiveAdvantage,
+      teamExperience: formData.teamExperience,
+      fundingNeeds: formData.fundingNeeds,
+      currentChallenges: formData.currentChallenges,
+      whyYff: formData.whyYff,
+    },
+    
+    // Additional data
+    additional: {
+      referralId: formData.referralId,
+    }
+  };
+};
 
 /**
  * Automatically trigger AI evaluation for a newly submitted application
@@ -30,9 +96,9 @@ export const autoEvaluateNewApplication = async (applicationId: string): Promise
       .eq('application_id', applicationId);
 
     // Trigger the AI evaluation (this will update the application with scores and summary)
-    await evaluateApplication(applicationId);
+    const evaluationResult = await evaluateApplication(applicationId);
     
-    console.log(`✅ Automatic AI evaluation completed for application: ${applicationId}`);
+    console.log(`✅ Automatic AI evaluation completed for application: ${applicationId}`, evaluationResult);
     
   } catch (error) {
     console.error(`❌ Automatic AI evaluation failed for application ${applicationId}:`, error);
@@ -57,17 +123,20 @@ export const autoEvaluateNewApplication = async (applicationId: string): Promise
  */
 export const submitApplicationWithAutoEvaluation = async (
   individualId: string,
-  answers: Record<string, any>
+  formData: YffFormData
 ): Promise<{ success: boolean; applicationId?: string; error?: string }> => {
   try {
     console.log('📝 Submitting YFF application with automatic evaluation...');
+    
+    // Transform form data to database format
+    const dbFormData = transformFormDataForDB(formData, individualId);
     
     // First, insert the application into the database
     const { data: application, error: insertError } = await supabase
       .from('yff_applications')
       .insert({
         individual_id: individualId,
-        answers: answers,
+        answers: dbFormData,
         status: 'submitted',
         evaluation_status: 'pending',
         submitted_at: new Date().toISOString(),
@@ -132,4 +201,24 @@ export const ensureApplicationEvaluated = async (applicationId: string): Promise
   } catch (error) {
     console.error('Error ensuring application evaluation:', error);
   }
+};
+
+/**
+ * Batch process multiple applications for evaluation
+ * Useful for processing applications that may have been submitted without evaluation
+ */
+export const batchEvaluateApplications = async (applicationIds: string[]): Promise<void> => {
+  console.log(`🚀 Starting batch evaluation for ${applicationIds.length} applications`);
+  
+  for (const applicationId of applicationIds) {
+    try {
+      await autoEvaluateNewApplication(applicationId);
+      // Small delay to avoid overwhelming the AI service
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (error) {
+      console.error(`Failed to evaluate application ${applicationId} in batch:`, error);
+    }
+  }
+  
+  console.log('✅ Batch evaluation completed');
 };

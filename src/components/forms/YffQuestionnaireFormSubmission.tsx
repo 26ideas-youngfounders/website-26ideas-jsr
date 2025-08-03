@@ -14,9 +14,10 @@ import { useToast } from '@/hooks/use-toast';
 import { submitApplicationWithAutoEvaluation } from '@/services/yff-auto-evaluation-service';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import type { YffFormData } from '@/types/yff-form';
 
 interface YffQuestionnaireFormSubmissionProps {
-  formData: Record<string, any>;
+  formData: YffFormData;
   isSubmitting: boolean;
   setIsSubmitting: (submitting: boolean) => void;
   onSubmissionSuccess: () => void;
@@ -36,6 +37,26 @@ export const YffQuestionnaireFormSubmission: React.FC<YffQuestionnaireFormSubmis
       toast({
         title: "Authentication Required",
         description: "Please sign in to submit your application",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic form validation
+    const requiredFields = [
+      'firstName', 'lastName', 'email', 'phoneNumber', 'ventureName',
+      'productStage', 'problemSolution', 'targetMarket'
+    ];
+
+    const missingFields = requiredFields.filter(field => 
+      !formData[field as keyof YffFormData] || 
+      String(formData[field as keyof YffFormData]).trim() === ''
+    );
+
+    if (missingFields.length > 0) {
+      toast({
+        title: "Incomplete Application",
+        description: `Please complete the following fields: ${missingFields.join(', ')}`,
         variant: "destructive",
       });
       return;

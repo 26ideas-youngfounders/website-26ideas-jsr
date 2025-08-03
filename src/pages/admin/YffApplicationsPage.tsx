@@ -10,14 +10,20 @@
  */
 
 import React, { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { YffApplicationsTableEnhanced } from '@/components/admin/YffApplicationsTableEnhanced';
 import { useApplicationEvaluationMonitor } from '@/hooks/useApplicationEvaluationMonitor';
+import { batchEvaluateApplications } from '@/services/yff-auto-evaluation-service';
 import type { YffApplicationWithIndividual } from '@/types/yff-application';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const YffApplicationsPage: React.FC = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
   // Monitor for applications needing evaluation
   const { pendingCount } = useApplicationEvaluationMonitor();
 
@@ -45,11 +51,26 @@ const YffApplicationsPage: React.FC = () => {
       }
 
       console.log(`✅ Fetched ${data?.length || 0} applications successfully`);
+      
+      // Debug log for troubleshooting
+      if (data && data.length > 0) {
+        console.log('📊 Application sample:', {
+          totalCount: data.length,
+          firstApplication: {
+            id: data[0].application_id,
+            status: data[0].status,
+            evaluationStatus: data[0].evaluation_status,
+            overallScore: data[0].overall_score,
+            createdAt: data[0].created_at
+          }
+        });
+      }
+      
       return data as YffApplicationWithIndividual[];
     },
     // Shorter stale time for more frequent updates
-    staleTime: 30000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 10000, // 10 seconds
+    gcTime: 2 * 60 * 1000, // 2 minutes
     // Refetch on window focus to catch new applications
     refetchOnWindowFocus: true,
     // Refetch when coming back from background
@@ -84,18 +105,64 @@ const YffApplicationsPage: React.FC = () => {
     };
   }, [refetch]);
 
+  // Manual batch evaluation trigger
+  const handleBatchEvaluation = async () => {
+    const unevaluatedApps = applications.filter(app => 
+      app.evaluation_status === 'pending' || 
+      app.evaluation_status === 'failed'
+    );
+
+    if (unevaluatedApps.length === 0) {
+      toast({
+        title: "No Applications to Evaluate",
+        description: "All applications have already been evaluated.",
+      });
+      return;
+    }
+
+    try {
+      toast({
+        title: "Starting Batch Evaluation",
+        description: `Processing ${unevaluatedApps.length} applications...`,
+      });
+
+      await batchEvaluateApplications(unevaluatedApps.map(app => app.application_id));
+      
+      toast({
+        title: "Batch Evaluation Complete",
+        description: "Applications have been queued for evaluation.",
+      });
+
+      // Refresh data
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Batch Evaluation Failed",
+        description: "Failed to start batch evaluation. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (error) {
     return (
       <div className="container mx-auto py-6">
         <div className="text-center text-red-600">
           <h2 className="text-xl font-semibold mb-2">Error Loading Applications</h2>
           <p className="mb-4">Failed to load applications: {(error as Error).message}</p>
-          <button 
+          <Button 
             onClick={() => refetch()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="mr-4"
           >
+            <RefreshCw className="h-4 w-4 mr-2" />
             Try Again
-          </button>
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => window.location.reload()}
+          >
+            Full Page Refresh
+          </Button>
         </div>
       </div>
     );
@@ -115,16 +182,64 @@ const YffApplicationsPage: React.FC = () => {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-4 text-sm text-gray-500">
+        <div className="flex items-center gap-4">
           {pendingCount > 0 && (
-            <div className="flex items-center gap-1 text-orange-600">
-              <AlertCircle className="h-4 w-4" />
-              {pendingCount} pending evaluation{pendingCount !== 1 ? 's' : ''}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 text-orange-600">
+                <AlertCircle className="h-4 w-4" />
+                {pendingCount} pending evaluation{pendingCount !== 1 ? 's' : ''}
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleBatchEvaluation}
+              >
+                Evaluate All
+              </Button>
             </div>
           )}
-          <div>Auto-refresh every 15 seconds</div>
+          <div className="text-sm text-gray-500">
+            Auto-refresh every 10 seconds
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => refetch()}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Now
+          </Button>
         </div>
       </div>
+
+      {applications.length === 0 && !isLoading && (
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No Applications Found
+          </h3>
+          <p className="text-gray-600 mb-4">
+            No YFF applications have been submitted yet, or there may be a data fetching issue.
+          </p>
+          <div className="space-x-2">
+            <Button onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Data
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => {
+                console.log('🔍 Debug info:', {
+                  userAgent: navigator.userAgent,
+                  timestamp: new Date().toISOString(),
+                  queryState: { isLoading, error: error?.message }
+                });
+              }}
+            >
+              Debug Info
+            </Button>
+          </div>
+        </div>
+      )}
 
       <YffApplicationsTableEnhanced 
         applications={applications}

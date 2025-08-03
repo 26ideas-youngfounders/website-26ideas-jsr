@@ -1,19 +1,23 @@
 
 /**
- * AI Question Prompts Configuration for YFF Questionnaire
+ * @fileoverview AI Question Prompts Configuration
  * 
  * Centralized, type-safe configuration file that maps every question ID 
  * to its corresponding AI system prompt for the YFF questionnaire.
  * This serves as the single source of truth for all AI feedback prompts.
+ * 
+ * @version 1.0.0
+ * @author 26ideas Development Team
  */
 
 /**
  * Base formatting requirements for all AI feedback prompts
  * Ensures consistent bullet point handling and prevents orphaned text
+ * Preprocessing ensures AI feedback list items are kept on one line, never split.
  */
 const BASE_FORMATTING_REQUIREMENTS = `
 CRITICAL FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) for list items.
+- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
 - Use bold markdown (**text**) for all section headings
 - Each bullet/list item must be a single, complete idea or sentence on ONE line.
 - Never continue a list item on another line or split an idea across multiple bullets.
@@ -545,9 +549,9 @@ One key insight that could significantly strengthen their response, written as a
  * @returns The system prompt for the question, or null if not found
  */
 export const getSystemPrompt = (questionId: string): string | null => {
-  const result = aiQuestionPrompts[questionId] || null;
-  console.log(`getSystemPrompt(${questionId}):`, result ? 'Found' : 'Not found');
-  return result;
+  const prompt = aiQuestionPrompts[questionId] || null;
+  console.log('🔍 getSystemPrompt called with:', questionId, 'Found prompt:', !!prompt);
+  return prompt;
 };
 
 /**
@@ -558,7 +562,13 @@ export const getSystemPrompt = (questionId: string): string | null => {
  */
 export const hasAIFeedback = (questionId: string): boolean => {
   const result = questionId in aiQuestionPrompts;
-  console.log(`hasAIFeedback(${questionId}):`, result);
+  console.log('🔍 hasAIFeedback check:', questionId, '->', result);
+  
+  // Debug: Show all available question IDs when checking
+  if (!result) {
+    console.log('🔍 Available question IDs:', Object.keys(aiQuestionPrompts));
+  }
+  
   return result;
 };
 
@@ -592,4 +602,12 @@ export const validateQuestionPrompts = (requiredQuestions: string[]) => {
     totalPrompts: Object.keys(aiQuestionPrompts).length,
     requiredCount: requiredQuestions.length
   };
+};
+
+/**
+ * Debug function to log all available prompts
+ */
+export const debugPrompts = () => {
+  console.log('🔍 All available AI prompts:', Object.keys(aiQuestionPrompts));
+  console.log('🔍 Total prompts available:', Object.keys(aiQuestionPrompts).length);
 };

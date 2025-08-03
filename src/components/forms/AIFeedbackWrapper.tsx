@@ -22,7 +22,7 @@ interface AIFeedbackWrapperProps {
  * Get the correct question ID based on the stage and base question ID
  */
 const getQuestionId = (baseQuestionId: string, currentStage?: 'idea' | 'early_revenue'): string => {
-  console.log('AIFeedbackWrapper - baseQuestionId:', baseQuestionId, 'currentStage:', currentStage);
+  console.log('🔍 AIFeedbackWrapper - baseQuestionId:', baseQuestionId, 'currentStage:', currentStage);
   
   // Direct mapping for questions that should use their exact ID
   const questionIdMap: Record<string, string> = {
@@ -84,7 +84,9 @@ const getQuestionId = (baseQuestionId: string, currentStage?: 'idea' | 'early_re
   // Get the mapped question ID
   const mappedId = questionIdMap[baseQuestionId] || baseQuestionId;
   
-  console.log('AIFeedbackWrapper - mapped to:', mappedId);
+  console.log('🔍 AIFeedbackWrapper - mapped to:', mappedId);
+  console.log('🔍 AIFeedbackWrapper - hasAIFeedback check:', hasAIFeedback(mappedId));
+  
   return mappedId;
 };
 
@@ -102,20 +104,32 @@ export const AIFeedbackWrapper: React.FC<AIFeedbackWrapperProps> = ({
   const questionId = getQuestionId(baseQuestionId, currentStage);
   
   // Check if AI feedback is available for this question
-  const shouldShowButton = hasAIFeedback(questionId) && userAnswer.length >= minCharacters;
+  const hasFeedbackAvailable = hasAIFeedback(questionId);
+  const meetMinLength = userAnswer.length >= minCharacters;
+  const shouldShowButton = hasFeedbackAvailable && meetMinLength;
 
-  console.log('AIFeedbackWrapper - shouldShowButton:', shouldShowButton, 'for questionId:', questionId, 'answerLength:', userAnswer.length);
+  console.log('🔍 AIFeedbackWrapper Debug:', {
+    baseQuestionId,
+    questionId,
+    currentStage,
+    answerLength: userAnswer.length,
+    minCharacters,
+    hasFeedbackAvailable,
+    meetMinLength,
+    shouldShowButton
+  });
 
-  if (!shouldShowButton) {
-    return null;
-  }
-
+  // Always render the wrapper div to maintain consistent spacing
   return (
-    <AIFeedbackButton
-      questionId={questionId}
-      userAnswer={userAnswer}
-      onFeedbackReceived={onFeedbackReceived}
-      disabled={disabled}
-    />
+    <div className="mt-2">
+      {shouldShowButton && (
+        <AIFeedbackButton
+          questionId={questionId}
+          userAnswer={userAnswer}
+          onFeedbackReceived={onFeedbackReceived}
+          disabled={disabled}
+        />
+      )}
+    </div>
   );
 };

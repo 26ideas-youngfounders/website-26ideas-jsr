@@ -270,6 +270,21 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
 
   const isEarlyRevenue = productStage === 'Early Revenue';
 
+  const handleRetryFeedback = (questionId: string) => {
+    // Reset feedback state and trigger new request
+    switch (questionId) {
+      case 'problemSolved':
+        problemSolvedFeedback.setFeedback(null);
+        break;
+      case 'targetAudience':
+        targetAudienceFeedback.setFeedback(null);
+        break;
+      case 'solutionApproach':
+        solutionApproachFeedback.setFeedback(null);
+        break;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Form {...form}>
@@ -398,6 +413,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                           <AIFeedbackDisplay
                             feedback={problemSolvedFeedback.feedback}
                             onDismiss={problemSolvedFeedback.handleDismiss}
+                            onRetry={() => handleRetryFeedback('problemSolved')}
                           />
                         )}
                       </FormItem>
@@ -428,6 +444,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         <AIFeedbackDisplay
                           feedback={targetAudienceFeedback.feedback}
                           onDismiss={targetAudienceFeedback.handleDismiss}
+                          onRetry={() => handleRetryFeedback('targetAudience')}
                         />
                       )}
                     </FormItem>
@@ -457,6 +474,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         <AIFeedbackDisplay
                           feedback={solutionApproachFeedback.feedback}
                           onDismiss={solutionApproachFeedback.handleDismiss}
+                          onRetry={() => handleRetryFeedback('solutionApproach')}
                         />
                       )}
                     </FormItem>

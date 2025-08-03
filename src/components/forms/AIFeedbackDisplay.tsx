@@ -1,3 +1,4 @@
+
 /**
  * AI Feedback Display Component
  * 
@@ -183,11 +184,8 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
 
         {/* Enhanced Raw Feedback with Markdown Rendering */}
         {feedback.strengths.length === 0 && feedback.improvements.length === 0 && feedback.rawFeedback && (
-          <div className="ai-feedback-content">
-            <ReactMarkdown
-              components={markdownComponents}
-              className="prose prose-sm max-w-none"
-            >
+          <div className="ai-feedback-content prose prose-sm max-w-none">
+            <ReactMarkdown components={markdownComponents}>
               {feedback.rawFeedback}
             </ReactMarkdown>
           </div>

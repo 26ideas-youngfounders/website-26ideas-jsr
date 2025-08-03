@@ -74,6 +74,7 @@ const YffQuestionnaire = () => {
         }
 
         console.log('✅ Registration data loaded:', registrationData);
+        console.log('🎯 Product stage from registration:', registrationData.product_stage);
         setRegistration(registrationData);
         
       } catch (error) {
@@ -143,6 +144,11 @@ const YffQuestionnaire = () => {
     );
   }
 
+  // Determine the current stage from registration data
+  const currentStage = registration?.product_stage === 'early_revenue' ? 'early_revenue' : 'idea';
+  
+  console.log('🎯 Current stage determined for AI feedback:', currentStage);
+
   // Show questionnaire form with proper props
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -152,12 +158,18 @@ const YffQuestionnaire = () => {
         </h1>
         <p className="text-gray-600">
           Please complete the following questions to finalize your application.
+          {registration?.product_stage === 'early_revenue' && (
+            <span className="block mt-1 text-blue-600 font-medium">
+              Early Revenue Stage Questions
+            </span>
+          )}
         </p>
       </div>
 
       <YffQuestionnaireForm 
         registration={registration} 
-        onComplete={handleComplete} 
+        onComplete={handleComplete}
+        currentStage={currentStage}
       />
     </div>
   );

@@ -17,6 +17,8 @@ interface AIFeedbackWrapperProps {
   onFeedbackReceived: (feedback: AIFeedbackResponse) => void;
   disabled?: boolean;
   minCharacters?: number;
+  // Accept registration data to determine stage if not explicitly provided
+  registration?: any;
 }
 
 /**
@@ -27,15 +29,21 @@ export const AIFeedbackWrapper: React.FC<AIFeedbackWrapperProps> = ({
   baseQuestionId,
   questionText,
   userAnswer,
-  currentStage = 'idea',
+  currentStage,
   onFeedbackReceived,
   disabled = false,
-  minCharacters = 10
+  minCharacters = 10,
+  registration
 }) => {
+  // Determine stage from props or registration data
+  const determinedStage = currentStage || (registration?.product_stage === 'early_revenue' ? 'early_revenue' : 'idea');
+  
   console.log('🔍 AIFeedbackWrapper - Processing:', {
     baseQuestionId,
     questionText: questionText?.substring(0, 50),
     currentStage,
+    determinedStage,
+    registrationStage: registration?.product_stage,
     answerLength: userAnswer?.length || 0,
     minCharacters
   });
@@ -54,7 +62,8 @@ export const AIFeedbackWrapper: React.FC<AIFeedbackWrapperProps> = ({
     answerLength: answer.length,
     minCharacters,
     meetMinLength,
-    shouldShowButton: shouldShowButton && answer.length >= minCharacters
+    shouldShowButton: shouldShowButton && answer.length >= minCharacters,
+    finalStage: determinedStage
   });
 
   // Always render the wrapper div to maintain consistent spacing
@@ -65,7 +74,7 @@ export const AIFeedbackWrapper: React.FC<AIFeedbackWrapperProps> = ({
           questionId={baseQuestionId}
           questionText={questionText}
           userAnswer={answer}
-          stage={currentStage}
+          stage={determinedStage}
           onFeedbackReceived={onFeedbackReceived}
           disabled={disabled}
         />

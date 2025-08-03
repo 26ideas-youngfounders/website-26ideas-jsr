@@ -59,9 +59,19 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
     originalQuestionId: questionId,
     normalizedQuestionId,
     stage,
+    stageType: typeof stage,
+    stageValue: stage,
     questionText: questionText?.substring(0, 50) || 'undefined',
     answerLength: answer.length
   });
+
+  // Enhanced stage debugging
+  if (stage === undefined) {
+    console.warn('⚠️ AIFeedbackButton: stage is undefined!', {
+      originalQuestionId: questionId,
+      questionText: questionText?.substring(0, 50)
+    });
+  }
 
   // ALWAYS show button if answer is long enough - NO EXCEPTIONS
   if (answer.length < 10) {
@@ -78,10 +88,12 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
     setLastError(null);
     
     try {
-      console.log('🤖 Requesting AI feedback for normalizedQuestionId:', normalizedQuestionId);
-      console.log('🤖 Original questionId:', questionId);
-      console.log('🤖 Stage:', stage);
-      console.log('🤖 Answer length:', answer.length);
+      console.log('🤖 Requesting AI feedback:', {
+        originalQuestionId: questionId,
+        normalizedQuestionId,
+        stage,
+        answerLength: answer.length
+      });
       
       const { data, error } = await supabase.functions.invoke('ai-feedback', {
         body: {

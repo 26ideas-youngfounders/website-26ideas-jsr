@@ -1,3 +1,4 @@
+
 /**
  * AI Question Prompts Configuration for YFF Questionnaire
  * 
@@ -12,7 +13,7 @@
  */
 const BASE_FORMATTING_REQUIREMENTS = `
 CRITICAL FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
+- Never use * at the start of any line. Only use dashes (- ) for list items.
 - Use bold markdown (**text**) for all section headings
 - Each bullet/list item must be a single, complete idea or sentence on ONE line.
 - Never continue a list item on another line or split an idea across multiple bullets.
@@ -23,13 +24,6 @@ EXAMPLE OF CORRECT FORMAT:
 **Strengths in your current response:**
 - This is a complete point that stays on one line.
 - Another full point that doesn't break across lines.
-
-EXAMPLE OF INCORRECT FORMAT (DO NOT DO THIS):
-**Strengths:**
-- This is the start of a point
-that continues on the next line.
-- Another point that is
-split incorrectly.
 
 When formatting your feedback, ensure that each list item ("- Example") is a complete idea on a single line, with no line breaks or split phrases. Do not create a new bullet for a phrase that is part of a previous item.
 `;
@@ -77,7 +71,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
@@ -120,7 +113,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
@@ -163,7 +155,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
@@ -206,7 +197,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
@@ -249,7 +239,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
@@ -292,7 +281,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
@@ -335,7 +323,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
@@ -378,7 +365,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
@@ -421,7 +407,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
@@ -464,7 +449,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
@@ -507,7 +491,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
@@ -550,7 +533,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`
@@ -563,7 +545,9 @@ One key insight that could significantly strengthen their response, written as a
  * @returns The system prompt for the question, or null if not found
  */
 export const getSystemPrompt = (questionId: string): string | null => {
-  return aiQuestionPrompts[questionId] || null;
+  const result = aiQuestionPrompts[questionId] || null;
+  console.log(`getSystemPrompt(${questionId}):`, result ? 'Found' : 'Not found');
+  return result;
 };
 
 /**
@@ -573,7 +557,9 @@ export const getSystemPrompt = (questionId: string): string | null => {
  * @returns True if AI feedback is available for this question
  */
 export const hasAIFeedback = (questionId: string): boolean => {
-  return questionId in aiQuestionPrompts;
+  const result = questionId in aiQuestionPrompts;
+  console.log(`hasAIFeedback(${questionId}):`, result);
+  return result;
 };
 
 /**

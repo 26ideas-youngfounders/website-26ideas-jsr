@@ -32,13 +32,6 @@ EXAMPLE OF CORRECT FORMAT:
 - This is a complete point that stays on one line.
 - Another full point that doesn't break across lines.
 
-EXAMPLE OF INCORRECT FORMAT (DO NOT DO THIS):
-**Strengths:**
-- This is the start of a point
-that continues on the next line.
-- Another point that is
-split incorrectly.
-
 When formatting your feedback, ensure that each list item ("- Example") is a complete idea on a single line, with no line breaks or split phrases. Do not create a new bullet for a phrase that is part of a previous item.
 `;
 
@@ -85,12 +78,10 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Problem Statement Question
   "problemSolved": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: What problem does your idea solve?
@@ -128,12 +119,10 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Target Audience Question
   "targetAudience": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: Whose problem does your idea solve for?
@@ -171,12 +160,10 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Solution Approach Question
   "solutionApproach": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How does your idea solve this problem?
@@ -214,12 +201,10 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Monetization Strategy Question
   "monetizationStrategy": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How does your idea plan to make money by solving this problem?
@@ -257,12 +242,10 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Customer Acquisition Question
   "customerAcquisition": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How do you plan to acquire first paying customers?
@@ -300,12 +283,10 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Paying Customers Question (Early Revenue Stage)
   "payingCustomers": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How many paying customers does your idea already have?
@@ -343,12 +324,10 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Working Duration Question (Early Revenue Stage)
   "workingDuration": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How long have you been working on this idea?
@@ -386,12 +365,10 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Competitors Question
   "competitors": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: List 3 potential competitors in the similar space or attempting to solve a similar problem?
@@ -429,12 +406,10 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Development Approach Question
   "developmentApproach": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner?
@@ -472,12 +447,10 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Team Information Question
   "teamInfo": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: Who is on your team, and what are their roles?
@@ -515,12 +488,10 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Timeline Question
   "timeline": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: When do you plan to proceed with the idea?
@@ -558,7 +529,6 @@ RESPONSE FORMAT:
 - First improvement suggestion with concrete examples
 - Second suggestion for strengthening the response
 - Third actionable recommendation
-- Fourth specific enhancement if needed
 
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`

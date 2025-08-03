@@ -1,3 +1,4 @@
+
 /**
  * AI Feedback Text Processing Utilities
  * 
@@ -37,20 +38,30 @@ export function fixOrphanedBullets(feedback: string): string {
     
     // Check if this line starts with a proper bullet point, number, or heading marker
     const isBulletPoint = /^(- |• |\* |\d+\.\s)/.test(trimmed);
-    const isHeading = /^(\*\*[^*]+\*\*|__|#{1,6}\s)/.test(trimmed); // Bold text or markdown heading
+    const isHeading = /^(\*\*[^*]+\*\*|__|#{1,6}\s)/.test(trimmed);
     const isStandaloneFormat = isBulletPoint || isHeading;
     
-    // Additional check for very short lines that are likely continuations
-    // This catches cases like "solving." which should be merged
-    const isLikelyContinuation = trimmed.length <= 15 && 
-      !isStandaloneFormat && 
-      processedLines.length > 0 &&
-      !/^[A-Z]/.test(trimmed); // Doesn't start with capital (likely not a new sentence)
+    // More aggressive detection of continuation lines
+    // Any line that doesn't start with bullet/heading and has certain characteristics should be merged
+    const isLikelyContinuation = !isStandaloneFormat && (
+      // Short lines are almost always continuations
+      trimmed.length <= 20 ||
+      // Lines ending with punctuation that suggest continuation
+      /^(solving|highlighting|narrative|approach|skills|experience|process|system|method|strategy|solution|improvement|efficiency|accuracy|satisfaction|feedback|examples|challenges|depth|problem)\b/.test(trimmed.toLowerCase()) ||
+      // Lines that start with common continuation words
+      /^(and|or|such as|for example|including|like|with|without|by|through|via|using|during|while|when|where|how|why|what|which|that|this|these|those|it|they|them|their|his|her|its|our|your|my)\b/i.test(trimmed) ||
+      // Lines that don't start with capital letters (likely continuations)
+      !/^[A-Z]/.test(trimmed) ||
+      // Lines that are clearly sentence fragments
+      /^[a-z]/.test(trimmed) ||
+      // Lines ending with common continuation patterns
+      /\.$/.test(trimmed) && trimmed.length < 30
+    );
     
     if (isStandaloneFormat) {
       // This is a proper list item or heading - add it as-is
       processedLines.push(trimmed);
-    } else if (isLikelyContinuation || !isStandaloneFormat) {
+    } else if (isLikelyContinuation) {
       // This appears to be a continuation of a previous line
       // Find the last non-empty line to merge with
       let lastIndex = processedLines.length - 1;

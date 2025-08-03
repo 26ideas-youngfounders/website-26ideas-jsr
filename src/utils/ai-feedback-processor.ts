@@ -1,4 +1,3 @@
-
 /**
  * AI Feedback Text Processing Utilities
  * 
@@ -41,10 +40,17 @@ export function fixOrphanedBullets(feedback: string): string {
     const isHeading = /^(\*\*[^*]+\*\*|__|#{1,6}\s)/.test(trimmed); // Bold text or markdown heading
     const isStandaloneFormat = isBulletPoint || isHeading;
     
+    // Additional check for very short lines that are likely continuations
+    // This catches cases like "solving." which should be merged
+    const isLikelyContinuation = trimmed.length <= 15 && 
+      !isStandaloneFormat && 
+      processedLines.length > 0 &&
+      !/^[A-Z]/.test(trimmed); // Doesn't start with capital (likely not a new sentence)
+    
     if (isStandaloneFormat) {
       // This is a proper list item or heading - add it as-is
       processedLines.push(trimmed);
-    } else {
+    } else if (isLikelyContinuation || !isStandaloneFormat) {
       // This appears to be a continuation of a previous line
       // Find the last non-empty line to merge with
       let lastIndex = processedLines.length - 1;
@@ -61,6 +67,9 @@ export function fixOrphanedBullets(feedback: string): string {
         // No previous line found - keep it as-is
         processedLines.push(trimmed);
       }
+    } else {
+      // Default case - keep as separate line
+      processedLines.push(trimmed);
     }
   }
 

@@ -1,4 +1,5 @@
 
+
 /**
  * AI Feedback Display Component
  * 
@@ -20,7 +21,7 @@ interface AIFeedbackDisplayProps {
 }
 
 /**
- * Custom markdown components for consistent styling
+ * Custom markdown components for consistent styling and proper bullet point handling
  */
 const markdownComponents = {
   h3: ({ children }: { children: React.ReactNode }) => {
@@ -45,16 +46,19 @@ const markdownComponents = {
   strong: ({ children }: { children: React.ReactNode }) => (
     <strong className="font-semibold text-gray-800">{children}</strong>
   ),
+  // Custom unordered list rendering without default bullets
   ul: ({ children }: { children: React.ReactNode }) => (
-    <ul className="space-y-2 ml-4 my-2">{children}</ul>
+    <ul className="space-y-2 ml-0 my-2 list-none">{children}</ul>
   ),
+  // Custom ordered list rendering
   ol: ({ children }: { children: React.ReactNode }) => (
-    <ol className="space-y-2 ml-4 my-2 list-decimal">{children}</ol>
+    <ol className="space-y-2 ml-0 my-2 list-none">{children}</ol>
   ),
+  // Custom list item rendering with clean bullet points
   li: ({ children }: { children: React.ReactNode }) => (
-    <li className="text-gray-700 leading-relaxed relative pl-2">
-      <span className="absolute left-0 top-0 text-blue-500 font-bold">•</span>
-      {children}
+    <li className="text-gray-700 leading-relaxed flex items-start gap-2 pl-0 ml-0">
+      <span className="text-blue-500 font-bold mt-0.5 flex-shrink-0">•</span>
+      <span className="flex-1">{children}</span>
     </li>
   ),
   p: ({ children }: { children: React.ReactNode }) => (
@@ -154,11 +158,11 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
               <TrendingUp className="h-4 w-4" />
               Strengths
             </h4>
-            <ul className="space-y-2 ml-4">
+            <ul className="space-y-2 ml-0 list-none">
               {feedback.strengths.map((strength, index) => (
-                <li key={index} className="text-sm text-green-700 flex items-start gap-2 leading-relaxed">
+                <li key={index} className="text-sm text-green-700 flex items-start gap-2 leading-relaxed pl-0 ml-0">
                   <span className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
-                  <span>{strength}</span>
+                  <span className="flex-1">{strength}</span>
                 </li>
               ))}
             </ul>
@@ -171,18 +175,18 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
               <Target className="h-4 w-4" />
               Areas for Improvement
             </h4>
-            <ul className="space-y-2 ml-4">
+            <ul className="space-y-2 ml-0 list-none">
               {feedback.improvements.map((improvement, index) => (
-                <li key={index} className="text-sm text-orange-700 flex items-start gap-2 leading-relaxed">
+                <li key={index} className="text-sm text-orange-700 flex items-start gap-2 leading-relaxed pl-0 ml-0">
                   <span className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></span>
-                  <span>{improvement}</span>
+                  <span className="flex-1">{improvement}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        {/* Enhanced Raw Feedback with Markdown Rendering */}
+        {/* Enhanced Raw Feedback with Markdown Rendering and Custom Bullet Points */}
         {feedback.strengths.length === 0 && feedback.improvements.length === 0 && feedback.rawFeedback && (
           <div className="ai-feedback-content prose prose-sm max-w-none">
             <ReactMarkdown components={markdownComponents}>
@@ -198,3 +202,4 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
     </Card>
   );
 };
+

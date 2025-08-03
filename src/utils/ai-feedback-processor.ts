@@ -1,4 +1,3 @@
-
 /**
  * AI Feedback Text Processing Utilities
  * 
@@ -41,29 +40,19 @@ export function fixOrphanedBullets(feedback: string): string {
     const isHeading = /^(\*\*[^*]+\*\*|__|#{1,6}\s)/.test(trimmed);
     const isStandaloneFormat = isBulletPoint || isHeading;
     
-    // More aggressive detection of continuation lines
-    // Any line that doesn't start with bullet/heading and has certain characteristics should be merged
-    const isLikelyContinuation = !isStandaloneFormat && (
-      // Short lines are almost always continuations
-      trimmed.length <= 20 ||
-      // Lines ending with punctuation that suggest continuation
-      /^(solving|highlighting|narrative|approach|skills|experience|process|system|method|strategy|solution|improvement|efficiency|accuracy|satisfaction|feedback|examples|challenges|depth|problem)\b/.test(trimmed.toLowerCase()) ||
-      // Lines that start with common continuation words
-      /^(and|or|such as|for example|including|like|with|without|by|through|via|using|during|while|when|where|how|why|what|which|that|this|these|those|it|they|them|their|his|her|its|our|your|my)\b/i.test(trimmed) ||
-      // Lines that don't start with capital letters (likely continuations)
-      !/^[A-Z]/.test(trimmed) ||
-      // Lines that are clearly sentence fragments
-      /^[a-z]/.test(trimmed) ||
-      // Lines ending with common continuation patterns
-      /\.$/.test(trimmed) && trimmed.length < 30
-    );
+    // ULTRA AGGRESSIVE: If it's not a bullet or heading, it's a continuation
+    // Only allow lines that are clearly new sentences (start with capital, reasonable length)
+    const isDefinitelyNewSentence = !isStandaloneFormat && 
+      /^[A-Z]/.test(trimmed) && 
+      trimmed.length > 40 && 
+      /^[A-Z][a-z]/.test(trimmed) && // Starts with capital followed by lowercase
+      !/(^(and|or|but|also|however|therefore|furthermore|moreover|additionally|specifically|particularly|especially|including|such as|for example|like|with|without|by|through|via|using|during|while|when|where|how|why|what|which|that|this|these|those|it|they|them|their|his|her|its|our|your|my)\b)/i.test(trimmed);
     
     if (isStandaloneFormat) {
       // This is a proper list item or heading - add it as-is
       processedLines.push(trimmed);
-    } else if (isLikelyContinuation) {
-      // This appears to be a continuation of a previous line
-      // Find the last non-empty line to merge with
+    } else if (!isDefinitelyNewSentence) {
+      // This appears to be a continuation - merge it with the last non-empty line
       let lastIndex = processedLines.length - 1;
       while (lastIndex >= 0 && processedLines[lastIndex].trim() === '') {
         lastIndex--;
@@ -79,7 +68,7 @@ export function fixOrphanedBullets(feedback: string): string {
         processedLines.push(trimmed);
       }
     } else {
-      // Default case - keep as separate line
+      // This is definitely a new sentence - keep as separate line
       processedLines.push(trimmed);
     }
   }

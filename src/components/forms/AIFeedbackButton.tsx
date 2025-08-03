@@ -2,16 +2,18 @@
 /**
  * AI Feedback Button Component
  * 
- * Provides AI-powered feedback on questionnaire answers
+ * Provides AI-powered feedback on questionnaire answers with three-tier resolution system
  */
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { resolvePromptKey, hasAIFeedback } from '@/utils/ai-question-prompts';
 
 interface AIFeedbackButtonProps {
-  questionId: string;
+  questionId?: string;
+  questionText?: string;
   userAnswer: string;
   onFeedbackReceived: (feedback: AIFeedbackResponse) => void;
   disabled?: boolean;
@@ -31,9 +33,11 @@ export interface AIFeedbackResponse {
 
 /**
  * AI Feedback Button for getting personalized suggestions on answers
+ * Uses three-tier resolution system to match questions to prompts
  */
 export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
   questionId,
+  questionText,
   userAnswer,
   onFeedbackReceived,
   disabled = false
@@ -42,8 +46,21 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
   const [hasReceived, setHasReceived] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
 
-  // Don't show if answer is too short
-  if (userAnswer.length < 10) {
+  // Use three-tier resolution to get the prompt key
+  const promptKey = resolvePromptKey(questionId, questionText);
+  const feedbackAvailable = hasAIFeedback(questionId, questionText);
+
+  console.log('🤖 AIFeedbackButton render:', {
+    questionId,
+    questionText: questionText?.substring(0, 50),
+    promptKey,
+    feedbackAvailable,
+    answerLength: userAnswer.length
+  });
+
+  // Don't show if no prompt available or answer is too short
+  if (!feedbackAvailable || !promptKey || userAnswer.length < 10) {
+    console.log('❌ AIFeedbackButton hidden:', { feedbackAvailable, promptKey, answerLength: userAnswer.length });
     return null;
   }
 
@@ -54,12 +71,12 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
     setLastError(null);
     
     try {
-      console.log('🤖 Requesting AI feedback for question:', questionId);
+      console.log('🤖 Requesting AI feedback with resolved prompt key:', promptKey);
       console.log('🤖 Answer length:', userAnswer.length);
       
       const { data, error } = await supabase.functions.invoke('ai-feedback', {
         body: {
-          questionId: questionId,
+          questionId: promptKey, // Use the resolved prompt key
           userAnswer: userAnswer.trim()
         }
       });
@@ -79,7 +96,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
           strengths: [],
           improvements: [],
           rawFeedback: "",
-          questionId: questionId,
+          questionId: promptKey,
           timestamp: new Date().toISOString(),
           message: data.message,
           error: data.error,
@@ -117,7 +134,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
           strengths: [],
           improvements: [],
           rawFeedback: "",
-          questionId: questionId,
+          questionId: promptKey,
           timestamp: new Date().toISOString(),
           message: userMessage,
           error: data.error,
@@ -130,7 +147,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
           strengths: data.strengths || [],
           improvements: data.improvements || [],
           rawFeedback: data.feedback || data.rawFeedback || "",
-          questionId: questionId,
+          questionId: promptKey,
           timestamp: data.timestamp || new Date().toISOString()
         };
         
@@ -151,7 +168,7 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
         strengths: [],
         improvements: [],
         rawFeedback: "",
-        questionId: questionId,
+        questionId: promptKey,
         timestamp: new Date().toISOString(),
         message: "Unable to get feedback at the moment. Please try again later.",
         error: errorMessage,

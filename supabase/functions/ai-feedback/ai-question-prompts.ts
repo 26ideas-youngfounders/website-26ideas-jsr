@@ -9,14 +9,13 @@
  * for the edge function deployment, as edge functions are sandboxed 
  * and cannot import from the main src/ directory.
  * 
- * @version 1.0.0
+ * @version 2.0.0 - Updated with comprehensive three-tier resolution system
  * @author 26ideas Development Team
  */
 
 /**
  * Base formatting requirements for all AI feedback prompts
  * Ensures consistent bullet point handling and prevents orphaned text
- * Preprocessing ensures AI feedback list items are kept on one line, never split.
  */
 const BASE_FORMATTING_REQUIREMENTS = `
 CRITICAL FORMATTING REQUIREMENTS:
@@ -36,8 +35,7 @@ When formatting your feedback, ensure that each list item ("- Example") is a com
 `;
 
 /**
- * Complete mapping of question IDs to their AI system prompts
- * Maps all YFF questionnaire questions to their specialized AI mentor prompts
+ * Standardized mapping of 12 core prompt keys to their AI system prompts
  */
 export const aiQuestionPrompts: Record<string, string> = {
   // General Information Questions
@@ -98,15 +96,6 @@ KEY AREAS TO ASSESS:
 - Quantifiable Impact: Incorporates relevant data, statistics, or research to substantiate the problem
 - Credibility: Uses cited evidence, research, or logical reasoning to support claims
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -138,15 +127,6 @@ KEY AREAS TO ASSESS:
 - Current Solutions: Provides detailed, accurate picture of existing alternatives or workarounds customers use today
 - Pain Evidence: Presents concrete examples of customer frustration, limitations, or dissatisfaction with existing solutions
 - Market Research: Supports claims about customer behavior or pain points with relevant market data or research
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
 
 ${BASE_FORMATTING_REQUIREMENTS}
 
@@ -180,15 +160,6 @@ KEY AREAS TO ASSESS:
 - Practical Actions: Realistic, specific, and actionable steps and processes that can be implemented
 - Intended Outcomes: Clear articulation of what changes or results are expected if this solution is applied
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -220,15 +191,6 @@ KEY AREAS TO ASSESS:
 - Model Clarity: Clear and understandable monetization strategy
 - Projections: ARR or MRR estimates supported by transparent calculations and logic
 - Industry Fit: Revenue model reflects proven business practices for the given sector
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
 
 ${BASE_FORMATTING_REQUIREMENTS}
 
@@ -262,15 +224,6 @@ KEY AREAS TO ASSESS:
 - Retention Focus: Specific strategies for ensuring customer retention and satisfaction
 - Lifecycle Management: Understanding of how relationships evolve over the customer journey
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -302,15 +255,6 @@ KEY AREAS TO ASSESS:
 - Systematic Feedback Collection: Organized, repeatable feedback mechanisms tailored to actual customers
 - Meaningful Customer Insights: Specific, actionable insights gained from customer feedback
 - Actionable Learning Integration: How insights from feedback have concretely improved the product or service
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
 
 ${BASE_FORMATTING_REQUIREMENTS}
 
@@ -344,15 +288,6 @@ KEY AREAS TO ASSESS:
 - Sustained Commitment: Evidence of continuous effort and dedication over time
 - Progress Demonstration: Clear progression and evolution of the concept, showing growth and learning
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -384,15 +319,6 @@ KEY AREAS TO ASSESS:
 - Competitive Analysis: Provides specific analysis of competitors' strengths and weaknesses
 - Differentiation: Clearly explains unique value proposition or advantages that set the idea apart
 - Market Understanding: Shows evidence of nuanced perspective on market dynamics, gaps, and opportunities
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
 
 ${BASE_FORMATTING_REQUIREMENTS}
 
@@ -426,15 +352,6 @@ KEY AREAS TO ASSESS:
 - Resource Alignment: Explains the technical skills available within the founding team or partners
 - Risk Awareness: Recognizes potential risks and includes realistic mitigation steps
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -467,15 +384,6 @@ KEY AREAS TO ASSESS:
 - Unique Insights: Special perspectives or advantages that other teams are unlikely to have
 - Passion/Commitment: Evidence of genuine, sustained interest and drive to build this solution
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -507,15 +415,6 @@ KEY AREAS TO ASSESS:
 - Readiness to Execute: Provides evidence of groundwork or clearly outlines immediate next steps
 - Sense of Urgency: Shows active intent and a bias toward starting or building quickly
 - Proactive Commitment: Describes steps already taken to prioritize the venture
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
 
 ${BASE_FORMATTING_REQUIREMENTS}
 

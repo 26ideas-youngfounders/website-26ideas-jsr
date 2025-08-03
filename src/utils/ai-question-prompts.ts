@@ -6,14 +6,13 @@
  * to its corresponding AI system prompt for the YFF questionnaire.
  * This serves as the single source of truth for all AI feedback prompts.
  * 
- * @version 1.0.0
+ * @version 2.0.0 - Updated with comprehensive three-tier resolution system
  * @author 26ideas Development Team
  */
 
 /**
  * Base formatting requirements for all AI feedback prompts
  * Ensures consistent bullet point handling and prevents orphaned text
- * Preprocessing ensures AI feedback list items are kept on one line, never split.
  */
 const BASE_FORMATTING_REQUIREMENTS = `
 CRITICAL FORMATTING REQUIREMENTS:
@@ -33,11 +32,10 @@ When formatting your feedback, ensure that each list item ("- Example") is a com
 `;
 
 /**
- * Complete mapping of question IDs to their AI system prompts
- * Maps all YFF questionnaire questions to their specialized AI mentor prompts
+ * Standardized mapping of 12 core prompt keys to their AI system prompts
+ * Updated to use consistent prompt keys across the entire system
  */
 export const aiQuestionPrompts: Record<string, string> = {
-  // General Information Questions
   "ideaDescription": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: Tell us about your idea
@@ -79,7 +77,6 @@ RESPONSE FORMAT:
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Problem Statement Question
   "problemSolved": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: What problem does your idea solve?
@@ -96,15 +93,6 @@ KEY AREAS TO ASSESS:
 - Quantifiable Impact: Incorporates relevant data, statistics, or research to substantiate the problem
 - Credibility: Uses cited evidence, research, or logical reasoning to support claims
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -121,7 +109,6 @@ RESPONSE FORMAT:
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Target Audience Question
   "targetAudience": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: Whose problem does your idea solve for?
@@ -138,15 +125,6 @@ KEY AREAS TO ASSESS:
 - Pain Evidence: Presents concrete examples of customer frustration, limitations, or dissatisfaction with existing solutions
 - Market Research: Supports claims about customer behavior or pain points with relevant market data or research
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -163,7 +141,6 @@ RESPONSE FORMAT:
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Solution Approach Question
   "solutionApproach": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How does your idea solve this problem?
@@ -180,15 +157,6 @@ KEY AREAS TO ASSESS:
 - Practical Actions: Realistic, specific, and actionable steps and processes that can be implemented
 - Intended Outcomes: Clear articulation of what changes or results are expected if this solution is applied
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -205,7 +173,6 @@ RESPONSE FORMAT:
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Monetization Strategy Question
   "monetizationStrategy": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How does your idea plan to make money by solving this problem?
@@ -222,15 +189,6 @@ KEY AREAS TO ASSESS:
 - Projections: ARR or MRR estimates supported by transparent calculations and logic
 - Industry Fit: Revenue model reflects proven business practices for the given sector
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -247,7 +205,6 @@ RESPONSE FORMAT:
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Customer Acquisition Question
   "customerAcquisition": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How do you plan to acquire first paying customers?
@@ -264,15 +221,6 @@ KEY AREAS TO ASSESS:
 - Retention Focus: Specific strategies for ensuring customer retention and satisfaction
 - Lifecycle Management: Understanding of how relationships evolve over the customer journey
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -289,7 +237,6 @@ RESPONSE FORMAT:
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Paying Customers Question (Early Revenue Stage)
   "payingCustomers": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How many paying customers does your idea already have?
@@ -306,15 +253,6 @@ KEY AREAS TO ASSESS:
 - Meaningful Customer Insights: Specific, actionable insights gained from customer feedback
 - Actionable Learning Integration: How insights from feedback have concretely improved the product or service
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -331,7 +269,6 @@ RESPONSE FORMAT:
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Working Duration Question (Early Revenue Stage)
   "workingDuration": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How long have you been working on this idea?
@@ -348,15 +285,6 @@ KEY AREAS TO ASSESS:
 - Sustained Commitment: Evidence of continuous effort and dedication over time
 - Progress Demonstration: Clear progression and evolution of the concept, showing growth and learning
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -373,7 +301,6 @@ RESPONSE FORMAT:
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Competitors Question
   "competitors": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: List 3 potential competitors in the similar space or attempting to solve a similar problem?
@@ -390,15 +317,6 @@ KEY AREAS TO ASSESS:
 - Differentiation: Clearly explains unique value proposition or advantages that set the idea apart
 - Market Understanding: Shows evidence of nuanced perspective on market dynamics, gaps, and opportunities
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -415,7 +333,6 @@ RESPONSE FORMAT:
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Development Approach Question
   "developmentApproach": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner?
@@ -432,15 +349,6 @@ KEY AREAS TO ASSESS:
 - Resource Alignment: Explains the technical skills available within the founding team or partners
 - Risk Awareness: Recognizes potential risks and includes realistic mitigation steps
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -457,7 +365,6 @@ RESPONSE FORMAT:
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Team Information Question
   "teamInfo": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: Who is on your team, and what are their roles?
@@ -474,15 +381,6 @@ KEY AREAS TO ASSESS:
 - Unique Insights: Special perspectives or advantages that other teams are unlikely to have
 - Passion/Commitment: Evidence of genuine, sustained interest and drive to build this solution
 
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
-
 ${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
@@ -499,7 +397,6 @@ RESPONSE FORMAT:
 **Quick tip:**
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`,
 
-  // Timeline Question
   "timeline": `You are an AI mentor helping Young Founders Floor participants improve their application responses.
 
 QUESTION: When do you plan to proceed with the idea?
@@ -515,15 +412,6 @@ KEY AREAS TO ASSESS:
 - Readiness to Execute: Provides evidence of groundwork or clearly outlines immediate next steps
 - Sense of Urgency: Shows active intent and a bias toward starting or building quickly
 - Proactive Commitment: Describes steps already taken to prioritize the venture
-
-FEEDBACK INSTRUCTIONS:
-- Analyze the response against the key areas above
-- Identify specific strengths in their current answer
-- Suggest concrete improvements with examples where possible
-- Provide actionable advice they can implement immediately
-- Be encouraging while being specific about gaps
-- Do not provide a numerical score
-- Focus on what would make their response more compelling to evaluators
 
 ${BASE_FORMATTING_REQUIREMENTS}
 
@@ -542,34 +430,195 @@ RESPONSE FORMAT:
 One key insight that could significantly strengthen their response, written as a brief paragraph without bullet points.`
 };
 
-/**
- * Helper function to get system prompt for a specific question
- * 
- * @param questionId - The unique identifier for the question
- * @returns The system prompt for the question, or null if not found
- */
-export const getSystemPrompt = (questionId: string): string | null => {
-  const prompt = aiQuestionPrompts[questionId] || null;
-  console.log('🔍 getSystemPrompt called with:', questionId, 'Found prompt:', !!prompt);
-  return prompt;
+// Question ID variations mapping - comprehensive coverage of all possible frontend identifiers
+const questionIdMappings: Record<string, string> = {
+  // ideaDescription variations
+  "ideaDescription": "ideaDescription",
+  "idea_description": "ideaDescription", 
+  "tell_us_about_idea": "ideaDescription",
+  
+  // problemSolved variations
+  "problemSolved": "problemSolved",
+  "problem_solved": "problemSolved",
+  "problem_statement": "problemSolved",
+  "what_problem": "problemSolved",
+  
+  // targetAudience variations
+  "targetAudience": "targetAudience",
+  "target_audience": "targetAudience",
+  "whose_problem": "targetAudience",
+  "target_market": "targetAudience",
+  
+  // solutionApproach variations
+  "solutionApproach": "solutionApproach",
+  "solution_approach": "solutionApproach",
+  "how_solve_problem": "solutionApproach",
+  "solution": "solutionApproach",
+  
+  // monetizationStrategy variations
+  "monetizationStrategy": "monetizationStrategy",
+  "monetization_strategy": "monetizationStrategy",
+  "how_make_money": "monetizationStrategy",
+  "making_money": "monetizationStrategy",
+  "revenue_model": "monetizationStrategy",
+  
+  // customerAcquisition variations
+  "customerAcquisition": "customerAcquisition",
+  "customer_acquisition": "customerAcquisition",
+  "acquire_customers": "customerAcquisition",
+  "acquiring_customers": "customerAcquisition",
+  "customer_acquisition_plan": "customerAcquisition",
+  
+  // payingCustomers variations
+  "payingCustomers": "payingCustomers",
+  "paying_customers": "payingCustomers",
+  "first_paying_customers": "payingCustomers",
+  "current_customers": "payingCustomers",
+  
+  // workingDuration variations
+  "workingDuration": "workingDuration",
+  "working_duration": "workingDuration",
+  "how_long_working": "workingDuration",
+  "duration": "workingDuration",
+  
+  // competitors variations
+  "competitors": "competitors",
+  "competitor_analysis": "competitors",
+  "list_competitors": "competitors",
+  "competition": "competitors",
+  
+  // developmentApproach variations
+  "developmentApproach": "developmentApproach",
+  "development_approach": "developmentApproach",
+  "product_development": "developmentApproach",
+  "how_developing_product": "developmentApproach",
+  "tech_approach": "developmentApproach",
+  
+  // teamInfo variations
+  "teamInfo": "teamInfo",
+  "team_info": "teamInfo",
+  "team_roles": "teamInfo",
+  "who_on_team": "teamInfo",
+  "team_members": "teamInfo",
+  "team": "teamInfo",
+  
+  // timeline variations
+  "timeline": "timeline",
+  "when_proceed": "timeline",
+  "proceed_timeline": "timeline",
+  "launch_timeline": "timeline"
+};
+
+// Question text to prompt key mapping - exact and partial text matching
+const questionTextMappings: Record<string, string> = {
+  "Tell us about your idea": "ideaDescription",
+  "Please articulate your business idea with specificity and clarity. Avoid using vague and generic statements.": "ideaDescription",
+  "What problem does your idea solve?": "problemSolved",
+  "What is the specific problem your business idea aims to solve? Explain its significance, include relevant data or statistics to quantify its impact, and cite any sources or research that support your answer.": "problemSolved",
+  "Whose problem does your idea solve for?": "targetAudience",
+  "Who is your ideal customer, and what solutions do they currently use to address the problem you are solving? Describe how these customers are addressing the problem today, provide evidence of their pain points, and support your answer with relevant market research and data.": "targetAudience",
+  "How does your idea solve this problem?": "solutionApproach",
+  "How does your idea solve the problem? Please explain your approach and the specific actions your solution takes to address this issue.": "solutionApproach",
+  "How does your idea plan to make money by solving this problem?": "monetizationStrategy",
+  "How will your business generate revenue? Please describe all the ways you plan to earn income (e.g., product sales, subscriptions, services, advertising, etc.). Provide your Annual Recurring Revenue (ARR) or Monthly Recurring Revenue (MRR) projections, and explain how you arrived at these numbers.": "monetizationStrategy",
+  "How do you plan to acquire first paying customers?": "customerAcquisition",
+  "How will you build and maintain relationships with your customers? Describe your customer relationship strategy, key touchpoints, and how you plan to ensure customer retention and satisfaction.": "customerAcquisition",
+  "How many paying customers does your idea already have?": "payingCustomers",
+  "How are you currently delivering your product or service to customers and what structured feedback mechanisms have you implemented? Describe your delivery process, feedback collection methods, and key insights gained from customer interactions.": "payingCustomers",
+  "How long have you been working on this idea?": "workingDuration",
+  "Specify the duration for which you and your team have been working on your business idea. Include any relevant milestones or stages you have reached over this period.": "workingDuration",
+  "List 3 potential competitors in the similar space or attempting to solve a similar problem?": "competitors",
+  "Who are your main competitors (both direct and indirect), and how does your idea stand out from them? Identify two existing competitors, explain their strengths and weaknesses, and describe the specific ways your idea is different or better. If you believe there are no competitors in this space, please support this claim with credible data or evidence.": "competitors",
+  "How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner?": "developmentApproach",
+  "How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner? Specify your product development approach. Clearly state whether you are building the product in-house (using your own team or resources), in partnership with a technical co-founder, or by outsourcing the work to an external agency or development partner. If your approach is hybrid or changed over time, explain how and why.": "developmentApproach",
+  "Who is on your team, and what are their roles?": "teamInfo",
+  "Describe how you/your team's background, skills, and experience uniquely qualify you to tackle this problem. What insights or advantages do you/your team have that make you the right person to build this solution?": "teamInfo",
+  "When do you plan to proceed with the idea?": "timeline",
+  "Please specify your planned timeline or schedule for moving forward with your business idea, including key milestones or phases if applicable.": "timeline"
 };
 
 /**
- * Helper function to check if a question has AI feedback enabled
+ * Three-tier resolution function to resolve any question identifier to a prompt key
+ * This ensures maximum coverage across all possible question formats
  * 
- * @param questionId - The unique identifier for the question
- * @returns True if AI feedback is available for this question
+ * @param questionId - The question ID used by the frontend component
+ * @param questionText - The actual question text shown to the user
+ * @returns The resolved prompt key, or null if no mapping exists
  */
-export const hasAIFeedback = (questionId: string): boolean => {
-  const result = questionId in aiQuestionPrompts;
-  console.log('🔍 hasAIFeedback check:', questionId, '->', result);
+export const resolvePromptKey = (questionId?: string, questionText?: string): string | null => {
+  console.log('🔍 Three-tier resolution for:', { questionId, questionText: questionText?.substring(0, 50) });
   
-  // Debug: Show all available question IDs when checking
-  if (!result) {
-    console.log('🔍 Available question IDs:', Object.keys(aiQuestionPrompts));
+  // Tier 1: Direct ID mapping
+  if (questionId && questionIdMappings[questionId]) {
+    const resolved = questionIdMappings[questionId];
+    console.log('✅ Tier 1 - Direct ID mapping found:', resolved);
+    return resolved;
   }
   
-  return result;
+  // Tier 2: Exact question text mapping
+  if (questionText) {
+    const trimmedText = questionText.trim();
+    if (questionTextMappings[trimmedText]) {
+      const resolved = questionTextMappings[trimmedText];
+      console.log('✅ Tier 2 - Exact text mapping found:', resolved);
+      return resolved;
+    }
+  }
+  
+  // Tier 3: Partial text matching for sub-questions and variations
+  if (questionText) {
+    const lowerText = questionText.toLowerCase();
+    for (const [textKey, promptKey] of Object.entries(questionTextMappings)) {
+      const lowerKey = textKey.toLowerCase();
+      
+      // Check if question text contains key phrases from the mapping
+      if (lowerText.includes(lowerKey.substring(0, 20)) || 
+          lowerKey.includes(lowerText.substring(0, 20))) {
+        console.log('✅ Tier 3 - Partial text match found:', promptKey);
+        return promptKey;
+      }
+    }
+  }
+  
+  console.log('❌ No prompt key resolved for:', { questionId, questionText });
+  return null;
+};
+
+/**
+ * Get system prompt for a specific question using three-tier resolution
+ * 
+ * @param questionId - The question ID used by the frontend
+ * @param questionText - The actual question text shown to users
+ * @returns The system prompt for the question, or null if not found
+ */
+export const getSystemPrompt = (questionId?: string, questionText?: string): string | null => {
+  const promptKey = resolvePromptKey(questionId, questionText);
+  if (!promptKey) return null;
+  
+  const prompt = aiQuestionPrompts[promptKey];
+  console.log('🤖 System prompt', prompt ? 'found' : 'not found', 'for key:', promptKey);
+  return prompt || null;
+};
+
+/**
+ * Check if AI feedback is available for a question using three-tier resolution
+ * 
+ * @param questionId - The question ID used by the frontend
+ * @param questionText - The actual question text shown to users
+ * @returns True if AI feedback is available for this question
+ */
+export const hasAIFeedback = (questionId?: string, questionText?: string): boolean => {
+  const promptKey = resolvePromptKey(questionId, questionText);
+  const hasPrompt = promptKey !== null && promptKey in aiQuestionPrompts;
+  
+  console.log('🔍 hasAIFeedback result:', {
+    questionId,
+    promptKey,
+    hasPrompt,
+    questionText: questionText?.substring(0, 30)
+  });
+  
+  return hasPrompt;
 };
 
 /**
@@ -589,7 +638,7 @@ export type AIEnabledQuestionId = keyof typeof aiQuestionPrompts;
 
 /**
  * Validation function to ensure all required questions have prompts
- * Useful for testing and debugging
+ * Useful for testing and debugging the mapping system
  * 
  * @param requiredQuestions - Array of question IDs that must have prompts
  * @returns Object with missing questions and validation status
@@ -605,9 +654,22 @@ export const validateQuestionPrompts = (requiredQuestions: string[]) => {
 };
 
 /**
- * Debug function to log all available prompts
+ * Debug function to validate and inspect the mapping system
  */
-export const debugPrompts = () => {
-  console.log('🔍 All available AI prompts:', Object.keys(aiQuestionPrompts));
-  console.log('🔍 Total prompts available:', Object.keys(aiQuestionPrompts).length);
+export const debugMappingSystem = () => {
+  console.log('🔍 AI Feedback Mapping System Debug:');
+  console.log('📊 Total prompt keys:', Object.keys(aiQuestionPrompts).length);
+  console.log('🗂️ Question ID mappings:', Object.keys(questionIdMappings).length);
+  console.log('📝 Question text mappings:', Object.keys(questionTextMappings).length);
+  
+  // Test resolution for each prompt key
+  const promptKeys = Object.keys(aiQuestionPrompts);
+  console.log('✅ Available prompt keys:', promptKeys);
+  
+  return {
+    totalPrompts: Object.keys(aiQuestionPrompts).length,
+    idMappings: Object.keys(questionIdMappings).length,
+    textMappings: Object.keys(questionTextMappings).length,
+    promptKeys
+  };
 };

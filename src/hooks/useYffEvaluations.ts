@@ -56,7 +56,7 @@ export const useYffEvaluations = () => {
       const completed = applications?.filter(app => app.evaluation_status === 'completed').length || 0;
       const failed = applications?.filter(app => app.evaluation_status === 'failed').length || 0;
 
-      const completedApps = applications?.filter(app => app.evaluation_status === 'completed' && app.overall_score > 0) || [];
+      const completedApps = applications?.filter(app => app.evaluation_status === 'completed' && app.overall_score && app.overall_score > 0) || [];
       const averageScore = completedApps.length > 0
         ? completedApps.reduce((sum, app) => sum + (app.overall_score || 0), 0) / completedApps.length
         : 0;
@@ -254,14 +254,14 @@ export const useYffEvaluations = () => {
       if (error) throw error;
 
       // Convert to CSV format
-      const csvData = evaluations?.map(eval => ({
-        'Application ID': eval.application_id?.slice(0, 8) + '...',
-        'Applicant Name': eval.yff_applications?.individuals?.first_name + ' ' + eval.yff_applications?.individuals?.last_name,
-        'Email': eval.yff_applications?.individuals?.email,
-        'Overall Score': eval.overall_score,
-        'Evaluation Date': eval.evaluation_completed_at ? new Date(eval.evaluation_completed_at).toLocaleDateString() : 'N/A',
-        'Questions Evaluated': Object.keys(eval.question_scores || {}).length,
-        'Status': eval.yff_applications?.status,
+      const csvData = evaluations?.map(evaluation => ({
+        'Application ID': evaluation.application_id?.slice(0, 8) + '...',
+        'Applicant Name': evaluation.yff_applications?.individuals?.first_name + ' ' + evaluation.yff_applications?.individuals?.last_name,
+        'Email': evaluation.yff_applications?.individuals?.email,
+        'Overall Score': evaluation.overall_score,
+        'Evaluation Date': evaluation.evaluation_completed_at ? new Date(evaluation.evaluation_completed_at).toLocaleDateString() : 'N/A',
+        'Questions Evaluated': Object.keys(evaluation.question_scores || {}).length,
+        'Status': evaluation.yff_applications?.status,
       }));
 
       return csvData;

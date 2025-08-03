@@ -19,17 +19,76 @@ export type BaseYffApplicationUpdate = Database['public']['Tables']['yff_applica
 export interface ExtendedYffApplication extends BaseYffApplication {
   created_at: string;
   updated_at: string;
+  evaluation_status?: string;
+  overall_score?: number;
+  evaluation_completed_at?: string;
+  evaluation_data?: Record<string, any>;
 }
 
 export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {
   created_at?: string;
   updated_at?: string;
+  evaluation_status?: string;
+  overall_score?: number;
+  evaluation_completed_at?: string;
+  evaluation_data?: Record<string, any>;
 }
 
 export interface ExtendedYffApplicationUpdate extends BaseYffApplicationUpdate {
   created_at?: string;
   updated_at?: string;
+  evaluation_status?: string;
+  overall_score?: number;
+  evaluation_completed_at?: string;
+  evaluation_data?: Record<string, any>;
 }
+
+/**
+ * Type for parsed application answers
+ */
+export interface ParsedApplicationAnswers {
+  questionnaire_answers?: Record<string, any>;
+  team?: Record<string, any>;
+  [key: string]: any;
+}
+
+/**
+ * Safely parse application answers from Json type
+ */
+export const parseApplicationAnswers = (answers: any): ParsedApplicationAnswers => {
+  if (typeof answers === 'string') {
+    try {
+      return JSON.parse(answers) as ParsedApplicationAnswers;
+    } catch {
+      return {};
+    }
+  }
+  
+  if (typeof answers === 'object' && answers !== null) {
+    return answers as ParsedApplicationAnswers;
+  }
+  
+  return {};
+};
+
+/**
+ * Safely parse evaluation data from Json type
+ */
+export const parseEvaluationData = (data: any): Record<string, any> => {
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data) as Record<string, any>;
+    } catch {
+      return {};
+    }
+  }
+  
+  if (typeof data === 'object' && data !== null) {
+    return data as Record<string, any>;
+  }
+  
+  return {};
+};
 
 /**
  * Converts form data to JSON format compatible with Supabase

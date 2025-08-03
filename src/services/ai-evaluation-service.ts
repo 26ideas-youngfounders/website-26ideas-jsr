@@ -10,6 +10,8 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
+import { parseApplicationAnswers, type ParsedApplicationAnswers } from '@/types/yff-application';
 
 export interface QuestionEvaluation {
   score: number; // 1-10
@@ -396,6 +398,7 @@ async function callOpenAIForEvaluation(systemPrompt: string, userAnswer: string)
  */
 async function generateIdeaSummary(application: any, evaluations: Record<string, QuestionEvaluation>): Promise<string> {
   const overallScore = calculateAverageScore(evaluations);
+  const parsedAnswers = parseApplicationAnswers(application.answers);
   
   const summaryPrompt = `
 You are an expert startup evaluator creating a comprehensive summary of a business idea submission.
@@ -409,15 +412,15 @@ Based on the following application responses and their evaluations, create a 200
 5. Overall Assessment & Key Recommendations
 
 Application Details:
-- Product Stage: ${application.answers?.questionnaire_answers?.productStage || 'Not specified'}
+- Product Stage: ${parsedAnswers.questionnaire_answers?.productStage || 'Not specified'}
 - Overall Score: ${overallScore}/10
-- Team Name: ${application.answers?.team?.teamName || 'Not specified'}
-- Venture Name: ${application.answers?.team?.ventureName || 'Not specified'}
+- Team Name: ${parsedAnswers.team?.teamName || 'Not specified'}
+- Venture Name: ${parsedAnswers.team?.ventureName || 'Not specified'}
 
 Key Application Responses:
-- Idea: ${application.answers?.questionnaire_answers?.ideaDescription || 'Not provided'}
-- Problem: ${application.answers?.questionnaire_answers?.problemSolved || 'Not provided'}
-- Solution: ${application.answers?.questionnaire_answers?.solutionApproach || 'Not provided'}
+- Idea: ${parsedAnswers.questionnaire_answers?.ideaDescription || 'Not provided'}
+- Problem: ${parsedAnswers.questionnaire_answers?.problemSolved || 'Not provided'}
+- Solution: ${parsedAnswers.questionnaire_answers?.solutionApproach || 'Not provided'}
 
 Provide a balanced, professional executive summary suitable for admin review that highlights both strengths and areas needing attention.
 `;
@@ -471,7 +474,8 @@ export async function evaluateApplication(applicationId: string): Promise<Applic
       .eq('application_id', applicationId);
 
     const evaluations: Record<string, QuestionEvaluation> = {};
-    const answers = application.answers?.questionnaire_answers || {};
+    const parsedAnswers = parseApplicationAnswers(application.answers);
+    const answers = parsedAnswers.questionnaire_answers || {};
     
     console.log('Found answers for evaluation:', Object.keys(answers));
     
@@ -508,14 +512,14 @@ export async function evaluateApplication(applicationId: string): Promise<Applic
       .from('yff_evaluations')
       .insert({
         application_id: applicationId,
-        question_scores: evaluations,
+        question_scores: evaluations as Json,
         overall_score: overallScore,
         idea_summary: ideaSummary,
         evaluation_metadata: {
           evaluated_at: new Date().toISOString(),
           questions_evaluated: Object.keys(evaluations),
           evaluation_count: Object.keys(evaluations).length
-        }
+        } as Json
       });
 
     if (insertError) {
@@ -527,7 +531,7 @@ export async function evaluateApplication(applicationId: string): Promise<Applic
     await supabase
       .from('yff_applications')
       .update({
-        evaluation_data: evaluations,
+        evaluation_data: evaluations as Json,
         overall_score: overallScore,
         evaluation_status: 'completed',
         evaluation_completed_at: new Date().toISOString()
@@ -574,7 +578,7 @@ export async function reEvaluateApplication(applicationId: string): Promise<Appl
     .from('yff_applications')
     .update({
       evaluation_status: 'pending',
-      evaluation_data: {},
+      evaluation_data: {} as Json,
       overall_score: 0,
       evaluation_completed_at: null
     })

@@ -9,7 +9,7 @@ import Footer from "./components/Footer";
 import Index from "./pages/Index";
 import AnnualRetreat from "./pages/AnnualRetreat";
 import { YffLandingPage } from "./pages/YffLandingPage";
-import { YffQuestionnaire } from "./pages/YffQuestionnaire";
+import YffQuestionnaire from "./pages/YffQuestionnaire";
 import { YffTeamRegistration } from "./pages/YffTeamRegistration";
 import YffTeamInformation from "./pages/YffTeamInformation";
 import MentorSignup from "./pages/MentorSignup";

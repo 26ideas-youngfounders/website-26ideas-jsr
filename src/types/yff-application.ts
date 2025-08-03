@@ -20,7 +20,7 @@ export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evalua
   created_at: string;
   updated_at: string;
   evaluation_status: string; // Required field, not optional
-  overall_score: number | null; // Match the base type requirement - can be null for unevaluated applications
+  overall_score?: number;
   evaluation_completed_at?: string | null;
   evaluation_data: Record<string, any>; // Make required to match base type
   individuals?: {
@@ -34,7 +34,7 @@ export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {
   created_at?: string;
   updated_at?: string;
   evaluation_status?: string;
-  overall_score?: number | null;
+  overall_score?: number;
   evaluation_completed_at?: string | null;
   evaluation_data?: Record<string, any>;
 }
@@ -43,7 +43,7 @@ export interface ExtendedYffApplicationUpdate extends BaseYffApplicationUpdate {
   created_at?: string;
   updated_at?: string;
   evaluation_status?: string;
-  overall_score?: number | null;
+  overall_score?: number;
   evaluation_completed_at?: string | null;
   evaluation_data?: Record<string, any>;
 }
@@ -155,22 +155,4 @@ export const getStagePrompts = (stage: ApplicationStage): StagePromptMapping => 
   // This will be populated with the actual prompt mappings
   // Based on the stage (idea vs early_revenue)
   return {};
-};
-
-/**
- * Helper function to get display score for applications
- * Handles null/undefined values gracefully
- */
-export const getDisplayScore = (score: number | null | undefined): string => {
-  if (score === null || score === undefined) {
-    return '—';
-  }
-  return `${score}/10`;
-};
-
-/**
- * Helper function to check if application has been evaluated
- */
-export const isApplicationEvaluated = (application: ExtendedYffApplication): boolean => {
-  return application.evaluation_status === 'completed' && application.overall_score !== null;
 };

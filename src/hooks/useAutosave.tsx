@@ -25,13 +25,11 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [conflictCount, setConflictCount] = useState(0);
   const [saveAttempts, setSaveAttempts] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
 
   // Type-safe status setter
   const setStatusSafe = useCallback((newStatus: AutosaveStatus) => {
     if (validateAndSetStatus(newStatus, setStatus)) {
       console.log('💾 [AUTOSAVE] Status changed:', newStatus);
-      setIsSaving(newStatus === 'saving');
     }
   }, []);
 
@@ -107,13 +105,13 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
   }, [user?.id, formType, setStatusSafe]);
 
   // Enhanced save with different logic for questionnaire vs registration
-  const saveData = useCallback(async (data: any, key?: string, immediate?: boolean) => {
+  const saveData = useCallback(async (data: any) => {
     if (!user?.id) {
       logAutosave('No user ID available for autosave');
       return;
     }
 
-    if (isInitialLoad && !immediate) {
+    if (isInitialLoad) {
       logAutosave('Skipping autosave during initial load');
       return;
     }
@@ -296,11 +294,9 @@ export const useAutosave = ({ formData, debounceMs = 2000, formType = 'yff_team_
 
   return {
     status,
-    lastSaved: lastSaved || new Date(),
+    lastSaved,
     loadSavedData,
     clearSavedData,
-    saveData,
-    isSaving,
     isLoading: status === 'loading',
     saveAttempts,
     conflictCount,

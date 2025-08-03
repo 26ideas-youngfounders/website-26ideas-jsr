@@ -19,8 +19,45 @@ export interface YffFormData {
   lastName: string;
   email: string;
   phone: string;
+  phoneNumber: string;
+  countryCode: string;
   dateOfBirth: string;
   nationality: string;
+  gender: string;
+  
+  // Team & Venture Information
+  ventureName: string;
+  teamName: string;
+  numberOfTeamMembers: number;
+  teamMembers: any[];
+  
+  // Location & Education
+  currentCity: string;
+  state: string;
+  pinCode: string;
+  permanentAddress: string;
+  institutionName: string;
+  courseProgram: string;
+  currentYearOfStudy: string;
+  expectedGraduation: string;
+  
+  // Professional Details
+  industrySector: string;
+  website: string;
+  linkedinProfile: string;
+  socialMediaHandles: string;
+  
+  // Product & Market Information
+  productStage: string;
+  businessModel: string;
+  targetMarket: string;
+  problemSolution: string;
+  marketSize: string;
+  competitiveAdvantage: string;
+  teamExperience: string;
+  fundingNeeds: string;
+  currentChallenges: string;
+  whyYff: string;
   
   // Application Questions
   whyApplying: string;
@@ -29,4 +66,7 @@ export interface YffFormData {
   challenges: string;
   goals: string;
   commitment: string;
+  
+  // Additional fields
+  referralId: string;
 }

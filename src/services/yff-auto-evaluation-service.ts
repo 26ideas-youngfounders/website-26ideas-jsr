@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Automatic YFF Application Evaluation Service
  * 
@@ -23,7 +22,7 @@ const transformFormDataForDB = (formData: YffFormData, individualId: string) => 
       firstName: formData.firstName,
       lastName: formData.lastName,
       email: formData.email,
-      phoneNumber: formData.phoneNumber,
+      phoneNumber: formData.phoneNumber || formData.phone,
       countryCode: formData.countryCode,
       dateOfBirth: formData.dateOfBirth,
       gender: formData.gender,
@@ -60,15 +59,15 @@ const transformFormDataForDB = (formData: YffFormData, individualId: string) => 
     // Questionnaire answers - the key data for AI evaluation
     questionnaire_answers: {
       productStage: formData.productStage,
-      businessModel: formData.businessModel,
+      businessModel: formData.businessModel || formData.businessIdea,
       targetMarket: formData.targetMarket,
       problemSolution: formData.problemSolution,
       marketSize: formData.marketSize,
       competitiveAdvantage: formData.competitiveAdvantage,
-      teamExperience: formData.teamExperience,
+      teamExperience: formData.teamExperience || formData.experience,
       fundingNeeds: formData.fundingNeeds,
-      currentChallenges: formData.currentChallenges,
-      whyYff: formData.whyYff,
+      currentChallenges: formData.currentChallenges || formData.challenges,
+      whyYff: formData.whyYff || formData.whyApplying,
     },
     
     // Additional data

@@ -33,15 +33,18 @@ const YffQuestionnaireForm: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Initialize form data
+  // Initialize form data with all required fields
   const [formData, setFormData] = useState<YffFormData>({
     // Basic Information
     firstName: '',
     lastName: '',
     email: user?.email || '',
+    phone: '',
     phoneNumber: '',
     countryCode: '+91',
     dateOfBirth: '',
+    nationality: '',
+    gender: '',
     
     // Team Information
     ventureName: '',
@@ -77,22 +80,28 @@ const YffQuestionnaireForm: React.FC = () => {
     currentChallenges: '',
     whyYff: '',
     
+    // Application Questions (backward compatibility)
+    whyApplying: '',
+    businessIdea: '',
+    experience: '',
+    challenges: '',
+    goals: '',
+    commitment: '',
+    
     // Additional fields
-    gender: '',
     referralId: '',
   });
 
   // Autosave functionality
-  const { saveData, lastSaved, isSaving } = useAutosave(
-    'yff-questionnaire',
+  const { saveData, lastSaved, isSaving, status } = useAutosave({
     formData,
-    user?.id || ''
-  );
+    formType: 'yff-questionnaire'
+  });
 
   // Auto-save when form data changes
   useEffect(() => {
     if (user?.id && Object.keys(formData).some(key => formData[key as keyof YffFormData])) {
-      saveData();
+      saveData(formData, 'yff-questionnaire');
     }
   }, [formData, user?.id, saveData]);
 
@@ -244,6 +253,7 @@ const YffQuestionnaireForm: React.FC = () => {
 
         {/* Autosave Indicator */}
         <YffAutosaveIndicator 
+          status={status}
           lastSaved={lastSaved}
           isSaving={isSaving}
           className="mb-6"
@@ -258,7 +268,7 @@ const YffQuestionnaireForm: React.FC = () => {
             <YffFormSections
               currentStep={currentStep}
               formData={formData}
-              updateFormData={updateFormData}
+              onFieldChange={updateFormData}
             />
           </CardContent>
         </Card>

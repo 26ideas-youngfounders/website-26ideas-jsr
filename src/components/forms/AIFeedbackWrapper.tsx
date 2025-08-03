@@ -33,30 +33,28 @@ export const AIFeedbackWrapper: React.FC<AIFeedbackWrapperProps> = ({
   disabled = false,
   minCharacters = 10
 }) => {
-  // Debug the mapping system on first render
-  React.useEffect(() => {
-    debugMappingSystem();
-  }, []);
-
   console.log('🔍 AIFeedbackWrapper - Processing:', {
     baseQuestionId,
-    questionText: questionText?.substring(0, 50) + '...',
+    questionText: questionText?.substring(0, 50),
     currentStage,
-    answerLength: userAnswer.length,
+    answerLength: userAnswer?.length || 0,
     minCharacters
   });
+  
+  // Ensure userAnswer is defined
+  const answer = userAnswer || '';
   
   // Use the three-tier resolution system
   const promptKey = resolvePromptKey(baseQuestionId, questionText);
   const hasFeedbackAvailable = hasAIFeedback(baseQuestionId, questionText);
-  const meetMinLength = userAnswer.length >= minCharacters;
+  const meetMinLength = answer.length >= minCharacters;
   const shouldShowButton = hasFeedbackAvailable && meetMinLength;
 
   console.log('🔍 AIFeedbackWrapper Resolution:', {
     baseQuestionId,
     promptKey,
     currentStage,
-    answerLength: userAnswer.length,
+    answerLength: answer.length,
     minCharacters,
     hasFeedbackAvailable,
     meetMinLength,
@@ -70,7 +68,7 @@ export const AIFeedbackWrapper: React.FC<AIFeedbackWrapperProps> = ({
         <AIFeedbackButton
           questionId={baseQuestionId}
           questionText={questionText}
-          userAnswer={userAnswer}
+          userAnswer={answer}
           onFeedbackReceived={onFeedbackReceived}
           disabled={disabled}
         />

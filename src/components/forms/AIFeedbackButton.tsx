@@ -46,21 +46,28 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
   const [hasReceived, setHasReceived] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
 
+  // Ensure userAnswer is defined
+  const answer = userAnswer || '';
+
   // Use three-tier resolution to get the prompt key
   const promptKey = resolvePromptKey(questionId, questionText);
   const feedbackAvailable = hasAIFeedback(questionId, questionText);
 
   console.log('🤖 AIFeedbackButton render:', {
     questionId,
-    questionText: questionText?.substring(0, 50),
+    questionText: questionText?.substring(0, 50) || 'undefined',
     promptKey,
     feedbackAvailable,
-    answerLength: userAnswer.length
+    answerLength: answer.length
   });
 
   // Don't show if no prompt available or answer is too short
-  if (!feedbackAvailable || !promptKey || userAnswer.length < 10) {
-    console.log('❌ AIFeedbackButton hidden:', { feedbackAvailable, promptKey, answerLength: userAnswer.length });
+  if (!feedbackAvailable || !promptKey || answer.length < 10) {
+    console.log('❌ AIFeedbackButton hidden:', { 
+      feedbackAvailable, 
+      promptKey, 
+      answerLength: answer.length 
+    });
     return null;
   }
 
@@ -72,12 +79,12 @@ export const AIFeedbackButton: React.FC<AIFeedbackButtonProps> = ({
     
     try {
       console.log('🤖 Requesting AI feedback with resolved prompt key:', promptKey);
-      console.log('🤖 Answer length:', userAnswer.length);
+      console.log('🤖 Answer length:', answer.length);
       
       const { data, error } = await supabase.functions.invoke('ai-feedback', {
         body: {
           questionId: promptKey, // Use the resolved prompt key
-          userAnswer: userAnswer.trim()
+          userAnswer: answer.trim()
         }
       });
 

@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview AI Question Prompts Configuration
  * 
@@ -546,7 +545,10 @@ const questionTextMappings: Record<string, string> = {
  * @returns The resolved prompt key, or null if no mapping exists
  */
 export const resolvePromptKey = (questionId?: string, questionText?: string): string | null => {
-  console.log('🔍 Three-tier resolution for:', { questionId, questionText: questionText?.substring(0, 50) });
+  console.log('🔍 Three-tier resolution for:', { 
+    questionId, 
+    questionText: questionText ? questionText.substring(0, 50) + '...' : 'undefined'
+  });
   
   // Tier 1: Direct ID mapping
   if (questionId && questionIdMappings[questionId]) {
@@ -580,7 +582,7 @@ export const resolvePromptKey = (questionId?: string, questionText?: string): st
     }
   }
   
-  console.log('❌ No prompt key resolved for:', { questionId, questionText });
+  console.log('❌ No prompt key resolved for:', { questionId, questionText: questionText?.substring(0, 30) });
   return null;
 };
 
@@ -615,7 +617,7 @@ export const hasAIFeedback = (questionId?: string, questionText?: string): boole
     questionId,
     promptKey,
     hasPrompt,
-    questionText: questionText?.substring(0, 30)
+    questionText: questionText?.substring(0, 30) || 'undefined'
   });
   
   return hasPrompt;

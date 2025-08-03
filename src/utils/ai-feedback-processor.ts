@@ -1,4 +1,3 @@
-
 /**
  * AI Feedback Text Processing Utilities
  * 
@@ -31,7 +30,7 @@ export function fixOrphanedBullets(feedback: string): string {
     
     // Skip empty lines - they're intentional formatting/spacing
     if (trimmed === '') {
-      processedLines.push(trimmed);
+      processedLines.push('');
       continue;
     }
     
@@ -45,11 +44,21 @@ export function fixOrphanedBullets(feedback: string): string {
       processedLines.push(trimmed);
     } else if (processedLines.length > 0) {
       // This appears to be a continuation of the previous line
-      // Merge it with the previous line (separated by a space if needed)
-      const lastIndex = processedLines.length - 1;
-      const lastLine = processedLines[lastIndex];
-      const needsSpace = lastLine.length > 0 && !lastLine.endsWith(' ');
-      processedLines[lastIndex] = lastLine + (needsSpace ? ' ' : '') + trimmed;
+      // Find the last non-empty line to merge with
+      let lastIndex = processedLines.length - 1;
+      while (lastIndex >= 0 && processedLines[lastIndex].trim() === '') {
+        lastIndex--;
+      }
+      
+      if (lastIndex >= 0) {
+        // Merge it with the last non-empty line (separated by a space if needed)
+        const lastLine = processedLines[lastIndex];
+        const needsSpace = lastLine.length > 0 && !lastLine.endsWith(' ') && !lastLine.endsWith('.') && !lastLine.endsWith(',');
+        processedLines[lastIndex] = lastLine + (needsSpace ? ' ' : '') + trimmed;
+      } else {
+        // No previous line found - keep it as-is
+        processedLines.push(trimmed);
+      }
     } else {
       // First line but not a proper format - keep it as-is
       processedLines.push(trimmed);
@@ -118,17 +127,21 @@ export function processFeedbackText(rawFeedback: string): string {
     return '';
   }
 
-  // Apply orphaned bullet fix
+  // Apply orphaned bullet fix first
   let processed = fixOrphanedBullets(rawFeedback);
   
   // Additional cleanup: ensure consistent spacing and remove asterisk bullets
   processed = processed
-    // Remove excessive whitespace
+    // Remove excessive whitespace but preserve intentional double line breaks
     .replace(/\n{3,}/g, '\n\n')
     // Ensure proper spacing around headings
     .replace(/(\*\*[^*]+\*\*)\n(?!\n)/g, '$1\n\n')
     // Clean up any remaining asterisk bullets - convert to dashes
-    .replace(/^\* /gm, '- ');
+    .replace(/^\* /gm, '- ')
+    // Remove any trailing spaces from lines
+    .split('\n')
+    .map(line => line.trimEnd())
+    .join('\n');
 
   return processed.trim();
 }

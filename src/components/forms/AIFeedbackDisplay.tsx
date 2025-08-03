@@ -1,5 +1,3 @@
-
-
 /**
  * AI Feedback Display Component
  * 
@@ -12,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Sparkles, TrendingUp, Target, AlertTriangle, RefreshCw } from 'lucide-react';
 import { AIFeedbackResponse } from './AIFeedbackButton';
+import { processFeedbackText } from '@/utils/ai-feedback-processor';
 import './ai-feedback-styles.css';
 
 interface AIFeedbackDisplayProps {
@@ -68,6 +67,7 @@ const markdownComponents = {
 
 /**
  * Display component for AI-generated feedback with scoring and suggestions
+ * Includes preprocessing to fix orphaned bullet points and ensure consistent formatting
  */
 export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
   feedback,
@@ -125,6 +125,11 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
       </Card>
     );
   }
+
+  // Process the raw feedback to fix orphaned bullets and formatting issues
+  const processedFeedback = feedback.rawFeedback 
+    ? processFeedbackText(feedback.rawFeedback)
+    : '';
 
   return (
     <Card className="mt-3 border-blue-200 bg-blue-50">
@@ -186,11 +191,11 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
           </div>
         )}
 
-        {/* Enhanced Raw Feedback with Markdown Rendering and Custom Bullet Points */}
-        {feedback.strengths.length === 0 && feedback.improvements.length === 0 && feedback.rawFeedback && (
+        {/* Enhanced Raw Feedback with Markdown Rendering and Preprocessing */}
+        {feedback.strengths.length === 0 && feedback.improvements.length === 0 && processedFeedback && (
           <div className="ai-feedback-content prose prose-sm max-w-none">
             <ReactMarkdown components={markdownComponents}>
-              {feedback.rawFeedback}
+              {processedFeedback}
             </ReactMarkdown>
           </div>
         )}
@@ -202,4 +207,3 @@ export const AIFeedbackDisplay: React.FC<AIFeedbackDisplayProps> = ({
     </Card>
   );
 };
-

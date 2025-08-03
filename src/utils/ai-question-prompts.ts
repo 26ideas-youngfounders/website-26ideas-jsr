@@ -1,13 +1,27 @@
 /**
- * @fileoverview AI Question Prompts Configuration
+ * AI Question Prompts Configuration for YFF Questionnaire
  * 
  * Centralized, type-safe configuration file that maps every question ID 
  * to its corresponding AI system prompt for the YFF questionnaire.
  * This serves as the single source of truth for all AI feedback prompts.
- * 
- * @version 1.0.0
- * @author 26ideas Development Team
  */
+
+/**
+ * Base formatting requirements for all AI feedback prompts
+ * Ensures consistent bullet point handling and prevents orphaned text
+ */
+const BASE_FORMATTING_REQUIREMENTS = `
+FORMATTING REQUIREMENTS:
+- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
+- Use bold markdown (**text**) for all section headings
+- Write clear, structured sections without bullet points in paragraph text
+- Each bullet point should be a single, full point on one line, with no line breaks or wrapped sentences.
+- Never continue a bullet over multiple lines or create a new bullet for the end of a previous idea.
+- Do NOT create additional bullets from fragment phrases or the ending of a sentence – keep them with the original, complete bullet.
+- All list items must be self-contained and readable on their own.
+
+When formatting your feedback, ensure that each list item ("- Example") is a complete idea on a single line, with no line breaks or split phrases. Do not create a new bullet for a phrase that is part of a previous item.
+`;
 
 /**
  * Complete mapping of question IDs to their AI system prompts
@@ -40,10 +54,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**
@@ -86,10 +97,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**
@@ -132,10 +140,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**
@@ -178,10 +183,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**
@@ -224,10 +226,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**
@@ -270,10 +269,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**
@@ -316,10 +312,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**
@@ -362,10 +355,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**
@@ -408,10 +398,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**
@@ -454,10 +441,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**
@@ -500,10 +484,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**
@@ -546,10 +527,7 @@ FEEDBACK INSTRUCTIONS:
 - Do not provide a numerical score
 - Focus on what would make their response more compelling to evaluators
 
-FORMATTING REQUIREMENTS:
-- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
-- Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+${BASE_FORMATTING_REQUIREMENTS}
 
 RESPONSE FORMAT:
 **Strengths in your current response:**

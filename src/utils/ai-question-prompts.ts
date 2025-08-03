@@ -36,7 +36,7 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     "solution_approach": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
     "solution": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
     
-    // Monetization - ENHANCED MAPPING FOR EARLY REVENUE - CRITICAL FIX
+    // Monetization - ENHANCED MAPPING FOR EARLY REVENUE - CRITICAL FIX WITH ADDITIONAL MAPPINGS
     "how_make_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "making_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "monetizationStrategy": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
@@ -47,6 +47,11 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     "generate_revenue": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "solve_problem_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "money_solving": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    // Additional likely field names for the monetization question
+    "makingMoney": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "revenueGeneration": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "earlyRevenueMoney": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "problemMoney": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     
     // Customer acquisition - ENHANCED MAPPING
     "acquire_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
@@ -97,7 +102,8 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
   console.log('🔍 Client normalizing question ID:', {
     originalId: questionId,
     stage,
-    questionText: questionText?.substring(0, 50)
+    questionText: questionText?.substring(0, 50),
+    allMappingKeys: Object.keys(mappings).filter(key => key.includes('money') || key.includes('monetiz') || key.includes('revenue'))
   });
   
   // First, try direct mapping
@@ -138,8 +144,8 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     return fallbackId;
   }
   
-  // Final fallback - return a default
-  console.log('⚠️ Client using default fallback for questionId:', questionId);
+  // Final fallback - but log what we tried
+  console.log('⚠️ Client using default fallback for questionId:', questionId, 'Available money-related keys:', Object.keys(mappings).filter(key => key.includes('money') || key.includes('monetiz') || key.includes('revenue')));
   return "tell_us_about_idea";
 };
 

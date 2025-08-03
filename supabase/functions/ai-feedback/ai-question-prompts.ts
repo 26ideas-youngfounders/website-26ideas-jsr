@@ -767,11 +767,22 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     "solution_approach": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
     "solution": stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem",
     
-    // Monetization
+    // Monetization - ENHANCED MAPPING FOR EARLY REVENUE - CRITICAL FIX WITH ADDITIONAL MAPPINGS
     "how_make_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "making_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "monetizationStrategy": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "revenue_model": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "monetization_strategy": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "how_making_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "idea_making_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "generate_revenue": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "solve_problem_money": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "money_solving": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    // Additional likely field names for the monetization question
+    "makingMoney": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "revenueGeneration": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "earlyRevenueMoney": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
+    "problemMoney": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     
     // Customer acquisition - ENHANCED MAPPING
     "acquire_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
@@ -817,7 +828,8 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
   console.log('🔍 Server normalizing question ID:', {
     originalId: questionId,
     stage,
-    questionText: questionText?.substring(0, 50)
+    questionText: questionText?.substring(0, 50),
+    allMappingKeys: Object.keys(mappings).filter(key => key.includes('money') || key.includes('monetiz') || key.includes('revenue'))
   });
   
   // First, try direct mapping
@@ -837,6 +849,9 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     else if (lowerText.includes("whose problem")) fallbackId = stage === "early_revenue" ? "early_revenue_whose_problem" : "whose_problem";
     else if (lowerText.includes("how does your idea solve")) fallbackId = stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem";
     else if (lowerText.includes("make money") || lowerText.includes("generate revenue")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
+    else if (lowerText.includes("money by solving") || lowerText.includes("money solving")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
+    else if (lowerText.includes("idea making money")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
+    else if (lowerText.includes("revenue") && lowerText.includes("problem")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
     else if (lowerText.includes("acquiring") && (lowerText.includes("customers") || lowerText.includes("paying"))) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("acquire") && lowerText.includes("customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("first paying customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";

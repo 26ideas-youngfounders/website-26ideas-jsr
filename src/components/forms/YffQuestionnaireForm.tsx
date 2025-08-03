@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +13,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { YffAutosaveIndicator } from './YffAutosaveIndicator';
 import { useAutosave } from '@/hooks/useAutosave';
+import { AIFeedbackButton } from './AIFeedbackButton';
+import { AIFeedbackDisplay } from './AIFeedbackDisplay';
+import { useAIFeedback } from '@/hooks/useAIFeedback';
 
 /**
  * Counts the number of words in a text string
@@ -62,8 +64,8 @@ const questionnaireSchema = z.object({
   .refine(text => countWords(text) >= 20, 'Please provide information about your team (at least 20 words)')
   .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
   timeline: z.string()
-    .refine(text => countWords(text) >= 20, 'Please provide a timeline (at least 20 words)')
-    .refine(text => countWords(text) <= 300, 'Timeline must not exceed 300 words'),
+    .refine(text => countWords(text) >= 20, 'Please provide a timeline (at least 20 words)')
+    .refine(text => countWords(text) <= 300, 'Timeline must not exceed 300 words'),
   // Additional fields for Early Revenue stage - make them optional
   payingCustomers: z.string().optional(),
   workingDuration: z.string().optional(),
@@ -113,6 +115,11 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [productStage, setProductStage] = useState<string>('');
+
+  // AI Feedback hooks for different questions
+  const problemSolvedFeedback = useAIFeedback();
+  const targetAudienceFeedback = useAIFeedback();
+  const solutionApproachFeedback = useAIFeedback();
 
   // Validate required props at runtime in development
   useEffect(() => {
@@ -350,7 +357,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
             </CardContent>
           </Card>
 
-          {/* Conditional Questions */}
+          {/* Conditional Questions with AI Feedback */}
           {productStage && (
             <Card>
               <CardHeader>
@@ -369,6 +376,21 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         <Textarea {...field} placeholder="Describe the problem you're solving..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
+                      
+                      {/* AI Feedback Integration */}
+                      <AIFeedbackButton
+                        questionId="problemSolved"
+                        userAnswer={field.value || ''}
+                        onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
+                        disabled={isSubmitting}
+                      />
+                      
+                      {problemSolvedFeedback.shouldShowFeedback && problemSolvedFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={problemSolvedFeedback.feedback}
+                          onDismiss={problemSolvedFeedback.handleDismiss}
+                        />
+                      )}
                     </FormItem>
                   )}
                 />
@@ -383,6 +405,21 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         <Textarea {...field} placeholder="Describe your target audience..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
+                      
+                      {/* AI Feedback Integration */}
+                      <AIFeedbackButton
+                        questionId="targetAudience"
+                        userAnswer={field.value || ''}
+                        onFeedbackReceived={targetAudienceFeedback.handleFeedbackReceived}
+                        disabled={isSubmitting}
+                      />
+                      
+                      {targetAudienceFeedback.shouldShowFeedback && targetAudienceFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={targetAudienceFeedback.feedback}
+                          onDismiss={targetAudienceFeedback.handleDismiss}
+                        />
+                      )}
                     </FormItem>
                   )}
                 />
@@ -397,6 +434,21 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         <Textarea {...field} placeholder="Describe your solution approach..." className="h-[120px] resize-none" />
                       </FormControl>
                       <FormMessage />
+                      
+                      {/* AI Feedback Integration */}
+                      <AIFeedbackButton
+                        questionId="solutionApproach"
+                        userAnswer={field.value || ''}
+                        onFeedbackReceived={solutionApproachFeedback.handleFeedbackReceived}
+                        disabled={isSubmitting}
+                      />
+                      
+                      {solutionApproachFeedback.shouldShowFeedback && solutionApproachFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={solutionApproachFeedback.feedback}
+                          onDismiss={solutionApproachFeedback.handleDismiss}
+                        />
+                      )}
                     </FormItem>
                   )}
                 />

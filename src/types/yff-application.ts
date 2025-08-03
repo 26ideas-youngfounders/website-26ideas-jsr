@@ -19,7 +19,7 @@ export type BaseYffApplicationUpdate = Database['public']['Tables']['yff_applica
 export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evaluation_completed_at'> {
   created_at: string;
   updated_at: string;
-  evaluation_status?: string;
+  evaluation_status: string; // Required field, not optional
   overall_score?: number;
   evaluation_completed_at?: string | null;
   evaluation_data: Record<string, any>; // Make required to match base type
@@ -115,4 +115,44 @@ export const convertFormDataToJson = (formData: YffFormData): Record<string, any
   return Object.fromEntries(
     Object.entries(formData).map(([key, value]) => [key, value])
   );
+};
+
+/**
+ * Question evaluation interface for AI scoring
+ */
+export interface QuestionEvaluation {
+  score: number;
+  strengths: string[];
+  improvements: string[];
+}
+
+/**
+ * AI evaluation result interface
+ */
+export interface AIEvaluationResult {
+  overall_score: number;
+  question_scores: Record<string, QuestionEvaluation>;
+  idea_summary?: string;
+  evaluation_completed_at: string;
+}
+
+/**
+ * System prompt mapping for different application stages
+ */
+export interface StagePromptMapping {
+  [questionKey: string]: string;
+}
+
+/**
+ * Application stage types
+ */
+export type ApplicationStage = 'idea' | 'early_revenue';
+
+/**
+ * Get system prompts for a specific application stage
+ */
+export const getStagePrompts = (stage: ApplicationStage): StagePromptMapping => {
+  // This will be populated with the actual prompt mappings
+  // Based on the stage (idea vs early_revenue)
+  return {};
 };

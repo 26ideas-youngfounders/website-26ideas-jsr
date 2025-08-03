@@ -16,7 +16,7 @@ import MentorSignup from "./pages/MentorSignup";
 import PhoneInputTest from "./pages/PhoneInputTest";
 import NotFound from "./pages/NotFound";
 import { CrmDashboard } from "./pages/admin/CrmDashboard";
-import { YffApplicationsPage } from "./pages/admin/YffApplicationsPage";
+import YffApplicationsPage from "./pages/admin/YffApplicationsPage";
 import MentorApplicationsPage from "./pages/admin/MentorApplicationsPage";
 import AdminAuth from "./components/admin/AdminAuth";
 import { startLayoutMonitoring } from "./utils/layout-debug";

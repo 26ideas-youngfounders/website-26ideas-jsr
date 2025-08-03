@@ -17,13 +17,19 @@ export interface QuestionPromptConfig {
 const getProblemStatementPrompt = (answer: string): string => {
   return `Analyze this startup problem statement and provide specific feedback in this format:
 
-SCORE: [Rate from 1-10 based on clarity, specificity, and market potential]
+FORMATTING REQUIREMENTS:
+- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
+- Use bold markdown (**text**) for all section headings
+- Write clear, structured sections without bullet points in paragraph text
 
-STRENGTHS:
-- [List 2-3 specific strengths of this problem statement]
+**Strengths in your current response:**
+- First strength with specific details about clarity and specificity
+- Second strength highlighting market potential aspects
 
-AREAS FOR IMPROVEMENT:
-- [List 2-3 specific suggestions to make the problem statement stronger]
+**Areas for improvement:**
+- First improvement suggestion with concrete examples
+- Second suggestion for strengthening the problem statement
+- Third actionable recommendation for better validation
 
 Focus on: clarity of the problem, target audience specificity, market size indication, urgency/pain level, and validation evidence. Be constructive and encouraging while providing actionable advice.
 
@@ -36,13 +42,19 @@ Problem statement to analyze: "${answer}"`;
 const getTargetAudiencePrompt = (answer: string): string => {
   return `Analyze this target audience description and provide feedback in this format:
 
-SCORE: [Rate from 1-10 based on specificity, market understanding, and accessibility]
+FORMATTING REQUIREMENTS:
+- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
+- Use bold markdown (**text**) for all section headings
+- Write clear, structured sections without bullet points in paragraph text
 
-STRENGTHS:
-- [List 2-3 specific strengths of this target audience definition]
+**Strengths in your current response:**
+- First strength about demographic specificity
+- Second strength regarding market understanding
 
-AREAS FOR IMPROVEMENT:
-- [List 2-3 specific suggestions to make the target audience more precise]
+**Areas for improvement:**
+- First improvement suggestion with concrete examples
+- Second suggestion for better audience precision
+- Third actionable recommendation for persona development
 
 Focus on: demographic specificity, behavioral characteristics, market size, accessibility, and willingness to pay. Encourage more detailed persona development.
 
@@ -55,13 +67,19 @@ Target audience description: "${answer}"`;
 const getSolutionApproachPrompt = (answer: string): string => {
   return `Analyze this solution approach and provide feedback in this format:
 
-SCORE: [Rate from 1-10 based on innovation, feasibility, and problem fit]
+FORMATTING REQUIREMENTS:
+- Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
+- Use bold markdown (**text**) for all section headings
+- Write clear, structured sections without bullet points in paragraph text
 
-STRENGTHS:
-- [List 2-3 specific strengths of this solution approach]
+**Strengths in your current response:**
+- First strength about innovation and feasibility
+- Second strength regarding problem-solution fit
 
-AREAS FOR IMPROVEMENT:
-- [List 2-3 specific suggestions to strengthen the solution]
+**Areas for improvement:**
+- First improvement suggestion with concrete examples
+- Second suggestion for strengthening the solution
+- Third actionable recommendation for better validation
 
 Focus on: problem-solution fit, technical feasibility, competitive differentiation, scalability, and user experience. Encourage specificity and validation.
 

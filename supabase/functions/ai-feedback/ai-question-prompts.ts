@@ -19,14 +19,25 @@
  * Preprocessing ensures AI feedback list items are kept on one line, never split.
  */
 const BASE_FORMATTING_REQUIREMENTS = `
-FORMATTING REQUIREMENTS:
+CRITICAL FORMATTING REQUIREMENTS:
 - Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
 - Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
-- Each bullet point should be a single, full point on one line, with no line breaks or wrapped sentences.
-- Never continue a bullet over multiple lines or create a new bullet for the end of a previous idea.
-- Do NOT create additional bullets from fragment phrases or the ending of a sentence – keep them with the original, complete bullet.
+- Each bullet/list item must be a single, complete idea or sentence on ONE line.
+- Never continue a list item on another line or split an idea across multiple bullets.
+- If feedback is long, use only one bullet per point—no breaks, no carrying over.
 - All list items must be self-contained and readable on their own.
+
+EXAMPLE OF CORRECT FORMAT:
+**Strengths in your current response:**
+- This is a complete point that stays on one line.
+- Another full point that doesn't break across lines.
+
+EXAMPLE OF INCORRECT FORMAT (DO NOT DO THIS):
+**Strengths:**
+- This is the start of a point
+that continues on the next line.
+- Another point that is
+split incorrectly.
 
 When formatting your feedback, ensure that each list item ("- Example") is a complete idea on a single line, with no line breaks or split phrases. Do not create a new bullet for a phrase that is part of a previous item.
 `;

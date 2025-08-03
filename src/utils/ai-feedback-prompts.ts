@@ -1,4 +1,3 @@
-
 /**
  * AI Feedback System Prompts Configuration
  * 
@@ -17,10 +16,18 @@ export interface QuestionPromptConfig {
 const getProblemStatementPrompt = (answer: string): string => {
   return `Analyze this startup problem statement and provide specific feedback in this format:
 
-FORMATTING REQUIREMENTS:
+CRITICAL FORMATTING REQUIREMENTS:
 - Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
 - Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+- Each bullet/list item must be a single, complete idea or sentence on ONE line.
+- Never continue a list item on another line or split an idea across multiple bullets.
+- If feedback is long, use only one bullet per point—no breaks, no carrying over.
+- All list items must be self-contained and readable on their own.
+
+EXAMPLE OF CORRECT FORMAT:
+**Strengths in your current response:**
+- This is a complete point that stays on one line.
+- Another full point that doesn't break across lines.
 
 **Strengths in your current response:**
 - First strength with specific details about clarity and specificity
@@ -42,10 +49,13 @@ Problem statement to analyze: "${answer}"`;
 const getTargetAudiencePrompt = (answer: string): string => {
   return `Analyze this target audience description and provide feedback in this format:
 
-FORMATTING REQUIREMENTS:
+CRITICAL FORMATTING REQUIREMENTS:
 - Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
 - Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+- Each bullet/list item must be a single, complete idea or sentence on ONE line.
+- Never continue a list item on another line or split an idea across multiple bullets.
+- If feedback is long, use only one bullet per point—no breaks, no carrying over.
+- All list items must be self-contained and readable on their own.
 
 **Strengths in your current response:**
 - First strength about demographic specificity
@@ -67,10 +77,13 @@ Target audience description: "${answer}"`;
 const getSolutionApproachPrompt = (answer: string): string => {
   return `Analyze this solution approach and provide feedback in this format:
 
-FORMATTING REQUIREMENTS:
+CRITICAL FORMATTING REQUIREMENTS:
 - Never use * at the start of any line. Only use dashes (- ) or numbers (1. , 2. ) for list items.
 - Use bold markdown (**text**) for all section headings
-- Write clear, structured sections without bullet points in paragraph text
+- Each bullet/list item must be a single, complete idea or sentence on ONE line.
+- Never continue a list item on another line or split an idea across multiple bullets.
+- If feedback is long, use only one bullet per point—no breaks, no carrying over.
+- All list items must be self-contained and readable on their own.
 
 **Strengths in your current response:**
 - First strength about innovation and feasibility

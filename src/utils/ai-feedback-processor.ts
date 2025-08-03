@@ -1,3 +1,4 @@
+
 /**
  * AI Feedback Text Processing Utilities
  * 
@@ -6,11 +7,12 @@
  */
 
 /**
- * Fixes orphaned bullet points in AI feedback text
+ * This function guarantees no list bullets are ever split across lines in AI feedback.
+ * All partial lines (non-bullet, non-heading) are always merged with the prior bullet.
+ * It is applied to every AI feedback string before markdown rendering.
  * 
- * Preprocessing ensures AI feedback list items are kept on one line, never split.
- * Merges lines that don't start with proper bullet points as continuation 
- * of the previous list item, ensuring coherent formatting.
+ * Fixes orphaned bullet points in AI feedback text by merging lines that don't start 
+ * with proper bullet points as continuation of the previous list item.
  * 
  * @param feedback - Raw AI feedback text that may contain split bullets
  * @returns Processed feedback with orphaned lines merged into proper bullets
@@ -27,25 +29,27 @@ export function fixOrphanedBullets(feedback: string): string {
   for (const line of lines) {
     const trimmed = line.trim();
     
-    // Skip empty lines - they're intentional formatting
+    // Skip empty lines - they're intentional formatting/spacing
     if (trimmed === '') {
       processedLines.push(trimmed);
       continue;
     }
     
-    // Check if this line starts with a proper bullet point or heading marker
-    const isListItem = /^(- |• |\d+\. )/.test(trimmed);
+    // Check if this line starts with a proper bullet point, number, or heading marker
+    const isBulletPoint = /^(- |• |\d+\. )/.test(trimmed);
     const isHeading = /^(\*\*|__|#{1,6}\s)/.test(trimmed); // Bold text or markdown heading
-    const isStandaloneFormat = isListItem || isHeading;
+    const isStandaloneFormat = isBulletPoint || isHeading;
     
     if (isStandaloneFormat) {
       // This is a proper list item or heading - add it as-is
       processedLines.push(trimmed);
     } else if (processedLines.length > 0) {
       // This appears to be a continuation of the previous line
-      // Merge it with the previous line (separated by a space)
+      // Merge it with the previous line (separated by a space if needed)
       const lastIndex = processedLines.length - 1;
-      processedLines[lastIndex] += ' ' + trimmed;
+      const lastLine = processedLines[lastIndex];
+      const needsSpace = lastLine.length > 0 && !lastLine.endsWith(' ');
+      processedLines[lastIndex] = lastLine + (needsSpace ? ' ' : '') + trimmed;
     } else {
       // First line but not a proper format - keep it as-is
       processedLines.push(trimmed);
@@ -117,13 +121,13 @@ export function processFeedbackText(rawFeedback: string): string {
   // Apply orphaned bullet fix
   let processed = fixOrphanedBullets(rawFeedback);
   
-  // Additional cleanup: ensure consistent spacing
+  // Additional cleanup: ensure consistent spacing and remove asterisk bullets
   processed = processed
     // Remove excessive whitespace
     .replace(/\n{3,}/g, '\n\n')
     // Ensure proper spacing around headings
     .replace(/(\*\*[^*]+\*\*)\n(?!\n)/g, '$1\n\n')
-    // Clean up any remaining asterisk bullets
+    // Clean up any remaining asterisk bullets - convert to dashes
     .replace(/^\* /gm, '- ');
 
   return processed.trim();

@@ -9,7 +9,7 @@
  * @author 26ideas Development Team
  */
 
-import type { Json } from '@supabase/supabase-js';
+import type { Json } from '@/integrations/supabase/types';
 
 /**
  * Form Data Interface for YFF Application

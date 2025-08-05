@@ -13,7 +13,7 @@ import { AIComprehensiveScoringService } from '@/services/ai-comprehensive-scori
 import { BackgroundJobService } from '@/services/background-job-service';
 import { YffFormData } from '@/types/yff-form';
 import { v4 as uuidv4 } from 'uuid';
-import type { Json } from '@supabase/supabase-js';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface TestResult {
   testName: string;
@@ -138,10 +138,10 @@ export class E2ETestingSuite {
     try {
       console.log('🔄 Testing application submission...');
       
-      // Generate unique test data with proper UUIDs
+      // Generate unique test data with proper UUIDs and timestamp-based uniqueness
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(2, 15);
-      this.testEmail = `e2etest+${timestamp}+${randomSuffix}@example.com`;
+      this.testEmail = `e2etest-${timestamp}-${randomSuffix}@example.com`;
       this.testIndividualId = uuidv4();
       this.testApplicationId = uuidv4();
       
@@ -179,16 +179,13 @@ export class E2ETestingSuite {
         team_roles: 'Our founding team combines technical expertise in AI/ML with deep entrepreneurship experience, including former startup founders, product managers, and engineers from leading tech companies.'
       };
       
-      // Convert form data to proper Json type for database insertion
-      const answersJson: Json = testFormData as Json;
-      
-      // Submit test application with proper type structure
+      // Submit test application with proper database structure
       const { data: application, error: applicationError } = await supabase
         .from('yff_applications')
         .insert({
           application_id: this.testApplicationId,
           individual_id: this.testIndividualId,
-          answers: answersJson,
+          answers: testFormData,
           status: 'submitted',
           evaluation_status: 'pending'
         })

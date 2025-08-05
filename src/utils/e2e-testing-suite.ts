@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview End-to-End Testing Suite for AI Scoring System
  * 
@@ -124,10 +125,10 @@ export class E2ETestingSuite {
     try {
       console.log('🔍 Testing database connection...');
 
-      const { data, error } = await supabase
+      // Fixed: Use proper Supabase count syntax
+      const { count, error } = await supabase
         .from('yff_applications')
-        .select('count(*)')
-        .limit(1);
+        .select('*', { count: 'exact', head: true });
 
       if (error) throw error;
 
@@ -135,7 +136,7 @@ export class E2ETestingSuite {
       this.addResult({
         testName: 'Database Connection',
         status: 'passed',
-        message: 'Database connection successful',
+        message: `Database connection successful. Found ${count || 0} applications.`,
         duration,
         timestamp: new Date().toISOString()
       });

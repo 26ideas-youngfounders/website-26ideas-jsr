@@ -36,6 +36,7 @@ export class RealtimeSubscriptionManager {
     config: SubscriptionConfig;
     handler: EventHandler;
     isActive: boolean;
+    channel?: RealtimeChannel;
   }> = new Map();
   
   private state: SubscriptionState = {
@@ -135,8 +136,15 @@ export class RealtimeSubscriptionManager {
     
     this.isStarting = false;
     
-    // Deactivate all subscriptions
-    for (const [, subscription] of this.subscriptions) {
+    // Cleanup all subscription channels
+    for (const [id, subscription] of this.subscriptions) {
+      if (subscription.channel) {
+        try {
+          subscription.channel.unsubscribe();
+        } catch (error) {
+          console.warn(`⚠️ Error unsubscribing channel for ${id}:`, error);
+        }
+      }
       subscription.isActive = false;
     }
     
@@ -162,6 +170,10 @@ export class RealtimeSubscriptionManager {
     
     if (this.subscriptions.has(id)) {
       console.warn(`⚠️ Subscription ${id} already exists, replacing`);
+      const existing = this.subscriptions.get(id);
+      if (existing?.channel) {
+        existing.channel.unsubscribe();
+      }
     }
 
     this.subscriptions.set(id, {
@@ -175,7 +187,7 @@ export class RealtimeSubscriptionManager {
     if (connectionState.status === 'connected') {
       setTimeout(() => {
         this.activateSubscription(id);
-      }, 500);
+      }, 100);
     }
 
     this.updateState({
@@ -192,7 +204,14 @@ export class RealtimeSubscriptionManager {
     console.log(`📡 Removing subscription: ${id}`);
     
     const subscription = this.subscriptions.get(id);
-    if (subscription?.isActive) {
+    if (subscription) {
+      if (subscription.channel) {
+        try {
+          subscription.channel.unsubscribe();
+        } catch (error) {
+          console.warn(`⚠️ Error unsubscribing ${id}:`, error);
+        }
+      }
       subscription.isActive = false;
     }
     
@@ -213,7 +232,7 @@ export class RealtimeSubscriptionManager {
       // Activate all subscriptions after connection with a delay
       setTimeout(() => {
         this.activateAllSubscriptions();
-      }, 1000);
+      }, 500);
     } else if (connectionState.status === 'disconnected' || connectionState.status === 'error') {
       // Mark all subscriptions as inactive
       this.deactivateAllSubscriptions();
@@ -226,17 +245,11 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Activate a specific subscription with improved error handling
+   * Activate a specific subscription using dedicated channel
    */
   private activateSubscription(id: string): void {
     const subscription = this.subscriptions.get(id);
     if (!subscription || subscription.isActive) {
-      return;
-    }
-
-    const channel = this.connectionManager.getChannel();
-    if (!channel) {
-      console.warn(`⚠️ No channel available for subscription: ${id}`);
       return;
     }
 
@@ -245,44 +258,65 @@ export class RealtimeSubscriptionManager {
       
       const { config, handler } = subscription;
       
-      // Create a more specific channel configuration for database changes
-      channel.on(
-        'postgres_changes',
-        {
-          event: config.event || '*',
-          schema: config.schema || 'public',
-          table: config.table,
-          filter: config.filter,
-        },
-        (payload: RealtimePostgresChangesPayload<Record<string, any>>) => {
-          console.log(`📨 Event received for ${id}:`, {
-            eventType: payload.eventType,
-            table: payload.table,
-            schema: payload.schema,
-            timestamp: new Date().toISOString(),
-            hasNewData: !!payload.new,
-            hasOldData: !!payload.old
-          });
+      // Import supabase client
+      import('@/integrations/supabase/client').then(({ supabase }) => {
+        // Create a dedicated channel for this subscription
+        const channelName = `${config.table}_${id}_${Date.now()}`;
+        const channel = supabase.channel(channelName);
+        
+        // Set up postgres changes listener
+        channel.on(
+          'postgres_changes' as any,
+          {
+            event: config.event || '*',
+            schema: config.schema || 'public',
+            table: config.table,
+            filter: config.filter,
+          },
+          (payload: RealtimePostgresChangesPayload<Record<string, any>>) => {
+            console.log(`📨 Event received for ${id}:`, {
+              eventType: payload.eventType,
+              table: payload.table,
+              schema: payload.schema,
+              timestamp: new Date().toISOString(),
+              hasNewData: !!payload.new,
+              hasOldData: !!payload.old
+            });
 
-          // Update event statistics
-          this.updateState({
-            lastEvent: new Date(),
-            eventCount: this.state.eventCount + 1,
-          });
-
-          try {
-            handler(payload);
-          } catch (error) {
-            console.error(`❌ Error in event handler for ${id}:`, error);
+            // Update event statistics
             this.updateState({
-              lastError: `Handler error: ${error.message}`,
+              lastEvent: new Date(),
+              eventCount: this.state.eventCount + 1,
+            });
+
+            try {
+              handler(payload);
+            } catch (error) {
+              console.error(`❌ Error in event handler for ${id}:`, error);
+              this.updateState({
+                lastError: `Handler error: ${error.message}`,
+              });
+            }
+          }
+        );
+
+        // Subscribe to the channel
+        channel.subscribe((status, err) => {
+          console.log(`📡 Subscription ${id} status: ${status}`, err ? { error: err } : '');
+          
+          if (status === 'SUBSCRIBED') {
+            subscription.isActive = true;
+            subscription.channel = channel;
+            console.log(`✅ Subscription ${id} activated successfully`);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.error(`❌ Subscription ${id} failed: ${status}`, err);
+            subscription.isActive = false;
+            this.updateState({
+              lastError: `Subscription ${id} failed: ${status}`,
             });
           }
-        }
-      );
-
-      subscription.isActive = true;
-      console.log(`✅ Subscription ${id} activated successfully`);
+        });
+      });
 
     } catch (error) {
       console.error(`❌ Failed to activate subscription ${id}:`, error);
@@ -311,6 +345,14 @@ export class RealtimeSubscriptionManager {
     
     for (const [, subscription] of this.subscriptions) {
       subscription.isActive = false;
+      if (subscription.channel) {
+        try {
+          subscription.channel.unsubscribe();
+        } catch (error) {
+          console.warn('⚠️ Error unsubscribing channel:', error);
+        }
+        subscription.channel = undefined;
+      }
     }
   }
 

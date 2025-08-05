@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Real-Time YFF Applications Hook with Enhanced WebSocket Management
  * 
@@ -14,10 +13,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { WebSocketConnectionManager } from '@/utils/websocket-connection-manager';
-import { RealtimeSubscriptionManager } from '@/utils/realtime-subscription-manager';
+import { WebSocketProductionManager } from '@/utils/websocket-production-manager';
+import { initializeHeartbeatMonitoring } from '@/utils/websocket-heartbeat-monitor';
 import type { YffApplicationWithIndividual } from '@/types/yff-application';
-import type { ConnectionStatus } from '@/utils/websocket-connection-manager';
+import type { ProductionConnectionStatus } from '@/utils/websocket-production-manager';
 
 interface UseRealTimeApplicationsReturn {
   applications: YffApplicationWithIndividual[];
@@ -31,25 +30,31 @@ interface UseRealTimeApplicationsReturn {
 }
 
 /**
- * Hook for real-time YFF applications with enhanced reliability
+ * Hook for real-time YFF applications with production-grade reliability
  */
 export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
-  const [connectionState, setConnectionState] = useState<ConnectionStatus>({
+  const [connectionState, setConnectionState] = useState<ProductionConnectionStatus>({
     isConnected: false,
     status: 'disconnected',
     retryCount: 0,
     lastError: null,
     lastUpdate: null,
     connectionId: `hook_${Date.now()}`,
-    uptime: 0
+    uptime: 0,
+    diagnostics: {
+      socketState: null,
+      socketStateName: 'UNKNOWN',
+      authenticationValid: false,
+      networkLatency: null,
+      connectionAttempts: 0
+    }
   });
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   // Refs for managing connections and subscriptions
-  const connectionManagerRef = useRef<WebSocketConnectionManager | null>(null);
-  const subscriptionManagerRef = useRef<RealtimeSubscriptionManager | null>(null);
+  const productionManagerRef = useRef<WebSocketProductionManager | null>(null);
   const initializationRef = useRef<boolean>(false);
 
   // Primary data query
@@ -99,148 +104,173 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   });
 
   /**
-   * Initialize connection and subscription managers
+   * Initialize production connection manager
    */
-  const initializeManagers = useCallback(() => {
+  const initializeProductionManager = useCallback(() => {
     if (initializationRef.current) {
-      console.log('⏳ Managers already initialized, skipping...');
+      console.log('⏳ Production manager already initialized, skipping...');
       return;
     }
 
-    console.log('🚀 Initializing connection and subscription managers...');
+    console.log('🚀 Initializing production WebSocket manager...');
     
-    // Create connection manager
-    connectionManagerRef.current = new WebSocketConnectionManager({
-      maxRetries: 3,
-      baseDelayMs: 1000,
-      maxDelayMs: 30000,
-      timeoutMs: 15000,
-      enableAutoReconnect: true
-    });
+    // Create production manager
+    productionManagerRef.current = new WebSocketProductionManager();
 
     // Subscribe to connection status changes
-    connectionManagerRef.current.onStatusChange((status) => {
-      console.log('📊 Connection status changed:', status);
+    productionManagerRef.current.onStatusChange((status) => {
+      console.log('📊 Production connection status changed:', status);
       setConnectionState(status);
       
       // Show appropriate toast notifications
       if (status.status === 'connected' && status.retryCount === 0) {
         toast({
           title: "Real-time Updates Active",
-          description: "Dashboard will now update automatically.",
+          description: "Dashboard will now update automatically with production-grade reliability.",
           variant: "default"
+        });
+      } else if (status.status === 'fallback') {
+        toast({
+          title: "Real-time Updates in Fallback Mode",
+          description: "Using periodic refresh. Engineering team has been alerted.",
+          variant: "destructive"
         });
       } else if (status.status === 'error' && status.retryCount >= 3) {
         toast({
-          title: "Real-time Updates Unavailable",
-          description: "Using periodic refresh instead.",
+          title: "Real-time Connection Issues",
+          description: "Experiencing connectivity problems. Attempting recovery...",
           variant: "destructive"
         });
       }
     });
 
-    // Create subscription manager
-    subscriptionManagerRef.current = new RealtimeSubscriptionManager(
-      connectionManagerRef.current
-    );
+    // Initialize heartbeat monitoring
+    try {
+      initializeHeartbeatMonitoring({
+        enabled: true,
+        failureThreshold: 3,
+        timeoutThreshold: 10000,
+        alertCooldown: 300000
+      });
+      console.log('✅ Heartbeat monitoring initialized');
+    } catch (monitoringError) {
+      console.warn('⚠️ Failed to initialize heartbeat monitoring:', monitoringError);
+    }
 
     initializationRef.current = true;
-    console.log('✅ Managers initialized successfully');
+    console.log('✅ Production manager initialized successfully');
   }, [toast]);
 
   /**
-   * Setup realtime subscription
+   * Setup realtime subscription with production manager
    */
-  const setupRealtimeSubscription = useCallback(async (): Promise<void> => {
-    if (!subscriptionManagerRef.current || !connectionManagerRef.current) {
-      console.error('❌ Managers not initialized, cannot setup subscription');
+  const setupProductionSubscription = useCallback(async (): Promise<void> => {
+    if (!productionManagerRef.current) {
+      console.error('❌ Production manager not initialized, cannot setup subscription');
       return;
     }
 
     try {
-      console.log('📡 Setting up realtime subscription...');
+      console.log('📡 Setting up production real-time subscription...');
       
-      await subscriptionManagerRef.current.createSubscription(
-        {
-          channelName: `yff-applications-${Date.now()}`,
-          table: 'yff_applications',
-          schema: 'public',
-          event: '*',
-          validationTimeoutMs: 20000,
-          maxValidationAttempts: 200
-        },
-        (payload) => {
-          console.log('📨 Realtime update received:', {
-            eventType: payload.eventType,
-            timestamp: new Date().toISOString()
-          });
-          
-          // Invalidate and refetch applications
-          queryClient.invalidateQueries({ 
-            queryKey: ['yff-applications-realtime'] 
-          });
-          
-          // Show appropriate notifications
-          if (payload.eventType === 'INSERT') {
-            toast({
-              title: "New Application",
-              description: "A new YFF application has been submitted.",
+      // Ensure connection is established
+      const connected = await productionManagerRef.current.connect();
+      if (!connected) {
+        console.error('❌ Failed to establish production connection');
+        return;
+      }
+
+      // Create subscription
+      const channel = supabase
+        .channel(`yff-applications-prod-${Date.now()}`)
+        .on(
+          'postgres_changes' as any,
+          {
+            event: '*',
+            schema: 'public',
+            table: 'yff_applications'
+          } as any,
+          (payload) => {
+            console.log('📨 Production realtime update received:', {
+              eventType: payload.eventType,
+              timestamp: new Date().toISOString()
             });
-          } else if (payload.eventType === 'UPDATE' && payload.new && typeof payload.new === 'object') {
-            const newRecord = payload.new as any;
-            if (newRecord.evaluation_status === 'completed') {
+            
+            // Invalidate and refetch applications
+            queryClient.invalidateQueries({ 
+              queryKey: ['yff-applications-realtime'] 
+            });
+            
+            // Show appropriate notifications
+            if (payload.eventType === 'INSERT') {
               toast({
-                title: "Evaluation Completed",
-                description: "An application evaluation has been completed.",
+                title: "New Application",
+                description: "A new YFF application has been submitted.",
               });
+            } else if (payload.eventType === 'UPDATE' && payload.new && typeof payload.new === 'object') {
+              const newRecord = payload.new as any;
+              if (newRecord.evaluation_status === 'completed') {
+                toast({
+                  title: "Evaluation Completed",
+                  description: "An application evaluation has been completed.",
+                });
+              }
             }
           }
-        },
-        (status) => {
-          console.log('📊 Subscription status updated:', status);
-        }
-      );
+        )
+        .subscribe((status, error) => {
+          console.log('📡 Subscription status:', status, error || '');
+          if (error) {
+            console.error('❌ Subscription error:', error);
+          }
+        });
 
-      console.log('✅ Realtime subscription established successfully');
+      console.log('✅ Production realtime subscription established successfully');
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('❌ Failed to setup realtime subscription:', errorMessage);
+      console.error('❌ Failed to setup production subscription:', errorMessage);
       throw error;
     }
   }, [queryClient, toast]);
 
   /**
-   * Force reconnection
+   * Force reconnection with production manager
    */
   const forceReconnect = useCallback(async (): Promise<void> => {
-    console.log('🔄 Forcing reconnection...');
+    console.log('🔄 Forcing production reconnection...');
     
-    if (connectionManagerRef.current) {
-      await connectionManagerRef.current.forceReconnect();
-      await setupRealtimeSubscription();
+    if (productionManagerRef.current) {
+      // Disconnect and reconnect
+      productionManagerRef.current.disconnect();
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay
+      
+      const connected = await productionManagerRef.current.connect();
+      if (connected) {
+        await setupProductionSubscription();
+      }
     }
-  }, [setupRealtimeSubscription]);
+  }, [setupProductionSubscription]);
 
-  // Initialize managers on mount
+  // Initialize production manager on mount
   useEffect(() => {
-    initializeManagers();
+    initializeProductionManager();
     
     return () => {
-      console.log('🧹 Cleaning up real-time subscription hook');
+      console.log('🧹 Cleaning up production real-time subscription hook');
       initializationRef.current = false;
     };
-  }, [initializeManagers]);
+  }, [initializeProductionManager]);
 
-  // Setup subscription after managers are initialized
+  // Setup subscription after manager is initialized
   useEffect(() => {
-    if (initializationRef.current && connectionManagerRef.current) {
-      console.log('🔗 Starting connection and subscription setup...');
-      setupRealtimeSubscription().catch(error => {
-        console.error('❌ Failed to setup subscription:', error);
+    if (initializationRef.current && productionManagerRef.current) {
+      console.log('🔗 Starting production connection and subscription setup...');
+      setupProductionSubscription().catch(error => {
+        console.error('❌ Failed to setup production subscription:', error);
       });
     }
-  }, [setupRealtimeSubscription]);
+  }, [setupProductionSubscription]);
 
   // Handle authentication state changes
   useEffect(() => {
@@ -249,24 +279,20 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
         console.log('🔐 Auth state changed:', event, !!session);
         
         if (event === 'SIGNED_IN' && session) {
-          console.log('✅ User signed in, establishing real-time subscription');
+          console.log('✅ User signed in, establishing production real-time subscription');
           
           // Wait a moment for auth to settle, then setup subscription
           setTimeout(() => {
-            setupRealtimeSubscription().catch(error => {
-              console.error('❌ Failed to setup subscription after sign in:', error);
+            setupProductionSubscription().catch(error => {
+              console.error('❌ Failed to setup production subscription after sign in:', error);
             });
           }, 1000);
           
         } else if (event === 'SIGNED_OUT') {
-          console.log('❌ User signed out, cleaning up real-time subscription');
+          console.log('❌ User signed out, cleaning up production real-time subscription');
           
-          if (subscriptionManagerRef.current) {
-            subscriptionManagerRef.current.cleanup();
-          }
-          
-          if (connectionManagerRef.current) {
-            connectionManagerRef.current.disconnect();
+          if (productionManagerRef.current) {
+            productionManagerRef.current.disconnect();
           }
         }
       }
@@ -275,19 +301,15 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [setupRealtimeSubscription]);
+  }, [setupProductionSubscription]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      console.log('🧹 Component unmounting, cleaning up managers...');
+      console.log('🧹 Component unmounting, cleaning up production managers...');
       
-      if (subscriptionManagerRef.current) {
-        subscriptionManagerRef.current.cleanup();
-      }
-      
-      if (connectionManagerRef.current) {
-        connectionManagerRef.current.destroy();
+      if (productionManagerRef.current) {
+        productionManagerRef.current.destroy();
       }
     };
   }, []);

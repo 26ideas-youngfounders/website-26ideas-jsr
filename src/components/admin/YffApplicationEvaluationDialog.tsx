@@ -5,7 +5,7 @@
  * Displays comprehensive AI evaluation results for YFF applications
  * with detailed scores, feedback, and admin controls.
  * 
- * @version 1.0.0
+ * @version 1.1.0
  * @author 26ideas Development Team
  */
 
@@ -105,6 +105,28 @@ const questionIcons: Record<string, React.ElementType> = {
   workingDuration: Star
 };
 
+/**
+ * Safe type guard to check if evaluation data is valid
+ */
+const isValidEvaluation = (evaluation: any): boolean => {
+  return evaluation &&
+         typeof evaluation === 'object' &&
+         typeof evaluation.overall_score === 'number' &&
+         evaluation.question_scores &&
+         typeof evaluation.question_scores === 'object';
+};
+
+/**
+ * Safe type guard to check if question evaluation is valid
+ */
+const isValidQuestionEvaluation = (questionEval: any): questionEval is QuestionEvaluation => {
+  return questionEval &&
+         typeof questionEval === 'object' &&
+         typeof questionEval.score === 'number' &&
+         Array.isArray(questionEval.strengths) &&
+         Array.isArray(questionEval.improvements);
+};
+
 export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDialogProps> = ({ 
   application 
 }) => {
@@ -133,7 +155,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
     onError: (error: any) => {
       toast({
         title: "Evaluation Failed",
-        description: error.message || "Failed to start evaluation process",
+        description: error?.message || "Failed to start evaluation process",
         variant: "destructive",
       });
     },
@@ -153,7 +175,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
     onError: (error: any) => {
       toast({
         title: "Re-evaluation Failed",
-        description: error.message || "Failed to start re-evaluation process",
+        description: error?.message || "Failed to start re-evaluation process",
         variant: "destructive",
       });
     },
@@ -168,11 +190,39 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
   };
 
   /**
-   * Render individual question evaluation
+   * Render individual question evaluation with comprehensive error handling
    */
-  const renderQuestionEvaluation = (questionId: string, questionEval: QuestionEvaluation) => {
+  const renderQuestionEvaluation = (questionId: string, questionEval: any) => {
+    // Validate questionEval structure to prevent runtime errors
+    if (!isValidQuestionEvaluation(questionEval)) {
+      console.warn(`Invalid question evaluation for ${questionId}:`, questionEval);
+      return (
+        <Card key={questionId} className="mb-4">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-gray-400" />
+                <CardTitle className="text-sm font-medium text-gray-500">
+                  {questionLabels[questionId] || questionId}
+                </CardTitle>
+              </div>
+              <Badge variant="outline" className="text-gray-400">
+                No Data
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-xs text-gray-400">Evaluation data unavailable</p>
+          </CardContent>
+        </Card>
+      );
+    }
+
     const IconComponent = questionIcons[questionId] || FileText;
     const label = questionLabels[questionId] || questionId;
+    const score = typeof questionEval.score === 'number' ? questionEval.score : 0;
+    const strengths = Array.isArray(questionEval.strengths) ? questionEval.strengths : [];
+    const improvements = Array.isArray(questionEval.improvements) ? questionEval.improvements : [];
     
     return (
       <Card key={questionId} className="mb-4">
@@ -182,38 +232,53 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
               <IconComponent className="h-4 w-4 text-gray-600" />
               <CardTitle className="text-sm font-medium">{label}</CardTitle>
             </div>
-            <Badge variant={getScoreBadgeVariant(questionEval.score)} className="font-semibold">
-              {questionEval.score}/10
+            <Badge variant={getScoreBadgeVariant(score)} className="font-semibold">
+              {score}/10
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="pt-0 space-y-3">
-          {/* Strengths */}
-          {questionEval.strengths.length > 0 && (
+          {/* Strengths - Safe rendering with length check */}
+          {strengths.length > 0 && (
             <div>
               <h5 className="text-xs font-semibold text-green-700 mb-1">Strengths:</h5>
               <div className="text-xs text-gray-600">
-                {questionEval.strengths.map((strength, idx) => (
-                  <div key={idx} className="mb-1">• {strength}</div>
+                {strengths.map((strength, idx) => (
+                  <div key={idx} className="mb-1">• {String(strength)}</div>
                 ))}
               </div>
             </div>
           )}
           
-          {/* Areas for Improvement */}
-          {questionEval.improvements.length > 0 && (
+          {/* Areas for Improvement - Safe rendering with length check */}
+          {improvements.length > 0 && (
             <div>
               <h5 className="text-xs font-semibold text-orange-700 mb-1">Areas for Improvement:</h5>
               <div className="text-xs text-gray-600">
-                {questionEval.improvements.map((improvement, idx) => (
-                  <div key={idx} className="mb-1">• {improvement}</div>
+                {improvements.map((improvement, idx) => (
+                  <div key={idx} className="mb-1">• {String(improvement)}</div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Show message if no feedback available */}
+          {strengths.length === 0 && improvements.length === 0 && (
+            <div className="text-xs text-gray-400">
+              No detailed feedback available for this question.
             </div>
           )}
         </CardContent>
       </Card>
     );
+  };
+
+  // Safe application name rendering
+  const getApplicationName = () => {
+    if (application.individuals && application.individuals.first_name && application.individuals.last_name) {
+      return `${application.individuals.first_name} ${application.individuals.last_name}`;
+    }
+    return 'Unknown Applicant';
   };
 
   return (
@@ -228,11 +293,11 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
-            AI Evaluation - {application.individuals?.first_name} {application.individuals?.last_name}
+            AI Evaluation - {getApplicationName()}
           </DialogTitle>
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500">
-              Application ID: {application.application_id.slice(0, 8)}...
+              Application ID: {application.application_id?.slice(0, 8) || 'Unknown'}...
             </div>
             <div className="flex items-center gap-2">
               {!evaluation && application.evaluation_status !== 'completed' && (
@@ -298,7 +363,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
             </div>
           )}
 
-          {evaluation && (
+          {evaluation && isValidEvaluation(evaluation) && (
             <div className="space-y-6">
               {/* Overall Score and Summary */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -337,12 +402,17 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span>Questions Evaluated:</span>
-                        <span className="font-medium">{Object.keys(evaluation.question_scores).length}</span>
+                        <span className="font-medium">
+                          {evaluation.question_scores ? Object.keys(evaluation.question_scores).length : 0}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Completed:</span>
                         <span className="font-medium text-green-600">
-                          {new Date(evaluation.evaluation_completed_at).toLocaleDateString()}
+                          {evaluation.evaluation_completed_at 
+                            ? new Date(evaluation.evaluation_completed_at).toLocaleDateString()
+                            : 'Unknown'
+                          }
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -354,8 +424,8 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
                 </Card>
               </div>
 
-              {/* Idea Summary */}
-              {evaluation.idea_summary && (
+              {/* Idea Summary - Safe rendering */}
+              {evaluation.idea_summary && typeof evaluation.idea_summary === 'string' && evaluation.idea_summary.trim() && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
@@ -373,15 +443,35 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
                 </Card>
               )}
 
-              {/* Question-by-Question Breakdown */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Question-by-Question Analysis</h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {Object.entries(evaluation.question_scores).map(([questionId, questionEval]) =>
-                    renderQuestionEvaluation(questionId, questionEval as QuestionEvaluation)
-                  )}
+              {/* Question-by-Question Breakdown - Safe rendering */}
+              {evaluation.question_scores && typeof evaluation.question_scores === 'object' && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Question-by-Question Analysis</h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {Object.entries(evaluation.question_scores).map(([questionId, questionEval]) =>
+                      renderQuestionEvaluation(questionId, questionEval)
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Show message if no question scores available */}
+              {(!evaluation.question_scores || Object.keys(evaluation.question_scores).length === 0) && (
+                <div className="text-center py-8">
+                  <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500">No detailed question analysis available.</p>
+                  <p className="text-sm text-gray-400 mt-1">The evaluation may still be processing.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Invalid evaluation data */}
+          {evaluation && !isValidEvaluation(evaluation) && (
+            <div className="text-center py-8">
+              <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-3" />
+              <p className="text-red-500">Evaluation data appears to be corrupted.</p>
+              <p className="text-sm text-gray-400 mt-1">Please try re-evaluating this application.</p>
             </div>
           )}
         </ScrollArea>

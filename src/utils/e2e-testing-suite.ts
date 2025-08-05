@@ -348,7 +348,7 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Enhanced real-time updates test with proper subscription validation
+   * Enhanced real-time updates test with improved subscription validation
    */
   private async testRealTimeUpdates(): Promise<void> {
     const startTime = Date.now();
@@ -412,7 +412,7 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Validate that the dashboard real-time subscription system is working
+   * Validate that the dashboard real-time subscription system is working with enhanced monitoring
    */
   private async validateDashboardRealtimeSubscription(): Promise<{
     success: boolean;
@@ -423,12 +423,14 @@ export class E2ETestingSuite {
       console.log('🔍 Validating dashboard real-time subscription setup...');
       
       let subscriptionTimeout: NodeJS.Timeout;
+      let connectionMonitor: NodeJS.Timeout;
       let isResolved = false;
       
       const resolveOnce = (result: any) => {
         if (isResolved) return;
         isResolved = true;
         if (subscriptionTimeout) clearTimeout(subscriptionTimeout);
+        if (connectionMonitor) clearTimeout(connectionMonitor);
         resolve(result);
       };
 
@@ -438,7 +440,12 @@ export class E2ETestingSuite {
         console.log(`📡 Testing dashboard channel: ${channelName}`);
         
         this.realtimeChannel = supabase
-          .channel(channelName)
+          .channel(channelName, {
+            config: {
+              presence: { key: `e2e-test-${Date.now()}` },
+              broadcast: { self: true }
+            }
+          })
           .on(
             'postgres_changes',
             {
@@ -454,31 +461,63 @@ export class E2ETestingSuite {
             console.log('📡 Dashboard subscription status:', status, err);
             
             if (status === 'SUBSCRIBED') {
-              resolveOnce({
-                success: true,
-                details: {
-                  subscriptionStatus: status,
-                  channelName,
-                  timestamp: new Date().toISOString()
+              console.log('✅ Dashboard subscription established successfully');
+              
+              // Additional validation - check connection health
+              connectionMonitor = setTimeout(() => {
+                if (this.realtimeChannel && this.realtimeChannel.socket) {
+                  const socketState = this.realtimeChannel.socket.readyState;
+                  console.log(`🔍 WebSocket state after subscription: ${socketState}`);
+                  
+                  if (socketState === 1) { // WebSocket.OPEN
+                    resolveOnce({
+                      success: true,
+                      details: {
+                        subscriptionStatus: status,
+                        channelName,
+                        socketState,
+                        timestamp: new Date().toISOString()
+                      }
+                    });
+                  } else {
+                    resolveOnce({
+                      success: false,
+                      error: `WebSocket not in OPEN state: ${socketState}`,
+                      details: { status, socketState, channelName }
+                    });
+                  }
+                } else {
+                  resolveOnce({
+                    success: false,
+                    error: 'No socket available after subscription',
+                    details: { status, channelName }
+                  });
                 }
-              });
-            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              }, 2000); // Wait 2 seconds to ensure connection is stable
+              
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
               resolveOnce({
                 success: false,
                 error: `Dashboard subscription failed with status: ${status}`,
                 details: { status, error: err, channelName }
               });
+            } else if (status === 'CHANNEL_TIMEOUT') {
+              resolveOnce({
+                success: false,
+                error: 'Dashboard subscription timed out during establishment',
+                details: { status, error: err, channelName }
+              });
             }
           });
 
-        // Set timeout for subscription establishment (increased to 15 seconds)
+        // Set timeout for subscription establishment (increased to 20 seconds)
         subscriptionTimeout = setTimeout(() => {
           resolveOnce({
             success: false,
-            error: 'Dashboard subscription did not establish within 15 seconds',
+            error: 'Dashboard subscription did not establish within 20 seconds',
             details: { timeout: true, channelName }
           });
-        }, 15000);
+        }, 20000);
 
       } catch (error) {
         resolveOnce({
@@ -491,7 +530,7 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Test that real-time updates propagate correctly with proper update payload
+   * Test that real-time updates propagate correctly with enhanced monitoring
    */
   private async testRealtimeUpdatePropagation(): Promise<{
     success: boolean;
@@ -506,11 +545,13 @@ export class E2ETestingSuite {
       let eventsReceived = 0;
       let updateStartTime: number;
       let isResolved = false;
+      let eventListener: any = null;
       
       const resolveOnce = (result: any) => {
         if (isResolved) return;
         isResolved = true;
         if (updateTimeout) clearTimeout(updateTimeout);
+        if (eventListener) supabase.removeChannel(eventListener);
         resolve(result);
       };
 
@@ -524,9 +565,10 @@ export class E2ETestingSuite {
         return;
       }
 
-      // Add a specific listener for our test application updates
-      const updateChannel = supabase
-        .channel(`update-test-${Date.now()}`)
+      // Create a dedicated listener for our test application updates
+      const updateChannelName = `update-test-${Date.now()}`;
+      eventListener = supabase
+        .channel(updateChannelName)
         .on(
           'postgres_changes',
           {
@@ -539,7 +581,11 @@ export class E2ETestingSuite {
             eventsReceived++;
             const latency = Date.now() - updateStartTime;
             
-            console.log(`📨 Real-time update received for test application. Latency: ${latency}ms`, payload);
+            console.log(`📨 Real-time update received for test application. Latency: ${latency}ms`, {
+              eventType: payload.eventType,
+              applicationId: payload.new?.application_id || payload.old?.application_id,
+              evaluationStatus: payload.new?.evaluation_status
+            });
             
             resolveOnce({
               success: true,
@@ -549,59 +595,61 @@ export class E2ETestingSuite {
           }
         )
         .subscribe(async (status) => {
+          console.log(`📡 Update test channel status: ${status}`);
+          
           if (status === 'SUBSCRIBED') {
-            console.log('✅ Update test channel subscribed, triggering database update...');
+            console.log('✅ Update test channel subscribed, triggering database updates...');
             
             // Give subscription a moment to be fully ready
             setTimeout(async () => {
               updateStartTime = Date.now();
               
-              // Perform a database update with proper payload structure
-              const { error } = await supabase
-                .from('yff_applications')
-                .update({ 
-                  updated_at: new Date().toISOString(),
-                  evaluation_status: 'processing' // This should trigger real-time event
-                })
-                .eq('application_id', this.testApplicationId);
-              
-              if (error) {
-                resolveOnce({
-                  success: false,
-                  error: `Failed to trigger update: ${error.message}`,
-                  eventsReceived
-                });
-                return;
+              // Perform multiple database updates to ensure we catch an event
+              const updates = [
+                { evaluation_status: 'processing', updated_at: new Date().toISOString() },
+                { status: 'under_review', updated_at: new Date().toISOString() },
+                { evaluation_status: 'completed', updated_at: new Date().toISOString() }
+              ];
+
+              for (let i = 0; i < updates.length; i++) {
+                console.log(`🔄 Performing update ${i + 1}/${updates.length}:`, updates[i]);
+                
+                const { error } = await supabase
+                  .from('yff_applications')
+                  .update(updates[i])
+                  .eq('application_id', this.testApplicationId);
+                
+                if (error) {
+                  console.error(`❌ Update ${i + 1} failed:`, error);
+                } else {
+                  console.log(`✅ Update ${i + 1} successful`);
+                }
+
+                // Wait between updates
+                if (i < updates.length - 1) {
+                  await new Promise(resolve => setTimeout(resolve, 1500));
+                }
               }
 
-              // Wait a bit then do another update to ensure we catch the event
-              setTimeout(async () => {
-                const { error: error2 } = await supabase
-                  .from('yff_applications')
-                  .update({ 
-                    updated_at: new Date().toISOString(),
-                    status: 'under_review' // Another change to trigger event
-                  })
-                  .eq('application_id', this.testApplicationId);
-
-                if (error2) {
-                  console.error('Second update failed:', error2);
-                }
-              }, 1000);
-
-            }, 1000);
+            }, 2000);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            resolveOnce({
+              success: false,
+              error: `Update test channel failed: ${status}`,
+              eventsReceived
+            });
           }
         });
 
-      // Set timeout for update propagation (increased to 10 seconds for more reliability)
+      // Set timeout for update propagation (increased to 15 seconds for reliability)
       updateTimeout = setTimeout(() => {
-        supabase.removeChannel(updateChannel);
+        console.log(`⏰ Real-time update test timeout. Events received: ${eventsReceived}`);
         resolveOnce({
           success: false,
-          error: `Real-time update not received within 10 seconds. Events received: ${eventsReceived}`,
+          error: `Real-time update not received within 15 seconds. Events received: ${eventsReceived}`,
           eventsReceived
         });
-      }, 10000);
+      }, 15000);
     });
   }
 

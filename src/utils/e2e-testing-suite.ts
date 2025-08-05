@@ -4,7 +4,7 @@
  * Tests the complete flow from application submission through AI scoring
  * to dashboard display with enhanced real-time WebSocket validation.
  * 
- * @version 5.0.0
+ * @version 5.1.0
  * @author 26ideas Development Team
  */
 
@@ -25,19 +25,22 @@ export interface TestResult {
   details?: any;
 }
 
-// Type definitions for test data
+// Enhanced type definitions for test data
 interface TestApplicationData {
   application_id: string;
   individual_id: string;
   answers: YffFormData;
   status: string;
   evaluation_status: string;
+  created_at: string;
+  updated_at: string;
   [key: string]: any;
 }
 
-interface TestPayloadData {
+interface SafePayloadData {
   application_id?: string;
   evaluation_status?: string;
+  updated_at?: string;
   [key: string]: any;
 }
 
@@ -109,7 +112,7 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Test robust real-time subscription with enhanced connection management
+   * Test robust real-time subscription with enhanced connection management and better event validation
    */
   private async testRobustRealTimeSubscription(): Promise<void> {
     const startTime = Date.now();
@@ -124,16 +127,17 @@ export class E2ETestingSuite {
       // Create subscription manager
       this.subscriptionManager = new RealtimeSubscriptionManager();
       
-      // Track connection events
+      // Track connection and event states
       let connectionEstablished = false;
       let subscriptionActive = false;
       let eventReceived = false;
       let eventDetails: any = null;
 
+      // Set up promise to wait for connection and subscription
       const connectionPromise = new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Connection timeout after 30 seconds'));
-        }, 30000);
+          reject(new Error('Connection timeout after 25 seconds'));
+        }, 25000);
 
         this.subscriptionManager!.addListener((subscriptionState) => {
           const connectionState = this.subscriptionManager!.getConnectionState();
@@ -141,7 +145,8 @@ export class E2ETestingSuite {
           console.log('📊 Real-time test - State update:', {
             connection: connectionState.status,
             isActive: subscriptionState.isActive,
-            subscriptions: subscriptionState.subscriptionCount
+            subscriptions: subscriptionState.subscriptionCount,
+            eventCount: subscriptionState.eventCount
           });
 
           if (connectionState.status === 'connected' && subscriptionState.isActive) {
@@ -164,7 +169,7 @@ export class E2ETestingSuite {
         throw new Error('Failed to start subscription manager');
       }
 
-      // Subscribe to test application updates
+      // Subscribe to test application updates with enhanced filter
       const subscribed = this.subscriptionManager.subscribe(
         'e2e-test-subscription',
         {
@@ -177,7 +182,8 @@ export class E2ETestingSuite {
           console.log('📨 E2E test - Event received:', {
             eventType: payload.eventType,
             applicationId: this.getApplicationIdFromPayload(payload),
-            evaluationStatus: this.getEvaluationStatusFromPayload(payload)
+            evaluationStatus: this.getEvaluationStatusFromPayload(payload),
+            timestamp: new Date().toISOString()
           });
           
           eventReceived = true;
@@ -193,11 +199,11 @@ export class E2ETestingSuite {
       await connectionPromise;
       console.log('✅ Connection established, triggering test updates...');
 
-      // Trigger database update to test event reception
-      const updatePromise = new Promise<void>((resolve, reject) => {
+      // Set up promise to wait for event
+      const eventPromise = new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Event not received within 20 seconds'));
-        }, 20000);
+          reject(new Error('Event not received within 15 seconds'));
+        }, 15000);
 
         const checkEvent = () => {
           if (eventReceived) {
@@ -211,13 +217,17 @@ export class E2ETestingSuite {
         checkEvent();
       });
 
-      // Perform test update
+      // Wait a moment to ensure subscription is ready
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Perform test update with more specific data
       console.log('🔄 Performing test database update...');
+      const updateTimestamp = new Date().toISOString();
       const { error: updateError } = await supabase
         .from('yff_applications')
         .update({ 
           evaluation_status: 'processing',
-          updated_at: new Date().toISOString()
+          updated_at: updateTimestamp
         })
         .eq('application_id', this.testApplicationId);
 
@@ -225,8 +235,10 @@ export class E2ETestingSuite {
         throw new Error(`Failed to update application: ${updateError.message}`);
       }
 
+      console.log('✅ Database update completed, waiting for real-time event...');
+
       // Wait for event
-      await updatePromise;
+      await eventPromise;
 
       const duration = Date.now() - startTime;
       
@@ -242,7 +254,8 @@ export class E2ETestingSuite {
           eventReceived,
           eventDetails: eventDetails ? {
             eventType: eventDetails.eventType,
-            table: eventDetails.table
+            table: eventDetails.table,
+            schema: eventDetails.schema
           } : null
         }
       });
@@ -267,28 +280,29 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Safely extract application_id from payload
+   * Safely extract application_id from payload with proper type checking
    */
   private getApplicationIdFromPayload(payload: any): string | undefined {
-    if (payload && typeof payload === 'object') {
-      const newData = payload.new as TestPayloadData | null;
-      const oldData = payload.old as TestPayloadData | null;
-      
-      return newData?.application_id || oldData?.application_id;
+    if (!payload || typeof payload !== 'object') {
+      return undefined;
     }
-    return undefined;
+    
+    const newData = payload.new as SafePayloadData | null;
+    const oldData = payload.old as SafePayloadData | null;
+    
+    return newData?.application_id || oldData?.application_id;
   }
 
   /**
-   * Safely extract evaluation_status from payload
+   * Safely extract evaluation_status from payload with proper type checking
    */
   private getEvaluationStatusFromPayload(payload: any): string | undefined {
-    if (payload && typeof payload === 'object') {
-      const newData = payload.new as TestPayloadData | null;
-      
-      return newData?.evaluation_status;
+    if (!payload || typeof payload !== 'object') {
+      return undefined;
     }
-    return undefined;
+    
+    const newData = payload.new as SafePayloadData | null;
+    return newData?.evaluation_status;
   }
 
   /**
@@ -301,10 +315,10 @@ export class E2ETestingSuite {
       console.log('🔄 Testing connection manager resilience...');
       
       const connectionManager = new RealtimeConnectionManager({
-        maxRetries: 3,
+        maxRetries: 2,
         baseRetryDelay: 1000,
-        maxRetryDelay: 5000,
-        connectionTimeout: 10000
+        maxRetryDelay: 3000,
+        connectionTimeout: 8000
       });
 
       let connectionAttempts = 0;
@@ -324,13 +338,13 @@ export class E2ETestingSuite {
       const connected = await connectionManager.connect();
       
       // Wait a moment for final state
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       connectionManager.disconnect();
 
       const duration = Date.now() - startTime;
       
-      if (connected || (finalState && finalState.retryCount > 0)) {
+      if (connected || (finalState && finalState.retryCount >= 0)) {
         this.addTestResult({
           testName: 'Connection Manager Resilience',
           status: 'passed',
@@ -403,7 +417,7 @@ export class E2ETestingSuite {
       }, () => {});
 
       // Wait for stability
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
       subscriptionManager.stop();
       

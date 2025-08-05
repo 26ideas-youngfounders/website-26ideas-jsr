@@ -5,7 +5,7 @@
  * Manages real-time subscriptions for database changes with automatic
  * reconnection, error handling, and event processing.
  * 
- * @version 2.1.0
+ * @version 2.2.0
  * @author 26ideas Development Team
  */
 
@@ -53,9 +53,9 @@ export class RealtimeSubscriptionManager {
     this.connectionManager = new RealtimeConnectionManager({
       maxRetries: 3,
       baseRetryDelay: 1000,
-      maxRetryDelay: 8000,
-      heartbeatInterval: 30000,
-      connectionTimeout: 15000,
+      maxRetryDelay: 5000,
+      heartbeatInterval: 25000,
+      connectionTimeout: 10000,
     });
 
     // Listen to connection state changes
@@ -99,12 +99,21 @@ export class RealtimeSubscriptionManager {
     try {
       const connected = await this.connectionManager.connect();
       if (!connected) {
+        console.error('❌ Connection manager failed to connect');
         this.updateState({ lastError: 'Failed to establish connection' });
         return false;
       }
 
-      // Brief wait for connection to stabilize
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait for connection to be fully established
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Verify connection state
+      const connectionState = this.connectionManager.getState();
+      if (connectionState.status !== 'connected') {
+        console.error('❌ Connection not in connected state:', connectionState.status);
+        this.updateState({ lastError: `Connection not ready: ${connectionState.status}` });
+        return false;
+      }
 
       console.log('✅ Subscription manager started successfully');
       return true;
@@ -125,6 +134,12 @@ export class RealtimeSubscriptionManager {
     console.log('⏹️ Stopping subscription manager...');
     
     this.isStarting = false;
+    
+    // Deactivate all subscriptions
+    for (const [, subscription] of this.subscriptions) {
+      subscription.isActive = false;
+    }
+    
     this.subscriptions.clear();
     this.connectionManager.disconnect();
     
@@ -160,7 +175,7 @@ export class RealtimeSubscriptionManager {
     if (connectionState.status === 'connected') {
       setTimeout(() => {
         this.activateSubscription(id);
-      }, 100);
+      }, 500);
     }
 
     this.updateState({
@@ -195,10 +210,10 @@ export class RealtimeSubscriptionManager {
     console.log(`🔄 Connection state changed: ${connectionState.status}`);
     
     if (connectionState.status === 'connected') {
-      // Activate all subscriptions after connection
+      // Activate all subscriptions after connection with a delay
       setTimeout(() => {
         this.activateAllSubscriptions();
-      }, 500);
+      }, 1000);
     } else if (connectionState.status === 'disconnected' || connectionState.status === 'error') {
       // Mark all subscriptions as inactive
       this.deactivateAllSubscriptions();
@@ -211,7 +226,7 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Activate a specific subscription
+   * Activate a specific subscription with improved error handling
    */
   private activateSubscription(id: string): void {
     const subscription = this.subscriptions.get(id);
@@ -226,13 +241,13 @@ export class RealtimeSubscriptionManager {
     }
 
     try {
-      console.log(`✅ Activating subscription: ${id}`);
+      console.log(`✅ Activating subscription: ${id} for table: ${subscription.config.table}`);
       
       const { config, handler } = subscription;
       
-      // Use the correct Supabase realtime API pattern
+      // Create a more specific channel configuration for database changes
       channel.on(
-        'postgres_changes' as any,
+        'postgres_changes',
         {
           event: config.event || '*',
           schema: config.schema || 'public',
@@ -243,9 +258,13 @@ export class RealtimeSubscriptionManager {
           console.log(`📨 Event received for ${id}:`, {
             eventType: payload.eventType,
             table: payload.table,
+            schema: payload.schema,
             timestamp: new Date().toISOString(),
+            hasNewData: !!payload.new,
+            hasOldData: !!payload.old
           });
 
+          // Update event statistics
           this.updateState({
             lastEvent: new Date(),
             eventCount: this.state.eventCount + 1,

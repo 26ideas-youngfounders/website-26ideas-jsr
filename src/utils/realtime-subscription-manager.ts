@@ -27,7 +27,8 @@ export interface SubscriptionState {
   lastError: string | null;
 }
 
-export type EventHandler<T = any> = (payload: RealtimePostgresChangesPayload<T>) => void;
+// Generic type for database row data
+export type EventHandler<T = Record<string, any>> = (payload: RealtimePostgresChangesPayload<T>) => void;
 
 export class RealtimeSubscriptionManager {
   private connectionManager: RealtimeConnectionManager;
@@ -195,15 +196,16 @@ export class RealtimeSubscriptionManager {
       
       const { config, handler } = subscription;
       
+      // Use the correct Supabase realtime API pattern
       channel.on(
-        'postgres_changes',
+        'postgres_changes' as any,
         {
           event: config.event || '*',
           schema: config.schema || 'public',
           table: config.table,
           filter: config.filter,
         },
-        (payload: RealtimePostgresChangesPayload) => {
+        (payload: RealtimePostgresChangesPayload<Record<string, any>>) => {
           console.log(`📨 Event received for ${id}:`, {
             eventType: payload.eventType,
             table: payload.table,

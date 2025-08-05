@@ -25,6 +25,22 @@ export interface TestResult {
   details?: any;
 }
 
+// Type definitions for test data
+interface TestApplicationData {
+  application_id: string;
+  individual_id: string;
+  answers: YffFormData;
+  status: string;
+  evaluation_status: string;
+  [key: string]: any;
+}
+
+interface TestPayloadData {
+  application_id?: string;
+  evaluation_status?: string;
+  [key: string]: any;
+}
+
 export class E2ETestingSuite {
   private results: TestResult[] = [];
   private testApplicationId: string | null = null;
@@ -160,8 +176,8 @@ export class E2ETestingSuite {
         (payload) => {
           console.log('📨 E2E test - Event received:', {
             eventType: payload.eventType,
-            applicationId: payload.new?.application_id || payload.old?.application_id,
-            evaluationStatus: payload.new?.evaluation_status
+            applicationId: this.getApplicationIdFromPayload(payload),
+            evaluationStatus: this.getEvaluationStatusFromPayload(payload)
           });
           
           eventReceived = true;
@@ -248,6 +264,31 @@ export class E2ETestingSuite {
         this.subscriptionManager = null;
       }
     }
+  }
+
+  /**
+   * Safely extract application_id from payload
+   */
+  private getApplicationIdFromPayload(payload: any): string | undefined {
+    if (payload && typeof payload === 'object') {
+      const newData = payload.new as TestPayloadData | null;
+      const oldData = payload.old as TestPayloadData | null;
+      
+      return newData?.application_id || oldData?.application_id;
+    }
+    return undefined;
+  }
+
+  /**
+   * Safely extract evaluation_status from payload
+   */
+  private getEvaluationStatusFromPayload(payload: any): string | undefined {
+    if (payload && typeof payload === 'object') {
+      const newData = payload.new as TestPayloadData | null;
+      
+      return newData?.evaluation_status;
+    }
+    return undefined;
   }
 
   /**

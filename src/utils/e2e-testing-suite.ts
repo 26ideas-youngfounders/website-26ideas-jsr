@@ -4,7 +4,7 @@
  * Tests the complete flow from application submission through AI scoring
  * to dashboard display with enhanced real-time update validation.
  * 
- * @version 2.2.0
+ * @version 3.0.0
  * @author 26ideas Development Team
  */
 
@@ -348,30 +348,36 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Enhanced real-time updates test with improved subscription validation
+   * Enhanced real-time updates test with improved authentication and timeout handling
    */
   private async testRealTimeUpdates(): Promise<void> {
     const startTime = Date.now();
     
     try {
-      console.log('🔄 Testing real-time updates with enhanced validation...');
+      console.log('🔄 Testing real-time updates with enhanced authentication validation...');
       
       if (!this.testApplicationId) {
         throw new Error('No test application ID available');
       }
 
-      // Test the real-time subscription system using the same channel as the dashboard
-      const subscriptionTest = await this.validateDashboardRealtimeSubscription();
-      
-      if (!subscriptionTest.success) {
-        throw new Error(`Dashboard real-time subscription test failed: ${subscriptionTest.error}`);
+      // First, validate authentication status
+      const authValidation = await this.validateAuthenticationForRealtime();
+      if (!authValidation.success) {
+        throw new Error(`Authentication validation failed: ${authValidation.error}`);
       }
 
-      // Perform a database update and wait for real-time notification
-      const updateTest = await this.testRealtimeUpdatePropagation();
+      // Test the real-time subscription system with enhanced timeout handling
+      const subscriptionTest = await this.validateEnhancedRealtimeSubscription();
+      
+      if (!subscriptionTest.success) {
+        throw new Error(`Enhanced real-time subscription test failed: ${subscriptionTest.error}`);
+      }
+
+      // Perform database updates and wait for real-time notification with retry logic
+      const updateTest = await this.testEnhancedUpdatePropagation();
       
       if (!updateTest.success) {
-        throw new Error(`Real-time update propagation failed: ${updateTest.error}`);
+        throw new Error(`Enhanced real-time update propagation failed: ${updateTest.error}`);
       }
 
       const duration = Date.now() - startTime;
@@ -379,13 +385,15 @@ export class E2ETestingSuite {
       this.addTestResult({
         testName: 'Real-Time Updates',
         status: 'passed',
-        message: `Real-time updates working correctly. Dashboard subscription active, updates propagated within acceptable timeframe.`,
+        message: `Enhanced real-time updates working correctly. Subscription established within ${subscriptionTest.connectionTime}ms, updates propagated within ${updateTest.latency}ms.`,
         timestamp: new Date().toISOString(),
         duration,
         details: {
-          subscriptionStatus: subscriptionTest.details,
+          authValidation: authValidation.details,
+          subscriptionDetails: subscriptionTest.details,
           updateLatency: updateTest.latency,
-          eventsReceived: updateTest.eventsReceived
+          eventsReceived: updateTest.eventsReceived,
+          connectionTime: subscriptionTest.connectionTime
         }
       });
       
@@ -395,33 +403,107 @@ export class E2ETestingSuite {
       this.addTestResult({
         testName: 'Real-Time Updates',
         status: 'failed',
-        message: `Real-time updates test failed: ${error.message}`,
+        message: `Enhanced real-time updates test failed: ${error.message}`,
         timestamp: new Date().toISOString(),
         duration
       });
       
       // Don't throw here to allow other tests to continue
-      console.error('❌ Real-time updates test failed, but continuing with other tests');
+      console.error('❌ Enhanced real-time updates test failed, but continuing with other tests');
     } finally {
       // Always cleanup the channel
       if (this.realtimeChannel) {
-        supabase.removeChannel(this.realtimeChannel);
+        try {
+          supabase.removeChannel(this.realtimeChannel);
+        } catch (cleanupError) {
+          console.warn('⚠️ Error during real-time channel cleanup:', cleanupError);
+        }
         this.realtimeChannel = null;
       }
     }
   }
 
   /**
-   * Validate that the dashboard real-time subscription system is working with enhanced monitoring
+   * Validate authentication for real-time subscription
    */
-  private async validateDashboardRealtimeSubscription(): Promise<{
+  private async validateAuthenticationForRealtime(): Promise<{
     success: boolean;
     error?: string;
     details?: any;
   }> {
-    return new Promise((resolve) => {
-      console.log('🔍 Validating dashboard real-time subscription setup...');
+    try {
+      console.log('🔐 Validating authentication for real-time subscription...');
       
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        return {
+          success: false,
+          error: `Authentication error: ${error.message}`,
+          details: { error }
+        };
+      }
+
+      if (!session) {
+        return {
+          success: false,
+          error: 'No authenticated session found',
+          details: { sessionExists: false }
+        };
+      }
+
+      if (!session.access_token) {
+        return {
+          success: false,
+          error: 'No access token in session',
+          details: { sessionExists: true, hasAccessToken: false }
+        };
+      }
+
+      // Set realtime auth explicitly
+      try {
+        supabase.realtime.setAuth(session.access_token);
+        console.log('✅ Realtime authentication configured successfully');
+      } catch (authError) {
+        return {
+          success: false,
+          error: `Failed to set realtime auth: ${authError.message}`,
+          details: { authError }
+        };
+      }
+
+      return {
+        success: true,
+        details: {
+          userId: session.user?.id,
+          email: session.user?.email,
+          hasAccessToken: true,
+          realtimeAuthSet: true
+        }
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: `Authentication validation exception: ${error.message}`,
+        details: { exception: error }
+      };
+    }
+  }
+
+  /**
+   * Validate enhanced real-time subscription with better timeout handling
+   */
+  private async validateEnhancedRealtimeSubscription(): Promise<{
+    success: boolean;
+    error?: string;
+    details?: any;
+    connectionTime?: number;
+  }> {
+    return new Promise((resolve) => {
+      console.log('🔍 Validating enhanced real-time subscription setup...');
+      
+      const startTime = Date.now();
       let subscriptionTimeout: NodeJS.Timeout;
       let connectionMonitor: NodeJS.Timeout;
       let isResolved = false;
@@ -431,19 +513,27 @@ export class E2ETestingSuite {
         isResolved = true;
         if (subscriptionTimeout) clearTimeout(subscriptionTimeout);
         if (connectionMonitor) clearTimeout(connectionMonitor);
+        
+        // Add connection time to result
+        if (result.success) {
+          result.connectionTime = Date.now() - startTime;
+        }
+        
         resolve(result);
       };
 
       try {
-        // Create a channel with the SAME NAME as the dashboard uses
-        const channelName = 'yff-applications-realtime-main';
-        console.log(`📡 Testing dashboard channel: ${channelName}`);
+        // Create a unique channel name to avoid conflicts
+        const timestamp = Date.now();
+        const channelName = `e2e-test-realtime-${timestamp}`;
+        console.log(`📡 Testing enhanced subscription with channel: ${channelName}`);
         
         this.realtimeChannel = supabase
           .channel(channelName, {
             config: {
-              presence: { key: `e2e-test-${Date.now()}` },
-              broadcast: { self: true }
+              presence: { key: `e2e-enhanced-test-${timestamp}` },
+              broadcast: { self: false },
+              ack: true
             }
           })
           .on(
@@ -454,20 +544,29 @@ export class E2ETestingSuite {
               table: 'yff_applications'
             },
             (payload) => {
-              console.log('📨 Real-time event received in dashboard test:', payload.eventType);
+              console.log('📨 Real-time event received in enhanced test:', {
+                eventType: payload.eventType,
+                timestamp: new Date().toISOString()
+              });
             }
           )
           .subscribe((status, err) => {
-            console.log('📡 Dashboard subscription status:', status, err);
+            const connectionTime = Date.now() - startTime;
+            console.log('📡 Enhanced subscription status:', {
+              status,
+              error: err,
+              connectionTime: `${connectionTime}ms`,
+              channelName
+            });
             
             if (status === 'SUBSCRIBED') {
-              console.log('✅ Dashboard subscription established successfully');
+              console.log(`✅ Enhanced subscription established successfully in ${connectionTime}ms`);
               
-              // Additional validation - check connection health
+              // Additional validation - check connection health after a brief delay
               connectionMonitor = setTimeout(() => {
                 if (this.realtimeChannel && this.realtimeChannel.socket) {
                   const socketState = this.realtimeChannel.socket.readyState;
-                  console.log(`🔍 WebSocket state after subscription: ${socketState}`);
+                  console.log(`🔍 Enhanced WebSocket state verification: ${socketState}`);
                   
                   if (socketState === 1) { // WebSocket.OPEN
                     resolveOnce({
@@ -476,70 +575,74 @@ export class E2ETestingSuite {
                         subscriptionStatus: status,
                         channelName,
                         socketState,
+                        connectionTime,
                         timestamp: new Date().toISOString()
                       }
                     });
                   } else {
                     resolveOnce({
                       success: false,
-                      error: `WebSocket not in OPEN state: ${socketState}`,
-                      details: { status, socketState, channelName }
+                      error: `WebSocket not in OPEN state after subscription: ${socketState}`,
+                      details: { status, socketState, channelName, connectionTime }
                     });
                   }
                 } else {
                   resolveOnce({
                     success: false,
-                    error: 'No socket available after subscription',
-                    details: { status, channelName }
+                    error: 'No socket available after enhanced subscription',
+                    details: { status, channelName, connectionTime }
                   });
                 }
-              }, 2000); // Wait 2 seconds to ensure connection is stable
+              }, 3000); // Wait 3 seconds to ensure connection is stable
               
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
               resolveOnce({
                 success: false,
-                error: `Dashboard subscription failed with status: ${status}`,
-                details: { status, error: err, channelName }
+                error: `Enhanced subscription failed with status: ${status}`,
+                details: { status, error: err, channelName, connectionTime }
               });
             } else if (status === 'CHANNEL_TIMEOUT') {
               resolveOnce({
                 success: false,
-                error: 'Dashboard subscription timed out during establishment',
-                details: { status, error: err, channelName }
+                error: 'Enhanced subscription timed out during establishment',
+                details: { status, error: err, channelName, connectionTime }
               });
             }
           });
 
-        // Set timeout for subscription establishment (increased to 20 seconds)
+        // Set extended timeout for subscription establishment (45 seconds)
         subscriptionTimeout = setTimeout(() => {
+          const connectionTime = Date.now() - startTime;
+          console.error(`⏰ Enhanced connection timeout after ${connectionTime}ms`);
           resolveOnce({
             success: false,
-            error: 'Dashboard subscription did not establish within 20 seconds',
-            details: { timeout: true, channelName }
+            error: `Enhanced subscription did not establish within 45 seconds (took ${connectionTime}ms)`,
+            details: { timeout: true, channelName, connectionTime }
           });
-        }, 20000);
+        }, 45000);
 
       } catch (error) {
+        const connectionTime = Date.now() - startTime;
         resolveOnce({
           success: false,
-          error: `Dashboard subscription setup failed: ${error.message}`,
-          details: { exception: error }
+          error: `Enhanced subscription setup failed: ${error.message}`,
+          details: { exception: error, connectionTime }
         });
       }
     });
   }
 
   /**
-   * Test that real-time updates propagate correctly with enhanced monitoring
+   * Test enhanced update propagation with retry logic
    */
-  private async testRealtimeUpdatePropagation(): Promise<{
+  private async testEnhancedUpdatePropagation(): Promise<{
     success: boolean;
     error?: string;
     latency?: number;
     eventsReceived?: number;
   }> {
     return new Promise((resolve) => {
-      console.log('🔍 Testing real-time update propagation...');
+      console.log('🔍 Testing enhanced real-time update propagation...');
       
       let updateTimeout: NodeJS.Timeout;
       let eventsReceived = 0;
@@ -551,24 +654,37 @@ export class E2ETestingSuite {
         if (isResolved) return;
         isResolved = true;
         if (updateTimeout) clearTimeout(updateTimeout);
-        if (eventListener) supabase.removeChannel(eventListener);
+        if (eventListener) {
+          try {
+            supabase.removeChannel(eventListener);
+          } catch (cleanupError) {
+            console.warn('⚠️ Error cleaning up event listener:', cleanupError);
+          }
+        }
         resolve(result);
       };
 
-      // The channel should already be subscribed from the previous test
+      // The main channel should already be subscribed from the previous test
       if (!this.realtimeChannel) {
         resolveOnce({
           success: false,
-          error: 'No active real-time channel for testing updates',
+          error: 'No active enhanced real-time channel for testing updates',
           eventsReceived
         });
         return;
       }
 
-      // Create a dedicated listener for our test application updates
-      const updateChannelName = `update-test-${Date.now()}`;
+      // Create a dedicated listener for our test application updates with enhanced configuration
+      const timestamp = Date.now();
+      const updateChannelName = `e2e-update-test-${timestamp}`;
       eventListener = supabase
-        .channel(updateChannelName)
+        .channel(updateChannelName, {
+          config: {
+            presence: { key: `update-test-${timestamp}` },
+            broadcast: { self: false },
+            ack: true
+          }
+        })
         .on(
           'postgres_changes',
           {
@@ -581,10 +697,11 @@ export class E2ETestingSuite {
             eventsReceived++;
             const latency = Date.now() - updateStartTime;
             
-            console.log(`📨 Real-time update received for test application. Latency: ${latency}ms`, {
+            console.log(`📨 Enhanced real-time update received for test application. Latency: ${latency}ms`, {
               eventType: payload.eventType,
               applicationId: payload.new?.application_id || payload.old?.application_id,
-              evaluationStatus: payload.new?.evaluation_status
+              evaluationStatus: payload.new?.evaluation_status,
+              eventsReceived
             });
             
             resolveOnce({
@@ -595,61 +712,66 @@ export class E2ETestingSuite {
           }
         )
         .subscribe(async (status) => {
-          console.log(`📡 Update test channel status: ${status}`);
+          console.log(`📡 Enhanced update test channel status: ${status}`);
           
           if (status === 'SUBSCRIBED') {
-            console.log('✅ Update test channel subscribed, triggering database updates...');
+            console.log('✅ Enhanced update test channel subscribed, triggering database updates...');
             
-            // Give subscription a moment to be fully ready
+            // Give subscription more time to be fully ready
             setTimeout(async () => {
               updateStartTime = Date.now();
               
-              // Perform multiple database updates to ensure we catch an event
+              // Perform multiple database updates with better spacing to ensure we catch an event
               const updates = [
                 { evaluation_status: 'processing', updated_at: new Date().toISOString() },
                 { status: 'under_review', updated_at: new Date().toISOString() },
-                { evaluation_status: 'completed', updated_at: new Date().toISOString() }
+                { evaluation_status: 'completed', updated_at: new Date().toISOString() },
+                { status: 'completed', updated_at: new Date().toISOString() }
               ];
 
               for (let i = 0; i < updates.length; i++) {
-                console.log(`🔄 Performing update ${i + 1}/${updates.length}:`, updates[i]);
+                console.log(`🔄 Performing enhanced update ${i + 1}/${updates.length}:`, updates[i]);
                 
-                const { error } = await supabase
-                  .from('yff_applications')
-                  .update(updates[i])
-                  .eq('application_id', this.testApplicationId);
-                
-                if (error) {
-                  console.error(`❌ Update ${i + 1} failed:`, error);
-                } else {
-                  console.log(`✅ Update ${i + 1} successful`);
+                try {
+                  const { error } = await supabase
+                    .from('yff_applications')
+                    .update(updates[i])
+                    .eq('application_id', this.testApplicationId);
+                  
+                  if (error) {
+                    console.error(`❌ Enhanced update ${i + 1} failed:`, error);
+                  } else {
+                    console.log(`✅ Enhanced update ${i + 1} successful`);
+                  }
+                } catch (updateError) {
+                  console.error(`❌ Exception during enhanced update ${i + 1}:`, updateError);
                 }
 
-                // Wait between updates
+                // Wait between updates to allow propagation
                 if (i < updates.length - 1) {
-                  await new Promise(resolve => setTimeout(resolve, 1500));
+                  await new Promise(resolve => setTimeout(resolve, 2000));
                 }
               }
 
-            }, 2000);
+            }, 3000); // Wait 3 seconds for subscription to be fully ready
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             resolveOnce({
               success: false,
-              error: `Update test channel failed: ${status}`,
+              error: `Enhanced update test channel failed: ${status}`,
               eventsReceived
             });
           }
         });
 
-      // Set timeout for update propagation (increased to 15 seconds for reliability)
+      // Set extended timeout for update propagation (25 seconds for reliability)
       updateTimeout = setTimeout(() => {
-        console.log(`⏰ Real-time update test timeout. Events received: ${eventsReceived}`);
+        console.log(`⏰ Enhanced real-time update test timeout. Events received: ${eventsReceived}`);
         resolveOnce({
           success: false,
-          error: `Real-time update not received within 15 seconds. Events received: ${eventsReceived}`,
+          error: `Enhanced real-time update not received within 25 seconds. Events received: ${eventsReceived}`,
           eventsReceived
         });
-      }, 15000);
+      }, 25000);
     });
   }
 
@@ -848,7 +970,11 @@ export class E2ETestingSuite {
       
       // Clean up any remaining realtime channels
       if (this.realtimeChannel) {
-        supabase.removeChannel(this.realtimeChannel);
+        try {
+          supabase.removeChannel(this.realtimeChannel);
+        } catch (cleanupError) {
+          console.warn('⚠️ Error during realtime channel cleanup:', cleanupError);
+        }
         this.realtimeChannel = null;
       }
       

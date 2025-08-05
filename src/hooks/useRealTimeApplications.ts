@@ -1,11 +1,12 @@
 
 /**
- * @fileoverview Real-Time YFF Applications Hook with Enhanced Error Handling
+ * @fileoverview Real-Time YFF Applications Hook with Enhanced Connection Management
  * 
  * Provides real-time updates for YFF applications using Supabase
- * real-time subscriptions with comprehensive error handling and reconnection logic.
+ * real-time subscriptions with comprehensive error handling, authentication validation,
+ * retry logic, and polling fallback.
  * 
- * @version 2.2.0
+ * @version 3.0.0
  * @author 26ideas Development Team
  */
 
@@ -14,15 +15,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { YffApplicationWithIndividual } from '@/types/yff-application';
+import type { Session } from '@supabase/supabase-js';
 
 interface UseRealTimeApplicationsReturn {
   applications: YffApplicationWithIndividual[];
   isLoading: boolean;
   error: Error | null;
   isConnected: boolean;
+  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error' | 'fallback';
   retryCount: number;
   lastUpdate: Date | null;
-  subscriptionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
 }
 
 /**
@@ -46,18 +48,23 @@ const getApplicationId = (newRecord: any, oldRecord: any): string | null => {
 };
 
 /**
- * Hook for real-time YFF applications with enhanced reliability
+ * Hook for real-time YFF applications with enhanced reliability and fallback
  */
 export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   const [isConnected, setIsConnected] = useState(false);
-  const [subscriptionStatus, setSubscriptionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error' | 'fallback'>('disconnected');
   const [retryCount, setRetryCount] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Refs for managing subscriptions and timers
   const channelRef = useRef<any>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const connectionAttemptRef = useRef<number>(0);
+  const currentSessionRef = useRef<Session | null>(null);
 
   // Primary data query with improved error handling
   const { data: applications = [], isLoading, error } = useQuery({
@@ -101,71 +108,168 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   });
 
   /**
-   * Enhanced connection monitoring with detailed status tracking
+   * Validate authentication status for real-time subscription
    */
-  const monitorConnection = useCallback(() => {
-    const checkConnection = () => {
-      const now = Date.now();
-      const currentAttempt = connectionAttemptRef.current;
+  const validateAuthentication = useCallback(async (): Promise<Session | null> => {
+    try {
+      console.log('🔐 Validating authentication for real-time subscription...');
       
-      console.log(`🔍 Connection check #${currentAttempt} at ${new Date(now).toISOString()}`);
+      const { data: { session }, error } = await supabase.auth.getSession();
       
-      if (channelRef.current && channelRef.current.socket) {
-        const socketState = channelRef.current.socket.readyState;
-        console.log(`📡 WebSocket state: ${socketState} (0=connecting, 1=open, 2=closing, 3=closed)`);
-        
-        if (socketState === 1) { // WebSocket.OPEN
-          if (!isConnected) {
-            console.log('✅ Connection established successfully');
-            setIsConnected(true);
-            setSubscriptionStatus('connected');
-            setRetryCount(0);
-          }
-        } else if (socketState === 3) { // WebSocket.CLOSED
-          console.log('❌ Connection lost, will attempt reconnection');
-          setIsConnected(false);
-          setSubscriptionStatus('disconnected');
-        }
+      if (error) {
+        console.error('❌ Authentication error:', error);
+        return null;
       }
-    };
 
-    checkConnection();
-    return setInterval(checkConnection, 2000); // Check every 2 seconds
-  }, [isConnected]);
+      if (!session) {
+        console.warn('⚠️ No authenticated session found');
+        return null;
+      }
+
+      if (!session.access_token) {
+        console.warn('⚠️ No access token in session');
+        return null;
+      }
+
+      console.log('✅ Authentication validated:', {
+        userId: session.user?.id,
+        email: session.user?.email,
+        tokenExists: !!session.access_token
+      });
+
+      currentSessionRef.current = session;
+      return session;
+      
+    } catch (error) {
+      console.error('❌ Authentication validation failed:', error);
+      return null;
+    }
+  }, []);
+
+  /**
+   * Start polling fallback when real-time fails
+   */
+  const startPollingFallback = useCallback(() => {
+    console.log('🔄 Starting polling fallback...');
+    setConnectionStatus('fallback');
+    
+    // Clear any existing polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+    
+    pollingIntervalRef.current = setInterval(() => {
+      console.log('🔄 Polling for updates...');
+      queryClient.invalidateQueries({ queryKey: ['yff-applications-realtime'] });
+    }, 15000); // Poll every 15 seconds
+    
+    toast({
+      title: "Real-time Updates Unavailable",
+      description: "Using periodic refresh instead.",
+      variant: "default"
+    });
+  }, [queryClient, toast]);
+
+  /**
+   * Stop polling fallback
+   */
+  const stopPollingFallback = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+      console.log('⏹️ Stopped polling fallback');
+    }
+  }, []);
 
   /**
    * Handle real-time subscription setup with enhanced reliability
    */
-  const setupRealtimeSubscription = useCallback(() => {
+  const setupRealtimeSubscription = useCallback(async (): Promise<boolean> => {
     try {
       connectionAttemptRef.current += 1;
       const attemptNumber = connectionAttemptRef.current;
       
       console.log(`🔗 Setting up real-time subscription (attempt #${attemptNumber})...`);
-      setSubscriptionStatus('connecting');
+      setConnectionStatus('connecting');
+      setIsConnected(false);
       
-      // Clean up existing subscription
+      // Stop any existing polling fallback
+      stopPollingFallback();
+
+      // Clean up existing subscription and timeouts
       if (channelRef.current) {
         console.log('🧹 Cleaning up existing subscription');
-        supabase.removeChannel(channelRef.current);
+        try {
+          supabase.removeChannel(channelRef.current);
+        } catch (cleanupError) {
+          console.warn('⚠️ Error during subscription cleanup:', cleanupError);
+        }
         channelRef.current = null;
       }
 
-      // Clear any existing reconnection timeouts
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
 
-      // Use consistent channel name matching E2E tests
-      const channelName = `yff-applications-realtime-main`;
-      console.log(`📡 Creating channel: ${channelName} (attempt #${attemptNumber})`);
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+
+      // Validate authentication first
+      const session = await validateAuthentication();
+      if (!session) {
+        console.error('❌ Cannot establish real-time subscription without valid authentication');
+        setConnectionStatus('error');
+        startPollingFallback();
+        return false;
+      }
+
+      // Set realtime auth explicitly
+      try {
+        console.log('🔐 Setting realtime authentication...');
+        supabase.realtime.setAuth(session.access_token);
+      } catch (authError) {
+        console.error('❌ Failed to set realtime auth:', authError);
+        setConnectionStatus('error');
+        startPollingFallback();
+        return false;
+      }
+
+      // Create channel with enhanced configuration
+      const channelName = `yff-applications-realtime-main-${attemptNumber}`;
+      console.log(`📡 Creating channel: ${channelName}`);
+
+      // Set connection timeout
+      connectionTimeoutRef.current = setTimeout(() => {
+        console.error(`⏰ Connection timeout after 30 seconds (attempt #${attemptNumber})`);
+        if (channelRef.current && !isConnected) {
+          setConnectionStatus('error');
+          const currentRetryCount = retryCount + 1;
+          
+          if (currentRetryCount <= 3) {
+            console.log(`🔄 Will retry connection (attempt ${currentRetryCount}/3)`);
+            setRetryCount(currentRetryCount);
+            
+            // Exponential backoff
+            const delay = Math.min(1000 * Math.pow(2, currentRetryCount - 1), 10000);
+            reconnectTimeoutRef.current = setTimeout(() => {
+              setupRealtimeSubscription();
+            }, delay);
+          } else {
+            console.error('💀 Max connection attempts reached, switching to polling fallback');
+            startPollingFallback();
+          }
+        }
+      }, 30000); // 30 second timeout
 
       const channel = supabase
         .channel(channelName, {
           config: {
-            presence: { key: `admin-${Date.now()}` },
-            broadcast: { self: true }
+            presence: { key: `admin-${session.user.id}-${Date.now()}` },
+            broadcast: { self: false },
+            ack: true
           }
         })
         .on(
@@ -182,8 +286,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
               eventType: payload.eventType,
               applicationId: applicationId || 'unknown',
               timestamp: new Date().toISOString(),
-              attempt: attemptNumber,
-              payload: payload
+              attempt: attemptNumber
             });
             
             // Invalidate and refetch applications
@@ -226,30 +329,29 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
             status,
             error: err,
             timestamp,
-            channelName
+            channelName,
+            isConnected
           });
           
           if (status === 'SUBSCRIBED') {
-            console.log(`✅ Real-time subscription active (attempt #${attemptNumber})`);
-            setIsConnected(true);
-            setSubscriptionStatus('connected');
-            setRetryCount(0);
+            console.log(`✅ Real-time subscription established (attempt #${attemptNumber})`);
             
-            // Clear any pending reconnection attempts
-            if (reconnectTimeoutRef.current) {
-              clearTimeout(reconnectTimeoutRef.current);
-              reconnectTimeoutRef.current = null;
+            // Clear connection timeout
+            if (connectionTimeoutRef.current) {
+              clearTimeout(connectionTimeoutRef.current);
+              connectionTimeoutRef.current = null;
             }
             
-            // Start connection monitoring
-            const monitorInterval = monitorConnection();
+            setIsConnected(true);
+            setConnectionStatus('connected');
+            setRetryCount(0);
             
-            // Clean up monitor on channel removal
-            const originalRemove = channel.unsubscribe;
-            channel.unsubscribe = () => {
-              clearInterval(monitorInterval);
-              return originalRemove.call(channel);
-            };
+            // Show success notification
+            toast({
+              title: "Real-time Updates Active",
+              description: "Dashboard will now update automatically.",
+              variant: "default"
+            });
             
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.error(`❌ Real-time subscription error (attempt #${attemptNumber}):`, { 
@@ -259,67 +361,79 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
             });
             
             setIsConnected(false);
-            setSubscriptionStatus('error');
+            setConnectionStatus('error');
             
-            // Implement exponential backoff for reconnection
+            // Clear connection timeout
+            if (connectionTimeoutRef.current) {
+              clearTimeout(connectionTimeoutRef.current);
+              connectionTimeoutRef.current = null;
+            }
+            
+            // Implement retry logic with exponential backoff
             const currentRetryCount = retryCount + 1;
-            const maxRetries = 8; // Increased max retries
-            const baseDelay = 1000;
-            const maxDelay = 60000; // Max 1 minute
+            const maxRetries = 3;
+            const baseDelay = 2000;
+            const maxDelay = 10000;
             const delay = Math.min(baseDelay * Math.pow(1.5, currentRetryCount), maxDelay);
             
             if (currentRetryCount <= maxRetries) {
               console.log(`🔄 Scheduling reconnection attempt ${currentRetryCount} in ${delay}ms`);
+              setRetryCount(currentRetryCount);
               
               reconnectTimeoutRef.current = setTimeout(() => {
-                setRetryCount(currentRetryCount);
                 setupRealtimeSubscription();
               }, delay);
               
             } else {
-              console.error('💀 Max reconnection attempts reached');
-              setSubscriptionStatus('error');
-              toast({
-                title: "Connection Lost",
-                description: "Real-time updates are unavailable. Please refresh the page.",
-                variant: "destructive"
-              });
+              console.error('💀 Max reconnection attempts reached, switching to polling fallback');
+              setConnectionStatus('fallback');
+              startPollingFallback();
             }
-            
-          } else if (status === 'CHANNEL_TIMEOUT') {
-            console.warn(`⏰ Subscription timeout (attempt #${attemptNumber}), retrying...`);
-            setSubscriptionStatus('error');
-            
-            // Immediate retry on timeout
-            setTimeout(() => setupRealtimeSubscription(), 2000);
           }
         });
 
       channelRef.current = channel;
       console.log(`📡 Real-time subscription setup completed (attempt #${attemptNumber})`);
+      return true;
       
     } catch (error) {
       console.error(`❌ Failed to setup real-time subscription (attempt #${connectionAttemptRef.current}):`, error);
       setIsConnected(false);
-      setSubscriptionStatus('error');
+      setConnectionStatus('error');
+      
+      // Clear connection timeout
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+      
+      // Fallback to polling
+      startPollingFallback();
+      return false;
     }
-  }, [queryClient, toast, retryCount, monitorConnection]);
+  }, [validateAuthentication, queryClient, toast, retryCount, isConnected, stopPollingFallback, startPollingFallback]);
 
-  // Initialize subscription on mount with immediate setup
+  // Initialize subscription on mount
   useEffect(() => {
     console.log('🚀 Initializing real-time subscription hook');
     
-    // Reset attempt counter
+    // Reset state
     connectionAttemptRef.current = 0;
+    setRetryCount(0);
     
-    // Immediate setup
+    // Start subscription setup
     setupRealtimeSubscription();
     
     return () => {
       console.log('🧹 Cleaning up real-time subscription on unmount');
       
+      // Clean up all resources
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+        try {
+          supabase.removeChannel(channelRef.current);
+        } catch (error) {
+          console.warn('⚠️ Error removing channel during cleanup:', error);
+        }
         channelRef.current = null;
       }
       
@@ -328,23 +442,66 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
         reconnectTimeoutRef.current = null;
       }
       
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+      
+      stopPollingFallback();
+      
       setIsConnected(false);
-      setSubscriptionStatus('disconnected');
+      setConnectionStatus('disconnected');
     };
-  }, []); // Remove setupRealtimeSubscription from deps to prevent re-setup
+  }, []); // Empty deps to prevent re-setup
+
+  // Handle authentication state changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔐 Auth state changed:', event, !!session);
+        
+        if (event === 'SIGNED_IN' && session) {
+          console.log('✅ User signed in, establishing real-time subscription');
+          currentSessionRef.current = session;
+          
+          // Wait a moment for auth to settle, then setup subscription
+          setTimeout(() => {
+            setupRealtimeSubscription();
+          }, 1000);
+          
+        } else if (event === 'SIGNED_OUT') {
+          console.log('❌ User signed out, cleaning up real-time subscription');
+          currentSessionRef.current = null;
+          
+          if (channelRef.current) {
+            supabase.removeChannel(channelRef.current);
+            channelRef.current = null;
+          }
+          
+          setIsConnected(false);
+          setConnectionStatus('disconnected');
+          stopPollingFallback();
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [setupRealtimeSubscription, stopPollingFallback]);
 
   // Handle visibility change for better resource management
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('👁️ Page became visible, checking connection');
+        console.log('👁️ Page became visible, checking connection status');
         
-        if (!isConnected && subscriptionStatus !== 'connecting') {
-          console.log('🔄 Page visible and not connected, reconnecting...');
+        if (!isConnected && connectionStatus !== 'connecting' && connectionStatus !== 'fallback') {
+          console.log('🔄 Page visible and not connected, attempting reconnection...');
           setupRealtimeSubscription();
         }
       } else {
-        console.log('👁️ Page hidden');
+        console.log('👁️ Page hidden, connection will be managed by existing logic');
       }
     };
 
@@ -353,12 +510,12 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isConnected, subscriptionStatus, setupRealtimeSubscription]);
+  }, [isConnected, connectionStatus, setupRealtimeSubscription]);
 
   // Periodic connection health check
   useEffect(() => {
     const healthCheck = setInterval(() => {
-      if (subscriptionStatus === 'connected' && channelRef.current) {
+      if (connectionStatus === 'connected' && channelRef.current) {
         // Verify the channel is still active
         const channel = channelRef.current;
         if (channel.socket && channel.socket.readyState !== 1) {
@@ -369,15 +526,15 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     }, 30000); // Check every 30 seconds
 
     return () => clearInterval(healthCheck);
-  }, [subscriptionStatus, setupRealtimeSubscription]);
+  }, [connectionStatus, setupRealtimeSubscription]);
 
   return {
     applications,
     isLoading,
     error: error as Error | null,
     isConnected,
+    connectionStatus,
     retryCount,
-    lastUpdate,
-    subscriptionStatus
+    lastUpdate
   };
 };

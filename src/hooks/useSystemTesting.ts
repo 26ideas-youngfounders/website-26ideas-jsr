@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview System Testing Hook
  * 
@@ -59,10 +58,9 @@ export const useSystemTesting = (): SystemTestingReturn => {
     const startTime = Date.now();
     
     try {
-      const { data, error } = await supabase
+      const { count, error } = await supabase
         .from('yff_applications')
-        .select('count(*)', { count: 'exact' })
-        .limit(0);
+        .select('*', { count: 'exact', head: true });
         
       if (error) throw error;
       
@@ -73,7 +71,7 @@ export const useSystemTesting = (): SystemTestingReturn => {
         name: 'Database Connection',
         status: 'passed',
         duration,
-        details: `Successfully connected to database (${duration}ms)`,
+        details: `Successfully connected to database. Found ${count || 0} applications (${duration}ms)`,
         timestamp: new Date()
       };
     } catch (error) {

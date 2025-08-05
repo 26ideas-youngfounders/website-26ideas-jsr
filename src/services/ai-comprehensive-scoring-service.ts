@@ -190,13 +190,20 @@ export class AIComprehensiveScoringService {
     try {
       console.log(`🔄 Starting comprehensive evaluation for application: ${applicationId}`);
       
+      // Validate application ID format first
+      if (!applicationId || typeof applicationId !== 'string' || applicationId.trim().length === 0) {
+        throw new Error(`Invalid application ID provided: ${applicationId}`);
+      }
+      
       // Update status to processing with timestamp
       await this.updateEvaluationStatus(applicationId, 'processing');
       
-      // Fetch application data with validation
+      // Fetch application data with enhanced validation
       const application = await this.fetchApplicationData(applicationId);
       if (!application) {
-        throw new Error(`Application not found: ${applicationId}`);
+        // Try to find application with different ID format or log available applications
+        await this.logAvailableApplications(applicationId);
+        throw new Error(`Application not found: ${applicationId}. Please verify the application exists and you have permission to access it.`);
       }
       
       // Validate application has answers
@@ -531,19 +538,28 @@ export class AIComprehensiveScoringService {
   }
   
   /**
-   * Fetch application data from database with type safety
+   * Fetch application data from database with enhanced validation
    */
   private static async fetchApplicationData(applicationId: string): Promise<ExtendedYffApplication | null> {
+    console.log(`🔍 Fetching application data for ID: ${applicationId}`);
+    
     const { data, error } = await supabase
       .from('yff_applications')
       .select('*')
       .eq('application_id', applicationId)
-      .single();
+      .maybeSingle(); // Use maybeSingle instead of single to avoid error on no data
     
     if (error) {
-      console.error('Failed to fetch application:', error);
+      console.error('❌ Failed to fetch application:', error);
+      throw new Error(`Database error fetching application: ${error.message}`);
+    }
+    
+    if (!data) {
+      console.warn(`⚠️ No application found with ID: ${applicationId}`);
       return null;
     }
+    
+    console.log(`✅ Successfully fetched application: ${applicationId}`);
     
     // Safely handle evaluation_data type conversion
     const safeData = {
@@ -553,6 +569,36 @@ export class AIComprehensiveScoringService {
     
     return safeData;
   }
+
+  /**
+   * Log available applications for debugging when application not found
+   */
+  private static async logAvailableApplications(searchId: string): Promise<void> {
+    try {
+      console.log(`🔍 Searching for applications similar to: ${searchId}`);
+      
+      const { data, error } = await supabase
+        .from('yff_applications')
+        .select('application_id, status, created_at')
+        .limit(10);
+      
+      if (error) {
+        console.error('❌ Failed to fetch available applications:', error);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        console.log(`📋 Found ${data.length} available applications:`);
+        data.forEach((app, index) => {
+          console.log(`  ${index + 1}. ID: ${app.application_id} | Status: ${app.status} | Created: ${app.created_at}`);
+        });
+      } else {
+        console.warn('⚠️ No applications found in the database');
+      }
+    } catch (error) {
+      console.error('❌ Error logging available applications:', error);
+    }
+  }
   
   /**
    * Update evaluation status
@@ -561,16 +607,22 @@ export class AIComprehensiveScoringService {
     applicationId: string, 
     status: 'pending' | 'processing' | 'completed' | 'failed'
   ): Promise<void> {
-    const { error } = await supabase
-      .from('yff_applications')
-      .update({ 
-        evaluation_status: status,
-        updated_at: new Date().toISOString()
-      })
-      .eq('application_id', applicationId);
-    
-    if (error) {
-      console.error(`Failed to update evaluation status to ${status}:`, error);
+    try {
+      const { error } = await supabase
+        .from('yff_applications')
+        .update({ 
+          evaluation_status: status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('application_id', applicationId);
+      
+      if (error) {
+        console.error(`❌ Failed to update evaluation status to ${status}:`, error);
+      } else {
+        console.log(`✅ Updated evaluation status to ${status} for application: ${applicationId}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error updating evaluation status:`, error);
     }
   }
   

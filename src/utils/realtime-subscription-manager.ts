@@ -280,14 +280,14 @@ export class RealtimeSubscriptionManager {
         const channel = supabase.channel(channelName);
         
         // Set up postgres changes listener with correct Supabase API syntax
-        channel.on(
-          'postgres_changes',
+        const channelWithListener = channel.on(
+          'postgres_changes' as any,
           {
             event: config.event || '*',
             schema: config.schema || 'public',
             table: config.table,
             ...(config.filter && { filter: config.filter })
-          },
+          } as any,
           (payload: RealtimePostgresChangesPayload<Record<string, any>>) => {
             console.log(`📨 Event received for ${id}:`, {
               eventType: payload.eventType,
@@ -316,7 +316,7 @@ export class RealtimeSubscriptionManager {
         );
 
         // Subscribe to the channel
-        channel.subscribe((status, err) => {
+        channelWithListener.subscribe((status, err) => {
           console.log(`📡 Subscription ${id} status: ${status}`, err ? { error: err } : '');
           
           if (status === 'SUBSCRIBED') {

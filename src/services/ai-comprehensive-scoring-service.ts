@@ -17,6 +17,7 @@ import {
 
 /**
  * Complete system prompts mapping - one-to-one question to prompt mapping
+ * These prompts correspond to the questionnaire questions in the YFF application form
  */
 const SYSTEM_PROMPTS: Record<string, string> = {
   tell_us_about_idea: `
@@ -177,12 +178,11 @@ FEEDBACK:
  * Comprehensive AI Scoring Service Class
  */
 export class AIComprehensiveScoringService {
-  private static readonly EVALUATION_VERSION = '1.0';
+  private static readonly EVALUATION_VERSION = '2.0';
   private static readonly MODEL_NAME = 'gpt-4o-mini';
   
   /**
    * Main evaluation method - processes entire application
-   * Enhanced with better error handling and monitoring for background jobs
    */
   static async evaluateApplication(applicationId: string): Promise<AIEvaluationResult> {
     const startTime = Date.now();
@@ -201,14 +201,7 @@ export class AIComprehensiveScoringService {
       // Fetch application data with enhanced validation
       const application = await this.fetchApplicationData(applicationId);
       if (!application) {
-        // Try to find application with different ID format or log available applications
-        await this.logAvailableApplications(applicationId);
-        throw new Error(`Application not found: ${applicationId}. Please verify the application exists and you have permission to access it.`);
-      }
-      
-      // Validate application has answers
-      if (!application.answers || typeof application.answers !== 'object') {
-        throw new Error(`Application ${applicationId} has no valid answers to evaluate`);
+        throw new Error(`Application not found: ${applicationId}`);
       }
       
       // Parse answers with error handling
@@ -253,9 +246,6 @@ export class AIComprehensiveScoringService {
       
       // Update status to failed with error details
       await this.updateEvaluationStatus(applicationId, 'failed');
-      
-      // Log detailed error for monitoring
-      await this.logEvaluationError(applicationId, error.message, processingTime);
       
       throw error;
     }
@@ -313,14 +303,10 @@ export class AIComprehensiveScoringService {
     // Log scoring summary
     console.log(`📊 Scoring summary for ${applicationId}: ${successfulResults.length} successful, ${failedResults.length} failed`);
     
-    if (failedResults.length > 0) {
-      console.warn(`⚠️ Failed questions: ${failedResults.join(', ')}`);
-    }
-    
     // Require at least 50% success rate
     const successRate = successfulResults.length / questionsToScore.length;
     if (successRate < 0.5) {
-      throw new Error(`Too many scoring failures: ${failedResults.length}/${questionsToScore.length} questions failed (${Math.round((1 - successRate) * 100)}% failure rate)`);
+      throw new Error(`Too many scoring failures: ${failedResults.length}/${questionsToScore.length} questions failed`);
     }
     
     return successfulResults;
@@ -344,7 +330,7 @@ export class AIComprehensiveScoringService {
         body: {
           systemPrompt: systemPrompt,
           userAnswer: answer,
-          questionId: questionId // Add for better tracking
+          questionId: questionId
         }
       });
       
@@ -397,7 +383,7 @@ export class AIComprehensiveScoringService {
   }
   
   /**
-   * Parse AI response with enhanced validation and error context
+   * Parse AI response with enhanced validation
    */
   private static parseAIResponse(aiResponse: string, questionId?: string): {
     score: number;
@@ -430,11 +416,6 @@ export class AIComprehensiveScoringService {
       const improvementsText = improvementsMatch ? improvementsMatch[1].trim() : '';
       const areas_for_improvement = improvementsText ? [improvementsText.replace(/\n\s*-\s*/g, ' ').trim()] : [];
       
-      // Validate we have some feedback
-      if (strengths.length === 0 && areas_for_improvement.length === 0) {
-        console.warn(`⚠️ No feedback extracted for question ${questionId || 'unknown'}`);
-      }
-      
       return {
         score: Math.max(0, Math.min(10, score)), // Ensure score is between 0-10
         strengths,
@@ -444,7 +425,6 @@ export class AIComprehensiveScoringService {
     } catch (error) {
       const context = questionId ? ` for question ${questionId}` : '';
       console.error(`❌ Failed to parse AI response${context}:`, error);
-      console.error('Raw AI response:', aiResponse?.substring(0, 500) + '...');
       
       return {
         score: 0,
@@ -533,71 +513,31 @@ export class AIComprehensiveScoringService {
     
     if (insertError) {
       console.warn('Failed to create evaluation record:', insertError);
-      // Don't throw here as main update succeeded
     }
   }
   
   /**
-   * Fetch application data from database with enhanced validation
+   * Fetch application data from database
    */
   private static async fetchApplicationData(applicationId: string): Promise<ExtendedYffApplication | null> {
-    console.log(`🔍 Fetching application data for ID: ${applicationId}`);
-    
     const { data, error } = await supabase
       .from('yff_applications')
       .select('*')
       .eq('application_id', applicationId)
-      .maybeSingle(); // Use maybeSingle instead of single to avoid error on no data
+      .maybeSingle();
     
     if (error) {
-      console.error('❌ Failed to fetch application:', error);
       throw new Error(`Database error fetching application: ${error.message}`);
     }
     
     if (!data) {
-      console.warn(`⚠️ No application found with ID: ${applicationId}`);
       return null;
     }
     
-    console.log(`✅ Successfully fetched application: ${applicationId}`);
-    
-    // Safely handle evaluation_data type conversion
-    const safeData = {
+    return {
       ...data,
       evaluation_data: ensureEvaluationDataIsObject(data.evaluation_data)
     } as ExtendedYffApplication;
-    
-    return safeData;
-  }
-
-  /**
-   * Log available applications for debugging when application not found
-   */
-  private static async logAvailableApplications(searchId: string): Promise<void> {
-    try {
-      console.log(`🔍 Searching for applications similar to: ${searchId}`);
-      
-      const { data, error } = await supabase
-        .from('yff_applications')
-        .select('application_id, status, created_at')
-        .limit(10);
-      
-      if (error) {
-        console.error('❌ Failed to fetch available applications:', error);
-        return;
-      }
-      
-      if (data && data.length > 0) {
-        console.log(`📋 Found ${data.length} available applications:`);
-        data.forEach((app, index) => {
-          console.log(`  ${index + 1}. ID: ${app.application_id} | Status: ${app.status} | Created: ${app.created_at}`);
-        });
-      } else {
-        console.warn('⚠️ No applications found in the database');
-      }
-    } catch (error) {
-      console.error('❌ Error logging available applications:', error);
-    }
   }
   
   /**
@@ -607,22 +547,16 @@ export class AIComprehensiveScoringService {
     applicationId: string, 
     status: 'pending' | 'processing' | 'completed' | 'failed'
   ): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('yff_applications')
-        .update({ 
-          evaluation_status: status,
-          updated_at: new Date().toISOString()
-        })
-        .eq('application_id', applicationId);
-      
-      if (error) {
-        console.error(`❌ Failed to update evaluation status to ${status}:`, error);
-      } else {
-        console.log(`✅ Updated evaluation status to ${status} for application: ${applicationId}`);
-      }
-    } catch (error) {
-      console.error(`❌ Error updating evaluation status:`, error);
+    const { error } = await supabase
+      .from('yff_applications')
+      .update({ 
+        evaluation_status: status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('application_id', applicationId);
+    
+    if (error) {
+      console.error(`❌ Failed to update evaluation status to ${status}:`, error);
     }
   }
   
@@ -643,50 +577,6 @@ export class AIComprehensiveScoringService {
     });
     
     return questionEvaluations;
-  }
-  
-  /**
-   * Log evaluation error for monitoring
-   */
-  private static async logEvaluationError(
-    applicationId: string, 
-    error: string, 
-    processingTimeMs: number
-  ): Promise<void> {
-    console.error(`🚨 EVALUATION ERROR LOG:`, {
-      applicationId,
-      error,
-      processingTimeMs,
-      timestamp: new Date().toISOString(),
-      service: 'AI Comprehensive Scoring'
-    });
-    
-    // In production, this would send to error tracking service
-  }
-  
-  /**
-   * API endpoint: Trigger evaluation for specific application
-   */
-  static async triggerEvaluation(applicationId: string): Promise<{
-    success: boolean;
-    message: string;
-    result?: AIEvaluationResult;
-  }> {
-    try {
-      const result = await this.evaluateApplication(applicationId);
-      
-      return {
-        success: true,
-        message: `Evaluation completed successfully with score: ${result.overall_score}/10`,
-        result
-      };
-      
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || 'Evaluation failed'
-      };
-    }
   }
 }
 

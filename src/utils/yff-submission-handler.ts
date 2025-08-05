@@ -2,12 +2,12 @@
 /**
  * @fileoverview YFF Application Submission Handler
  * 
- * Handles application submission with automatic background scoring trigger
+ * Handles application submission with automatic AI evaluation trigger
  * and comprehensive error handling.
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { BackgroundJobService } from '@/services/background-job-service';
+import { triggerEvaluationOnSubmission } from '@/services/ai-evaluation-service';
 import { YffFormData } from '@/types/yff-form';
 import { convertFormDataToJson } from '@/types/yff-application';
 
@@ -15,11 +15,11 @@ interface SubmissionResult {
   success: boolean;
   applicationId?: string;
   error?: string;
-  scoringTriggered?: boolean;
+  evaluationTriggered?: boolean;
 }
 
 /**
- * Handle YFF application submission with automatic scoring
+ * Handle YFF application submission with automatic AI evaluation
  */
 export const handleApplicationSubmission = async (
   formData: YffFormData,
@@ -57,29 +57,23 @@ export const handleApplicationSubmission = async (
     const applicationId = application.application_id;
     console.log('✅ Application submitted successfully:', applicationId);
     
-    // Trigger background scoring automatically
-    let scoringTriggered = false;
+    // Trigger AI evaluation automatically
+    let evaluationTriggered = false;
     try {
-      await BackgroundJobService.triggerScoringOnSubmission(
-        applicationId,
-        new Date().toISOString()
-      );
+      await triggerEvaluationOnSubmission(applicationId);
+      evaluationTriggered = true;
+      console.log('✅ AI evaluation triggered for:', applicationId);
       
-      scoringTriggered = true;
-      console.log('✅ Background scoring triggered for:', applicationId);
-      
-    } catch (scoringError) {
-      console.error('⚠️ Failed to trigger background scoring:', scoringError);
-      
-      // Don't fail the entire submission if scoring trigger fails
-      // The application is still submitted successfully
-      console.log('📝 Application submitted but scoring will need to be triggered manually');
+    } catch (evaluationError) {
+      console.error('⚠️ Failed to trigger AI evaluation:', evaluationError);
+      // Don't fail the entire submission if evaluation trigger fails
+      console.log('📝 Application submitted but evaluation will need to be triggered manually');
     }
     
     return {
       success: true,
       applicationId,
-      scoringTriggered
+      evaluationTriggered
     };
     
   } catch (error) {
@@ -93,11 +87,11 @@ export const handleApplicationSubmission = async (
 };
 
 /**
- * Manually trigger scoring for existing application
+ * Manually trigger AI evaluation for existing application
  */
-export const triggerManualScoring = async (applicationId: string): Promise<SubmissionResult> => {
+export const triggerManualEvaluation = async (applicationId: string): Promise<SubmissionResult> => {
   try {
-    console.log('🔄 Manually triggering scoring for:', applicationId);
+    console.log('🔄 Manually triggering AI evaluation for:', applicationId);
     
     // Verify application exists
     const { data: application, error: fetchError } = await supabase
@@ -110,28 +104,25 @@ export const triggerManualScoring = async (applicationId: string): Promise<Submi
       throw new Error(`Application not found: ${applicationId}`);
     }
     
-    // Trigger background scoring
-    await BackgroundJobService.triggerScoringOnSubmission(
-      applicationId,
-      new Date().toISOString()
-    );
+    // Trigger AI evaluation
+    await triggerEvaluationOnSubmission(applicationId);
     
-    console.log('✅ Manual scoring triggered successfully for:', applicationId);
+    console.log('✅ Manual AI evaluation triggered successfully for:', applicationId);
     
     return {
       success: true,
       applicationId,
-      scoringTriggered: true
+      evaluationTriggered: true
     };
     
   } catch (error) {
-    console.error('❌ Manual scoring trigger failed:', error);
+    console.error('❌ Manual AI evaluation trigger failed:', error);
     
     return {
       success: false,
       applicationId,
-      error: error.message || 'Manual scoring trigger failed',
-      scoringTriggered: false
+      error: error.message || 'Manual AI evaluation trigger failed',
+      evaluationTriggered: false
     };
   }
 };

@@ -25,6 +25,26 @@ interface UseRealTimeApplicationsReturn {
 }
 
 /**
+ * Type guard to check if an object has application_id property
+ */
+const hasApplicationId = (obj: any): obj is { application_id: string } => {
+  return obj && typeof obj === 'object' && typeof obj.application_id === 'string';
+};
+
+/**
+ * Safe function to extract application ID from payload data
+ */
+const getApplicationId = (newRecord: any, oldRecord: any): string | null => {
+  if (hasApplicationId(newRecord)) {
+    return newRecord.application_id;
+  }
+  if (hasApplicationId(oldRecord)) {
+    return oldRecord.application_id;
+  }
+  return null;
+};
+
+/**
  * Hook for real-time YFF applications with enhanced reliability
  */
 export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
@@ -101,9 +121,12 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
             table: 'yff_applications'
           },
           (payload) => {
+            // Safe extraction of application ID
+            const applicationId = getApplicationId(payload.new, payload.old);
+            
             console.log('📨 Real-time update received:', {
               eventType: payload.eventType,
-              applicationId: payload.new?.application_id || payload.old?.application_id,
+              applicationId: applicationId || 'unknown',
               timestamp: new Date().toISOString()
             });
             
@@ -114,18 +137,19 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
             
             setLastUpdate(new Date());
             
-            // Show appropriate notifications
+            // Show appropriate notifications with safe property access
             if (payload.eventType === 'INSERT') {
               toast({
                 title: "New Application",
                 description: "A new YFF application has been submitted.",
               });
             } else if (payload.eventType === 'UPDATE') {
-              const newRecord = payload.new as any;
-              if (newRecord?.evaluation_status === 'completed') {
+              const newRecord = payload.new;
+              if (newRecord && typeof newRecord === 'object' && 'evaluation_status' in newRecord && newRecord.evaluation_status === 'completed') {
+                const displayId = applicationId ? applicationId.slice(0, 8) + '...' : 'Unknown';
                 toast({
                   title: "Evaluation Completed",
-                  description: `Application ${newRecord.application_id?.slice(0, 8)}... has been evaluated.`,
+                  description: `Application ${displayId} has been evaluated.`,
                 });
               }
             }

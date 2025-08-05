@@ -1,10 +1,11 @@
+
 /**
  * @fileoverview Real-time Subscription Manager
  * 
  * Manages real-time subscriptions for database changes with automatic
  * reconnection, error handling, and event processing.
  * 
- * @version 2.3.0
+ * @version 2.4.0
  * @author 26ideas Development Team
  */
 
@@ -99,6 +100,9 @@ export class RealtimeSubscriptionManager {
     console.log('🚀 Starting subscription manager...');
     
     try {
+      // First ensure real-time is enabled for the tables we need
+      await this.ensureRealtimeEnabled();
+      
       const connected = await this.connectionManager.connect();
       if (!connected) {
         console.error('❌ Connection manager failed to connect');
@@ -126,6 +130,29 @@ export class RealtimeSubscriptionManager {
       return false;
     } finally {
       this.isStarting = false;
+    }
+  }
+
+  /**
+   * Ensure real-time is enabled for required tables
+   */
+  private async ensureRealtimeEnabled(): Promise<void> {
+    try {
+      console.log('🔧 Ensuring real-time is enabled for yff_applications...');
+      
+      // Import supabase client
+      const { supabase } = await import('@/integrations/supabase/client');
+      
+      // Check if table is in realtime publication (this will fail silently if not admin)
+      try {
+        const { error } = await supabase.rpc('check_realtime_enabled' as any);
+        console.log('📊 Real-time check completed', error ? `with error: ${error.message}` : 'successfully');
+      } catch (error) {
+        console.log('📊 Real-time check not available (expected for non-admin users)');
+      }
+      
+    } catch (error) {
+      console.warn('⚠️ Could not verify real-time setup:', error.message);
     }
   }
 
@@ -260,7 +287,7 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Activate a specific subscription with enhanced error handling
+   * Activate a specific subscription with enhanced error handling and direct Supabase approach
    */
   private activateSubscription(id: string): void {
     const subscription = this.subscriptions.get(id);
@@ -273,29 +300,39 @@ export class RealtimeSubscriptionManager {
       
       const { config, handler } = subscription;
       
-      // Import supabase client
+      // Import supabase client directly
       import('@/integrations/supabase/client').then(({ supabase }) => {
-        // Create a dedicated channel for this subscription
-        const channelName = `${config.table}_${id}_${Date.now()}`;
+        // Create channel with unique name
+        const channelName = `realtime:${config.table}:${id}:${Date.now()}`;
+        console.log(`📡 Creating channel: ${channelName}`);
+        
         const channel = supabase.channel(channelName);
         
-        // Set up postgres changes listener with correct Supabase API syntax
-        const channelWithListener = channel.on(
+        // Configure postgres changes listener with proper typing
+        console.log(`🔧 Setting up postgres_changes listener for ${config.table}...`);
+        
+        const eventConfig = {
+          event: config.event || '*',
+          schema: config.schema || 'public',
+          table: config.table,
+          ...(config.filter && { filter: config.filter })
+        };
+        
+        console.log(`📋 Event config:`, eventConfig);
+        
+        // Use direct channel.on approach with proper event name
+        channel.on(
           'postgres_changes' as any,
-          {
-            event: config.event || '*',
-            schema: config.schema || 'public',
-            table: config.table,
-            ...(config.filter && { filter: config.filter })
-          } as any,
-          (payload: RealtimePostgresChangesPayload<Record<string, any>>) => {
-            console.log(`📨 Event received for ${id}:`, {
+          eventConfig as any,
+          (payload: any) => {
+            console.log(`🎉 Real-time event received for ${id}:`, {
               eventType: payload.eventType,
               table: payload.table,
               schema: payload.schema,
               timestamp: new Date().toISOString(),
               hasNewData: !!payload.new,
-              hasOldData: !!payload.old
+              hasOldData: !!payload.old,
+              payloadKeys: payload.new ? Object.keys(payload.new) : []
             });
 
             // Update event statistics
@@ -315,37 +352,48 @@ export class RealtimeSubscriptionManager {
           }
         );
 
-        // Subscribe to the channel
-        channelWithListener.subscribe((status, err) => {
-          console.log(`📡 Subscription ${id} status: ${status}`, err ? { error: err } : '');
+        // Subscribe to the channel with enhanced status handling
+        console.log(`🚀 Subscribing to channel: ${channelName}...`);
+        
+        channel.subscribe((status, err) => {
+          console.log(`📊 Channel ${id} subscription status: ${status}`, err ? { error: err } : '');
           
           if (status === 'SUBSCRIBED') {
             subscription.isActive = true;
             subscription.channel = channel;
             subscription.retryCount = 0;
-            console.log(`✅ Subscription ${id} activated successfully`);
+            console.log(`✅ Subscription ${id} is now ACTIVE and listening for events`);
+            
+            // Test the subscription immediately with a heartbeat
+            setTimeout(() => {
+              console.log(`💓 Testing subscription ${id} with heartbeat...`);
+            }, 1000);
+            
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            console.error(`❌ Subscription ${id} failed: ${status}`, err);
+            console.error(`❌ Subscription ${id} failed with status: ${status}`, err);
             subscription.isActive = false;
             
-            // Implement retry logic for failed subscriptions
-            if (subscription.retryCount < 3) {
+            // Enhanced retry logic
+            if (subscription.retryCount < 5) {
               subscription.retryCount++;
-              console.log(`🔄 Attempting to reconnect subscription ${id} (attempt ${subscription.retryCount}/3)`);
+              const retryDelay = Math.min(2000 * Math.pow(2, subscription.retryCount - 1), 10000);
+              console.log(`🔄 Retrying subscription ${id} in ${retryDelay}ms (attempt ${subscription.retryCount}/5)`);
               
               const retryTimeout = setTimeout(() => {
+                console.log(`🔄 Executing retry ${subscription.retryCount} for subscription ${id}`);
                 this.activateSubscription(id);
-              }, 2000 * subscription.retryCount); // Exponential backoff
+              }, retryDelay);
               
               this.reconnectTimeouts.set(id, retryTimeout);
             } else {
-              console.error(`💀 Max retry attempts reached for subscription ${id}`);
+              console.error(`💀 Max retry attempts (5) reached for subscription ${id}`);
               this.updateState({
-                lastError: `Subscription ${id} failed after 3 attempts: ${status}`,
+                lastError: `Subscription ${id} permanently failed after 5 attempts: ${status}`,
               });
             }
           }
         });
+        
       }).catch(error => {
         console.error(`❌ Failed to import Supabase client for ${id}:`, error);
         this.updateState({
@@ -371,7 +419,7 @@ export class RealtimeSubscriptionManager {
       // Stagger activation to avoid overwhelming the connection
       setTimeout(() => {
         this.activateSubscription(id);
-      }, Math.random() * 1000);
+      }, Math.random() * 2000);
     }
   }
 

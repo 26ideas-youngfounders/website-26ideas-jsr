@@ -3,9 +3,9 @@
  * @fileoverview Enhanced YFF Applications Admin Page with Real-time Updates
  * 
  * Main admin interface with comprehensive AI evaluation integration,
- * background job monitoring, real-time data updates, and system testing.
+ * background job monitoring, real-time data updates, system testing, and E2E validation.
  * 
- * @version 2.1.0
+ * @version 2.2.0
  * @author 26ideas Development Team
  */
 
@@ -13,11 +13,12 @@ import React, { useState, useCallback } from 'react';
 import { YffApplicationsTableEnhanced } from '@/components/admin/YffApplicationsTableEnhanced';
 import { BackgroundJobMonitor } from '@/components/admin/BackgroundJobMonitor';
 import { TestResultsDisplay } from '@/components/admin/TestResultsDisplay';
+import { E2ETestRunner } from '@/components/admin/E2ETestRunner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Activity, FileText, Settings, Wifi, WifiOff, RefreshCw, TestTube } from 'lucide-react';
+import { Activity, FileText, Settings, Wifi, WifiOff, RefreshCw, TestTube, PlayCircle } from 'lucide-react';
 import { useRealTimeApplications } from '@/hooks/useRealTimeApplications';
 import { useSystemTesting } from '@/hooks/useSystemTesting';
 import { useToast } from '@/hooks/use-toast';
@@ -159,7 +160,7 @@ const YffApplicationsPageEnhanced: React.FC = () => {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="applications" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Applications
@@ -173,12 +174,16 @@ const YffApplicationsPageEnhanced: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="testing" className="flex items-center gap-2">
             <TestTube className="h-4 w-4" />
-            Testing & QA
+            Unit Tests
             {testResults.length > 0 && (
               <Badge variant="secondary" className="ml-1 text-xs">
                 {testResults.filter(t => t.status === 'passed').length}/{testResults.length}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="e2e" className="flex items-center gap-2">
+            <PlayCircle className="h-4 w-4" />
+            E2E Testing
           </TabsTrigger>
           <TabsTrigger value="system" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -204,6 +209,10 @@ const YffApplicationsPageEnhanced: React.FC = () => {
             onRunTests={runAllTests}
             onRunSingleTest={runSingleTest}
           />
+        </TabsContent>
+
+        <TabsContent value="e2e" className="mt-6">
+          <E2ETestRunner />
         </TabsContent>
 
         <TabsContent value="system" className="mt-6">

@@ -4,9 +4,8 @@
  * 
  * Provides comprehensive AI evaluation functionality for YFF applications
  * with automatic scoring on submission and detailed question-by-question analysis.
- * Enhanced to handle both Idea and Early Revenue stages properly.
  * 
- * @version 2.1.0
+ * @version 2.0.0
  * @author 26ideas Development Team
  */
 
@@ -29,29 +28,12 @@ export interface EvaluationResult {
 }
 
 /**
- * Enhanced evaluation function with better stage detection
+ * Evaluate application using comprehensive AI scoring
  */
 export const evaluateApplication = async (applicationId: string): Promise<EvaluationResult> => {
   console.log(`🚀 Starting AI evaluation for application: ${applicationId}`);
   
   try {
-    // Fetch application details to determine stage
-    const { data: appData, error: fetchError } = await supabase
-      .from('yff_applications')
-      .select('application_round, answers')
-      .eq('application_id', applicationId)
-      .single();
-    
-    if (fetchError || !appData) {
-      throw new Error(`Application not found: ${applicationId}`);
-    }
-    
-    console.log('📊 Application data retrieved:', {
-      applicationId,
-      applicationRound: appData.application_round,
-      hasAnswers: !!appData.answers
-    });
-    
     // Use the comprehensive scoring service
     const result = await AIComprehensiveScoringService.evaluateApplication(applicationId);
     
@@ -80,7 +62,7 @@ export const reEvaluateApplication = async (applicationId: string): Promise<Eval
 };
 
 /**
- * Enhanced evaluation data retrieval with better error handling
+ * Get existing evaluation data for an application
  */
 export const getApplicationEvaluation = async (applicationId: string): Promise<EvaluationResult | null> => {
   try {
@@ -88,7 +70,7 @@ export const getApplicationEvaluation = async (applicationId: string): Promise<E
     
     const { data, error } = await supabase
       .from('yff_applications')
-      .select('evaluation_data, overall_score, evaluation_completed_at, evaluation_status, application_round, answers')
+      .select('evaluation_data, overall_score, evaluation_completed_at, evaluation_status')
       .eq('application_id', applicationId)
       .single();
 
@@ -97,19 +79,7 @@ export const getApplicationEvaluation = async (applicationId: string): Promise<E
       throw error;
     }
 
-    if (!data) {
-      console.log(`⚠️ No application data found for: ${applicationId}`);
-      return null;
-    }
-
-    console.log('📊 Application data retrieved:', {
-      hasEvaluationData: !!data.evaluation_data,
-      overallScore: data.overall_score,
-      evaluationStatus: data.evaluation_status,
-      applicationRound: data.application_round
-    });
-
-    if (!data.evaluation_data) {
+    if (!data || !data.evaluation_data) {
       console.log(`⚠️ No evaluation data found for application: ${applicationId}`);
       return null;
     }
@@ -126,8 +96,6 @@ export const getApplicationEvaluation = async (applicationId: string): Promise<E
     } else {
       evaluationData = data.evaluation_data;
     }
-
-    console.log('📋 Parsed evaluation data:', evaluationData);
 
     // Transform the data to match our interface
     const questionScores: Record<string, QuestionEvaluation> = {};
@@ -167,7 +135,7 @@ export const getApplicationEvaluation = async (applicationId: string): Promise<E
 };
 
 /**
- * Trigger automatic evaluation on application submission with enhanced logging
+ * Trigger automatic evaluation on application submission
  */
 export const triggerEvaluationOnSubmission = async (applicationId: string): Promise<void> => {
   try {

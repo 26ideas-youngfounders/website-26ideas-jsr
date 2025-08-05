@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview End-to-End Testing Suite for AI Scoring System
  * 
@@ -41,21 +40,13 @@ function hasScores(data: any): data is { scores: Record<string, any> } {
 }
 
 /**
- * Test application data for scoring validation
+ * Generate unique test email for each test run
  */
-const TEST_APPLICATION = {
-  first_name: 'Test',
-  last_name: 'User',
-  email: 'test.user@example.com',
-  phone_number: '+1234567890',
-  answers: {
-    tell_us_about_idea: 'Our innovative startup focuses on developing sustainable energy solutions using advanced solar technology. We aim to revolutionize how businesses approach renewable energy by creating affordable, high-efficiency solar panels that can be easily integrated into existing infrastructure. Our unique value proposition lies in our proprietary nano-coating technology that increases energy absorption by 30% compared to traditional panels.',
-    problem_statement: 'The current renewable energy market faces significant barriers including high installation costs, low efficiency rates, and complex integration processes. According to recent studies, 67% of small businesses cite cost as the primary barrier to adopting solar energy, while 45% mention technical complexity. Our research shows that existing solar panels only achieve 18-22% efficiency rates, leaving substantial room for improvement.',
-    target_audience: 'Small to medium-sized businesses with annual revenues between $1M-$50M, particularly those in manufacturing, retail, and office environments. These businesses typically spend $5,000-$25,000 annually on electricity and are motivated by both cost savings and sustainability goals.',
-    solution_approach: 'We combine advanced materials science with AI-driven optimization to create next-generation solar panels. Our proprietary nano-coating increases light absorption, while our smart monitoring system uses machine learning to optimize energy production based on weather patterns and usage data.',
-    monetization_strategy: 'We offer three revenue streams: direct sales of solar panels ($15,000-$75,000 per installation), subscription-based monitoring and optimization services ($200-$500/month), and licensing our nano-coating technology to existing manufacturers ($1M+ annual licensing fees).',
-  }
-};
+function generateUniqueTestEmail(): string {
+  const timestamp = Date.now();
+  const randomId = Math.random().toString(36).substr(2, 9);
+  return `e2e.test.${timestamp}.${randomId}@26ideas.com`;
+}
 
 /**
  * End-to-End Testing Suite
@@ -63,6 +54,8 @@ const TEST_APPLICATION = {
 export class E2ETestingSuite {
   private results: TestResult[] = [];
   private testApplicationId: string | null = null;
+  private testIndividualId: string | null = null;
+  private testEmail: string | null = null;
 
   /**
    * Run complete end-to-end test suite
@@ -163,9 +156,27 @@ export class E2ETestingSuite {
     try {
       console.log('📝 Testing application submission...');
 
-      // Generate proper UUID for test application
+      // Generate unique test data for this run
       this.testApplicationId = uuidv4();
+      this.testEmail = generateUniqueTestEmail();
+      
       console.log(`Generated test application UUID: ${this.testApplicationId}`);
+      console.log(`Generated unique test email: ${this.testEmail}`);
+
+      // Create test application data with unique email
+      const TEST_APPLICATION = {
+        first_name: 'E2E',
+        last_name: 'TestUser',
+        email: this.testEmail,
+        phone_number: '+1234567890',
+        answers: {
+          tell_us_about_idea: 'Our innovative E2E test startup focuses on developing sustainable energy solutions using advanced solar technology. We aim to revolutionize how businesses approach renewable energy by creating affordable, high-efficiency solar panels that can be easily integrated into existing infrastructure. Our unique value proposition lies in our proprietary nano-coating technology that increases energy absorption by 30% compared to traditional panels.',
+          problem_statement: 'The current renewable energy market faces significant barriers including high installation costs, low efficiency rates, and complex integration processes. According to recent studies, 67% of small businesses cite cost as the primary barrier to adopting solar energy, while 45% mention technical complexity. Our research shows that existing solar panels only achieve 18-22% efficiency rates, leaving substantial room for improvement.',
+          target_audience: 'Small to medium-sized businesses with annual revenues between $1M-$50M, particularly those in manufacturing, retail, and office environments. These businesses typically spend $5,000-$25,000 annually on electricity and are motivated by both cost savings and sustainability goals.',
+          solution_approach: 'We combine advanced materials science with AI-driven optimization to create next-generation solar panels. Our proprietary nano-coating increases light absorption, while our smart monitoring system uses machine learning to optimize energy production based on weather patterns and usage data.',
+          monetization_strategy: 'We offer three revenue streams: direct sales of solar panels ($15,000-$75,000 per installation), subscription-based monitoring and optimization services ($200-$500/month), and licensing our nano-coating technology to existing manufacturers ($1M+ annual licensing fees).'
+        }
+      };
 
       // Create individual record first
       const { data: individual, error: individualError } = await supabase
@@ -180,6 +191,7 @@ export class E2ETestingSuite {
         .single();
 
       if (individualError) throw individualError;
+      this.testIndividualId = individual.individual_id;
 
       // Create application record with proper UUID
       const { data: application, error: applicationError } = await supabase
@@ -200,9 +212,13 @@ export class E2ETestingSuite {
       this.addResult({
         testName: 'Application Submission',
         status: 'passed',
-        message: `Test application created successfully with UUID: ${this.testApplicationId}`,
+        message: `Test application created successfully with UUID: ${this.testApplicationId} and email: ${this.testEmail}`,
         duration,
-        details: { applicationId: this.testApplicationId, individualId: individual.individual_id },
+        details: { 
+          applicationId: this.testApplicationId, 
+          individualId: individual.individual_id,
+          testEmail: this.testEmail 
+        },
         timestamp: new Date().toISOString()
       });
 
@@ -647,18 +663,55 @@ export class E2ETestingSuite {
    * Cleanup test data
    */
   private async cleanupTestData(): Promise<void> {
-    if (!this.testApplicationId) return;
+    if (!this.testApplicationId && !this.testIndividualId && !this.testEmail) return;
 
     try {
       console.log('🧹 Cleaning up test data...');
+      console.log(`Cleaning up application: ${this.testApplicationId}`);
+      console.log(`Cleaning up individual: ${this.testIndividualId}`);
+      console.log(`Cleaning up email: ${this.testEmail}`);
 
-      // Delete application and related data using proper UUID
-      await supabase
-        .from('yff_applications')
-        .delete()
-        .eq('application_id', this.testApplicationId);
+      // Delete application record first (due to foreign key constraint)
+      if (this.testApplicationId) {
+        const { error: appDeleteError } = await supabase
+          .from('yff_applications')
+          .delete()
+          .eq('application_id', this.testApplicationId);
+        
+        if (appDeleteError) {
+          console.warn('Warning: Failed to delete test application:', appDeleteError);
+        } else {
+          console.log('✅ Test application deleted successfully');
+        }
+      }
 
-      // Note: Individual record cleanup would require cascading deletes or separate cleanup
+      // Delete individual record
+      if (this.testIndividualId) {
+        const { error: individualDeleteError } = await supabase
+          .from('individuals')
+          .delete()
+          .eq('individual_id', this.testIndividualId);
+        
+        if (individualDeleteError) {
+          console.warn('Warning: Failed to delete test individual:', individualDeleteError);
+        } else {
+          console.log('✅ Test individual deleted successfully');
+        }
+      }
+
+      // Fallback: Delete by email if IDs are not available
+      if (this.testEmail && !this.testIndividualId) {
+        const { error: emailDeleteError } = await supabase
+          .from('individuals')
+          .delete()
+          .eq('email', this.testEmail);
+        
+        if (emailDeleteError) {
+          console.warn('Warning: Failed to delete test individual by email:', emailDeleteError);
+        } else {
+          console.log('✅ Test individual deleted by email successfully');
+        }
+      }
 
       console.log('✅ Test data cleanup completed');
 

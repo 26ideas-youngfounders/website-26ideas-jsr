@@ -6,7 +6,7 @@
  * real-time subscriptions with comprehensive WebSocket state handling,
  * robust error recovery, and reliable connection management.
  * 
- * @version 4.1.0
+ * @version 5.0.0
  * @author 26ideas Development Team
  */
 
@@ -28,27 +28,7 @@ interface UseRealTimeApplicationsReturn {
 }
 
 /**
- * Type guard to check if an object has application_id property
- */
-const hasApplicationId = (obj: any): obj is { application_id: string } => {
-  return obj && typeof obj === 'object' && typeof obj.application_id === 'string';
-};
-
-/**
- * Safe function to extract application ID from payload data
- */
-const getApplicationId = (newRecord: any, oldRecord: any): string | null => {
-  if (hasApplicationId(newRecord)) {
-    return newRecord.application_id;
-  }
-  if (hasApplicationId(oldRecord)) {
-    return oldRecord.application_id;
-  }
-  return null;
-};
-
-/**
- * Enhanced WebSocket state constants for better error handling
+ * WebSocket state constants with proper mapping
  */
 const WEBSOCKET_STATES = {
   CONNECTING: 0,
@@ -59,13 +39,297 @@ const WEBSOCKET_STATES = {
 
 const WEBSOCKET_STATE_NAMES = {
   [WEBSOCKET_STATES.CONNECTING]: 'CONNECTING',
-  [WEBSOCKET_STATES.OPEN]: 'OPEN',
+  [WEBSOCKET_STATES.OPEN]: 'OPEN', 
   [WEBSOCKET_STATES.CLOSING]: 'CLOSING',
   [WEBSOCKET_STATES.CLOSED]: 'CLOSED'
 } as const;
 
 /**
- * Hook for real-time YFF applications with enhanced WebSocket reliability
+ * Enhanced diagnostic logging for WebSocket connection
+ */
+const diagnoseWebSocketConnection = async () => {
+  console.log('=== WebSocket Diagnostic Start ===');
+  console.log('Supabase URL:', supabase.supabaseUrl || 'Not found');
+  console.log('Supabase Key:', supabase.supabaseKey ? `Present (${supabase.supabaseKey.substring(0, 20)}...)` : 'Missing');
+  
+  // Check auth status
+  const { data: { session }, error } = await supabase.auth.getSession();
+  console.log('Auth Session:', session ? 'Valid' : 'Invalid');
+  console.log('Auth Error:', error || 'None');
+  console.log('User ID:', session?.user?.id || 'None');
+  console.log('Access Token:', session?.access_token ? `Present (${session.access_token.substring(0, 20)}...)` : 'Missing');
+  
+  // Check realtime configuration
+  const realtimeSocket = (supabase as any).realtime?.socket;
+  console.log('Realtime Socket Exists:', !!realtimeSocket);
+  
+  if (realtimeSocket) {
+    console.log('Socket ReadyState:', realtimeSocket.readyState, `(${WEBSOCKET_STATE_NAMES[realtimeSocket.readyState] || 'UNKNOWN'})`);
+    console.log('Socket URL:', realtimeSocket.endPoint || 'Not set');
+    console.log('Socket Connection State:', realtimeSocket.connectionState || 'Unknown');
+  }
+  
+  // Check environment variables
+  console.log('Environment Check:');
+  console.log('- Window location:', window.location.href);
+  console.log('- User Agent:', navigator.userAgent);
+  console.log('=== Diagnostic End ===');
+  
+  return { session, realtimeSocket };
+};
+
+/**
+ * Force WebSocket connection establishment with timeout
+ */
+const ensureWebSocketConnection = async (): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      console.error('❌ WebSocket connection timeout after 10 seconds');
+      reject(new Error('WebSocket connection timeout'));
+    }, 10000);
+
+    const realtimeSocket = (supabase as any).realtime?.socket;
+    
+    if (!realtimeSocket) {
+      clearTimeout(timeout);
+      reject(new Error('Realtime socket not available'));
+      return;
+    }
+
+    // Force connection if not connected
+    const currentState = realtimeSocket.readyState;
+    console.log(`🔍 Current WebSocket state: ${currentState} (${WEBSOCKET_STATE_NAMES[currentState] || 'UNKNOWN'})`);
+    
+    if (currentState !== WEBSOCKET_STATES.OPEN) {
+      console.log('🔄 Forcing WebSocket connection...');
+      try {
+        (supabase as any).realtime.connect();
+      } catch (connectError) {
+        console.error('❌ Error forcing connection:', connectError);
+      }
+    }
+
+    // Monitor connection state with detailed logging
+    const checkConnection = (attempt = 1) => {
+      const state = realtimeSocket.readyState;
+      const stateName = WEBSOCKET_STATE_NAMES[state] || 'UNKNOWN';
+      
+      console.log(`🔍 WebSocket state check ${attempt}: ${state} (${stateName})`);
+      
+      if (state === WEBSOCKET_STATES.OPEN) {
+        console.log('✅ WebSocket connection established successfully');
+        clearTimeout(timeout);
+        resolve(true);
+      } else if (state === WEBSOCKET_STATES.CLOSED) {
+        console.error('❌ WebSocket connection closed unexpectedly');
+        clearTimeout(timeout);
+        reject(new Error('WebSocket connection closed'));
+      } else if (attempt >= 100) { // Max 10 seconds of checking
+        console.error('❌ WebSocket failed to reach OPEN state after maximum attempts');
+        clearTimeout(timeout);
+        reject(new Error(`WebSocket stuck in ${stateName} state`));
+      } else {
+        // Still connecting, check again
+        setTimeout(() => checkConnection(attempt + 1), 100);
+      }
+    };
+    
+    checkConnection();
+  });
+};
+
+/**
+ * Setup realtime authentication with comprehensive error handling
+ */
+const setupRealtimeAuth = async (): Promise<Session> => {
+  console.log('🔐 Setting up realtime authentication...');
+  
+  const { data: { session }, error } = await supabase.auth.getSession();
+  
+  if (error) {
+    console.error('❌ Auth error:', error);
+    throw new Error(`Authentication error: ${error.message}`);
+  }
+  
+  if (!session) {
+    console.error('❌ No valid session for realtime');
+    throw new Error('Authentication required for realtime - user must be signed in');
+  }
+  
+  if (!session.access_token) {
+    console.error('❌ Session missing access token');
+    throw new Error('Session missing access token');
+  }
+  
+  // Set realtime auth explicitly with error handling
+  try {
+    (supabase as any).realtime.setAuth(session.access_token);
+    console.log('✅ Realtime auth set successfully');
+  } catch (authError) {
+    console.error('❌ Failed to set realtime auth:', authError);
+    throw new Error(`Failed to set realtime authentication: ${authError.message}`);
+  }
+  
+  console.log('✅ Authentication setup complete');
+  return session;
+};
+
+/**
+ * Create robust realtime subscription with full diagnostics
+ */
+const createRobustRealtimeSubscription = async (
+  queryClient: ReturnType<typeof useQueryClient>,
+  toast: ReturnType<typeof useToast>['toast']
+): Promise<any> => {
+  try {
+    console.log('🚀 Creating robust realtime subscription...');
+    
+    // Step 1: Comprehensive diagnostics
+    const { session } = await diagnoseWebSocketConnection();
+    
+    // Step 2: Ensure authentication
+    const validSession = await setupRealtimeAuth();
+    
+    // Step 3: Ensure WebSocket connection
+    await ensureWebSocketConnection();
+    
+    // Step 4: Create subscription with enhanced configuration
+    const channelName = `yff-applications-robust-${Date.now()}`;
+    console.log(`📡 Creating channel: ${channelName}`);
+    
+    const channel = supabase
+      .channel(channelName, {
+        config: {
+          broadcast: { self: false },
+          presence: { key: `admin-${validSession.user.id}` }
+        }
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'yff_applications'
+        },
+        (payload) => {
+          console.log('📨 Realtime update received:', {
+            eventType: payload.eventType,
+            table: payload.table,
+            schema: payload.schema,
+            timestamp: new Date().toISOString(),
+            hasNewRecord: !!payload.new,
+            hasOldRecord: !!payload.old
+          });
+          
+          // Invalidate and refetch applications
+          queryClient.invalidateQueries({ 
+            queryKey: ['yff-applications-realtime'] 
+          });
+          
+          // Show appropriate notifications
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: "New Application",
+              description: "A new YFF application has been submitted.",
+            });
+          } else if (payload.eventType === 'UPDATE' && payload.new && typeof payload.new === 'object') {
+            const newRecord = payload.new as any;
+            if (newRecord.evaluation_status === 'completed') {
+              toast({
+                title: "Evaluation Completed",
+                description: "An application evaluation has been completed.",
+              });
+            }
+          }
+        }
+      )
+      .subscribe(async (status, err) => {
+        const timestamp = new Date().toISOString();
+        
+        console.log(`📡 Subscription status: ${status}`, {
+          timestamp,
+          error: err,
+          channelName
+        });
+        
+        if (err) {
+          console.error('❌ Subscription error details:', {
+            message: err.message || 'Unknown error',
+            code: err.code || 'No code',
+            details: err.details || 'No details'
+          });
+        }
+      });
+
+    // Step 5: Verify subscription establishment with enhanced checking
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+      const timeout = setTimeout(() => {
+        const elapsed = Date.now() - startTime;
+        console.error(`❌ Subscription timeout after ${elapsed}ms`);
+        reject(new Error(`Subscription did not establish within 15 seconds (${elapsed}ms elapsed)`));
+      }, 15000);
+
+      const checkSubscription = (attempt = 1) => {
+        const realtimeSocket = (supabase as any).realtime?.socket;
+        const socketState = realtimeSocket?.readyState;
+        const socketStateName = WEBSOCKET_STATE_NAMES[socketState] || 'UNKNOWN';
+        const channelState = (channel as any).state;
+        const elapsed = Date.now() - startTime;
+        
+        console.log(`🔍 Subscription check ${attempt} (${elapsed}ms):`, {
+          socketState: `${socketState} (${socketStateName})`,
+          channelState,
+          attempt,
+          elapsed
+        });
+        
+        if (channelState === 'joined' && socketState === WEBSOCKET_STATES.OPEN) {
+          console.log('✅ Subscription established successfully!', {
+            elapsed: `${elapsed}ms`,
+            socketState: socketStateName,
+            channelState
+          });
+          clearTimeout(timeout);
+          resolve(channel);
+        } else if (channelState === 'errored' || channelState === 'closed') {
+          console.error('❌ Subscription failed:', {
+            channelState,
+            socketState: socketStateName,
+            elapsed: `${elapsed}ms`
+          });
+          clearTimeout(timeout);
+          reject(new Error(`Subscription failed with channel state: ${channelState}, socket state: ${socketStateName}`));
+        } else if (attempt >= 150) { // Max attempts (15 seconds / 100ms)
+          console.error('❌ Subscription check timeout:', {
+            finalChannelState: channelState,
+            finalSocketState: socketStateName,
+            totalAttempts: attempt,
+            elapsed: `${elapsed}ms`
+          });
+          clearTimeout(timeout);
+          reject(new Error(`Subscription establishment timeout: channel=${channelState}, socket=${socketStateName}`));
+        } else {
+          // Continue checking
+          setTimeout(() => checkSubscription(attempt + 1), 100);
+        }
+      };
+      
+      // Start checking immediately
+      checkSubscription();
+    });
+    
+  } catch (error) {
+    console.error('❌ Realtime subscription setup failed:', {
+      error: error.message,
+      stack: error.stack
+    });
+    throw error;
+  }
+};
+
+/**
+ * Hook for real-time YFF applications with enhanced reliability
  */
 export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   const [isConnected, setIsConnected] = useState(false);
@@ -75,16 +339,12 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Refs for managing subscriptions and timers
+  // Refs for managing subscriptions and state
   const channelRef = useRef<any>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isSetupInProgressRef = useRef<boolean>(false);
   const connectionAttemptRef = useRef<number>(0);
-  const currentSessionRef = useRef<Session | null>(null);
-  const isInitializedRef = useRef<boolean>(false);
 
-  // Primary data query with improved error handling
+  // Primary data query
   const { data: applications = [], isLoading, error } = useQuery({
     queryKey: ['yff-applications-realtime'],
     queryFn: async (): Promise<YffApplicationWithIndividual[]> => {
@@ -122,416 +382,95 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    staleTime: 30000, // 30 seconds
+    staleTime: 30000,
   });
 
   /**
-   * Enhanced WebSocket state validation with comprehensive error handling
-   */
-  const validateWebSocketState = useCallback((channel: any): boolean => {
-    try {
-      if (!channel) {
-        console.warn('⚠️ No channel provided for WebSocket validation');
-        return false;
-      }
-
-      if (!channel.socket) {
-        console.warn('⚠️ No socket found in channel');
-        return false;
-      }
-
-      // Enhanced readyState access with null checks
-      let readyState: number;
-      
-      if (channel.socket.readyState !== undefined && channel.socket.readyState !== null) {
-        readyState = channel.socket.readyState;
-      } else if (channel.socket.conn && channel.socket.conn.readyState !== undefined) {
-        readyState = channel.socket.conn.readyState;
-      } else {
-        console.warn('⚠️ Cannot access WebSocket readyState - may be undefined');
-        return false;
-      }
-
-      const stateName = WEBSOCKET_STATE_NAMES[readyState] || 'UNKNOWN';
-      console.log(`🔍 WebSocket state: ${readyState} (${stateName})`);
-      
-      return readyState === WEBSOCKET_STATES.OPEN;
-      
-    } catch (error) {
-      console.error('❌ Error validating WebSocket state:', error);
-      return false;
-    }
-  }, []);
-
-  /**
-   * Validate authentication status for real-time subscription
-   */
-  const validateAuthentication = useCallback(async (): Promise<Session | null> => {
-    try {
-      console.log('🔐 Validating authentication for real-time subscription...');
-      
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('❌ Authentication error:', error);
-        return null;
-      }
-
-      if (!session) {
-        console.warn('⚠️ No authenticated session found');
-        return null;
-      }
-
-      if (!session.access_token) {
-        console.warn('⚠️ No access token in session');
-        return null;
-      }
-
-      console.log('✅ Authentication validated:', {
-        userId: session.user?.id,
-        email: session.user?.email,
-        tokenExists: !!session.access_token,
-        tokenLength: session.access_token.length
-      });
-
-      currentSessionRef.current = session;
-      return session;
-      
-    } catch (error) {
-      console.error('❌ Authentication validation failed:', error);
-      return null;
-    }
-  }, []);
-
-  /**
-   * Start polling fallback when real-time fails
-   */
-  const startPollingFallback = useCallback(() => {
-    console.log('🔄 Starting polling fallback...');
-    setConnectionStatus('fallback');
-    setIsConnected(false);
-    
-    // Clear any existing polling
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-    
-    pollingIntervalRef.current = setInterval(() => {
-      console.log('🔄 Polling for updates...');
-      queryClient.invalidateQueries({ queryKey: ['yff-applications-realtime'] });
-    }, 15000); // Poll every 15 seconds
-    
-    toast({
-      title: "Real-time Updates Unavailable",
-      description: "Using periodic refresh instead.",
-      variant: "default"
-    });
-  }, [queryClient, toast]);
-
-  /**
-   * Stop polling fallback
-   */
-  const stopPollingFallback = useCallback(() => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-      console.log('⏹️ Stopped polling fallback');
-    }
-  }, []);
-
-  /**
-   * Clean up existing subscriptions and timers
-   */
-  const cleanupExistingConnection = useCallback(() => {
-    console.log('🧹 Cleaning up existing connection...');
-    
-    // Clear all timers
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-
-    if (connectionTimeoutRef.current) {
-      clearTimeout(connectionTimeoutRef.current);
-      connectionTimeoutRef.current = null;
-    }
-
-    // Remove existing channel
-    if (channelRef.current) {
-      try {
-        console.log('🗑️ Removing existing channel');
-        supabase.removeChannel(channelRef.current);
-      } catch (cleanupError) {
-        console.warn('⚠️ Error during channel cleanup:', cleanupError);
-      }
-      channelRef.current = null;
-    }
-
-    // Stop polling if active
-    stopPollingFallback();
-  }, [stopPollingFallback]);
-
-  /**
-   * Enhanced real-time subscription setup with improved WebSocket state monitoring
+   * Setup realtime subscription with enhanced error handling
    */
   const setupRealtimeSubscription = useCallback(async (): Promise<boolean> => {
+    // Prevent multiple simultaneous setup attempts
+    if (isSetupInProgressRef.current) {
+      console.log('⏳ Subscription setup already in progress, skipping...');
+      return false;
+    }
+    
+    isSetupInProgressRef.current = true;
+    connectionAttemptRef.current += 1;
+    const attemptNumber = connectionAttemptRef.current;
+    
     try {
-      connectionAttemptRef.current += 1;
-      const attemptNumber = connectionAttemptRef.current;
-      
-      console.log(`🔗 Setting up real-time subscription (attempt #${attemptNumber})...`);
+      console.log(`🔗 Setting up realtime subscription (attempt #${attemptNumber})...`);
       setConnectionStatus('connecting');
       setIsConnected(false);
       
-      // Clean up existing connection
-      cleanupExistingConnection();
-
-      // Validate authentication first
-      const session = await validateAuthentication();
-      if (!session) {
-        console.error('❌ Cannot establish real-time subscription without valid authentication');
-        setConnectionStatus('error');
-        startPollingFallback();
-        return false;
-      }
-
-      // Set realtime auth explicitly
-      try {
-        console.log('🔐 Setting realtime authentication...');
-        supabase.realtime.setAuth(session.access_token);
-        console.log('✅ Realtime authentication set successfully');
-      } catch (authError) {
-        console.error('❌ Failed to set realtime auth:', authError);
-        setConnectionStatus('error');
-        startPollingFallback();
-        return false;
-      }
-
-      // Create channel with enhanced configuration
-      const channelName = `yff-applications-realtime-${attemptNumber}-${Date.now()}`;
-      console.log(`📡 Creating channel: ${channelName}`);
-
-      // Set connection timeout with enhanced error handling
-      connectionTimeoutRef.current = setTimeout(() => {
-        console.error(`⏰ Connection timeout after 30 seconds (attempt #${attemptNumber})`);
-        
-        if (channelRef.current) {
-          const isOpen = validateWebSocketState(channelRef.current);
-          console.log(`🔍 WebSocket state at timeout: ${isOpen ? 'OPEN' : 'NOT OPEN'}`);
-          
-          if (!isOpen) {
-            setConnectionStatus('error');
-            const currentRetryCount = retryCount + 1;
-            
-            if (currentRetryCount <= 3) {
-              console.log(`🔄 Will retry connection (attempt ${currentRetryCount}/3)`);
-              setRetryCount(currentRetryCount);
-              
-              // Exponential backoff
-              const delay = Math.min(1000 * Math.pow(2, currentRetryCount - 1), 10000);
-              console.log(`⏱️ Retrying in ${delay}ms...`);
-              reconnectTimeoutRef.current = setTimeout(() => {
-                setupRealtimeSubscription();
-              }, delay);
-            } else {
-              console.error('💀 Max connection attempts reached, switching to polling fallback');
-              startPollingFallback();
-            }
-          }
+      // Clean up existing subscription
+      if (channelRef.current) {
+        console.log('🧹 Cleaning up existing subscription...');
+        try {
+          await supabase.removeChannel(channelRef.current);
+        } catch (cleanupError) {
+          console.warn('⚠️ Error during cleanup:', cleanupError);
         }
-      }, 30000); // 30 second timeout
-
-      const channel = supabase
-        .channel(channelName, {
-          config: {
-            presence: { key: `admin-${session.user.id}-${Date.now()}` },
-            broadcast: { self: false }
-          }
-        })
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'yff_applications'
-          },
-          (payload) => {
-            try {
-              const applicationId = getApplicationId(payload.new, payload.old);
-              
-              console.log('📨 Real-time update received:', {
-                eventType: payload.eventType,
-                applicationId: applicationId || 'unknown',
-                timestamp: new Date().toISOString(),
-                attempt: attemptNumber
-              });
-              
-              // Invalidate and refetch applications
-              queryClient.invalidateQueries({ 
-                queryKey: ['yff-applications-realtime'] 
-              });
-              
-              setLastUpdate(new Date());
-              
-              // Show appropriate notifications
-              if (payload.eventType === 'INSERT') {
-                toast({
-                  title: "New Application",
-                  description: "A new YFF application has been submitted.",
-                });
-              } else if (payload.eventType === 'UPDATE') {
-                const newRecord = payload.new;
-                if (newRecord && typeof newRecord === 'object' && 'evaluation_status' in newRecord) {
-                  if (newRecord.evaluation_status === 'completed') {
-                    const displayId = applicationId ? applicationId.slice(0, 8) + '...' : 'Unknown';
-                    toast({
-                      title: "Evaluation Completed",
-                      description: `Application ${displayId} has been evaluated.`,
-                    });
-                  } else if (newRecord.evaluation_status === 'processing') {
-                    const displayId = applicationId ? applicationId.slice(0, 8) + '...' : 'Unknown';
-                    toast({
-                      title: "Evaluation Started",
-                      description: `Application ${displayId} is being evaluated.`,
-                    });
-                  }
-                }
-              }
-            } catch (eventError) {
-              console.error('❌ Error handling real-time event:', eventError);
-            }
-          }
-        )
-        .subscribe(async (status, err) => {
-          const timestamp = new Date().toISOString();
-          
-          console.log(`📡 Subscription status change (attempt #${attemptNumber}):`, {
-            status,
-            error: err,
-            timestamp,
-            channelName
-          });
-          
-          if (status === 'SUBSCRIBED') {
-            // Enhanced WebSocket validation with timeout
-            setTimeout(() => {
-              const isWebSocketOpen = validateWebSocketState(channel);
-              
-              console.log(`🔍 WebSocket validation after SUBSCRIBED: ${isWebSocketOpen}`);
-              
-              if (isWebSocketOpen) {
-                console.log(`✅ Real-time subscription established successfully (attempt #${attemptNumber})`);
-                
-                // Clear connection timeout
-                if (connectionTimeoutRef.current) {
-                  clearTimeout(connectionTimeoutRef.current);
-                  connectionTimeoutRef.current = null;
-                }
-                
-                setIsConnected(true);
-                setConnectionStatus('connected');
-                setRetryCount(0);
-                
-                // Stop polling fallback
-                stopPollingFallback();
-                
-                // Show success notification
-                toast({
-                  title: "Real-time Updates Active",
-                  description: "Dashboard will now update automatically.",
-                  variant: "default"
-                });
-              } else {
-                console.error(`❌ WebSocket not in OPEN state after subscription (attempt #${attemptNumber})`);
-                setConnectionStatus('error');
-                
-                // Retry logic
-                const currentRetryCount = retryCount + 1;
-                if (currentRetryCount <= 3) {
-                  console.log(`🔄 Retrying due to WebSocket state (attempt ${currentRetryCount}/3)`);
-                  setRetryCount(currentRetryCount);
-                  
-                  const delay = Math.min(2000 * Math.pow(1.5, currentRetryCount), 10000);
-                  reconnectTimeoutRef.current = setTimeout(() => {
-                    setupRealtimeSubscription();
-                  }, delay);
-                } else {
-                  console.error('💀 Max retries reached, switching to polling fallback');
-                  startPollingFallback();
-                }
-              }
-            }, 2000); // Wait 2 seconds for WebSocket to be fully ready
-            
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            console.error(`❌ Real-time subscription error (attempt #${attemptNumber}):`, { 
-              status, 
-              error: err, 
-              channelName 
-            });
-            
-            setIsConnected(false);
-            setConnectionStatus('error');
-            
-            // Clear connection timeout
-            if (connectionTimeoutRef.current) {
-              clearTimeout(connectionTimeoutRef.current);
-              connectionTimeoutRef.current = null;
-            }
-            
-            // Implement retry logic with exponential backoff
-            const currentRetryCount = retryCount + 1;
-            const maxRetries = 3;
-            const baseDelay = 2000;
-            const maxDelay = 10000;
-            const delay = Math.min(baseDelay * Math.pow(1.5, currentRetryCount), maxDelay);
-            
-            if (currentRetryCount <= maxRetries) {
-              console.log(`🔄 Scheduling reconnection attempt ${currentRetryCount} in ${delay}ms`);
-              setRetryCount(currentRetryCount);
-              
-              reconnectTimeoutRef.current = setTimeout(() => {
-                setupRealtimeSubscription();
-              }, delay);
-              
-            } else {
-              console.error('💀 Max reconnection attempts reached, switching to polling fallback');
-              setConnectionStatus('fallback');
-              startPollingFallback();
-            }
-          }
-        });
-
+        channelRef.current = null;
+      }
+      
+      // Create new subscription
+      const channel = await createRobustRealtimeSubscription(queryClient, toast);
       channelRef.current = channel;
-      console.log(`📡 Real-time subscription setup completed (attempt #${attemptNumber})`);
+      
+      console.log('✅ Realtime subscription established successfully!');
+      setIsConnected(true);
+      setConnectionStatus('connected');
+      setRetryCount(0);
+      
+      toast({
+        title: "Real-time Updates Active",
+        description: "Dashboard will now update automatically.",
+        variant: "default"
+      });
+      
       return true;
       
     } catch (error) {
-      console.error(`❌ Failed to setup real-time subscription (attempt #${connectionAttemptRef.current}):`, error);
+      console.error(`❌ Subscription setup failed (attempt #${attemptNumber}):`, error);
       setIsConnected(false);
       setConnectionStatus('error');
       
-      // Clear connection timeout
-      if (connectionTimeoutRef.current) {
-        clearTimeout(connectionTimeoutRef.current);
-        connectionTimeoutRef.current = null;
+      // Implement retry logic
+      const currentRetryCount = retryCount + 1;
+      const maxRetries = 3;
+      
+      if (currentRetryCount <= maxRetries) {
+        console.log(`🔄 Scheduling retry ${currentRetryCount}/${maxRetries} in 5 seconds...`);
+        setRetryCount(currentRetryCount);
+        
+        setTimeout(() => {
+          setupRealtimeSubscription();
+        }, 5000);
+      } else {
+        console.error('💀 Max retries reached, switching to fallback mode');
+        setConnectionStatus('fallback');
+        
+        toast({
+          title: "Real-time Updates Unavailable",
+          description: "Using periodic refresh instead.",
+          variant: "destructive"
+        });
       }
       
-      // Fallback to polling
-      startPollingFallback();
       return false;
+      
+    } finally {
+      isSetupInProgressRef.current = false;
     }
-  }, [validateAuthentication, queryClient, toast, retryCount, cleanupExistingConnection, validateWebSocketState, stopPollingFallback, startPollingFallback]);
+  }, [queryClient, toast, retryCount]);
 
   // Initialize subscription on mount
   useEffect(() => {
-    if (isInitializedRef.current) {
-      return;
-    }
-    
     console.log('🚀 Initializing real-time subscription hook');
-    isInitializedRef.current = true;
     
-    // Reset state
+    // Reset counters
     connectionAttemptRef.current = 0;
     setRetryCount(0);
     
@@ -540,13 +479,18 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     
     return () => {
       console.log('🧹 Cleaning up real-time subscription on unmount');
-      isInitializedRef.current = false;
       
-      // Clean up all resources
-      cleanupExistingConnection();
+      if (channelRef.current) {
+        try {
+          supabase.removeChannel(channelRef.current);
+        } catch (error) {
+          console.warn('⚠️ Error during unmount cleanup:', error);
+        }
+      }
       
       setIsConnected(false);
       setConnectionStatus('disconnected');
+      isSetupInProgressRef.current = false;
     };
   }, []); // Empty deps to prevent re-setup
 
@@ -558,7 +502,6 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
         
         if (event === 'SIGNED_IN' && session) {
           console.log('✅ User signed in, establishing real-time subscription');
-          currentSessionRef.current = session;
           
           // Wait a moment for auth to settle, then setup subscription
           setTimeout(() => {
@@ -567,9 +510,15 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
           
         } else if (event === 'SIGNED_OUT') {
           console.log('❌ User signed out, cleaning up real-time subscription');
-          currentSessionRef.current = null;
           
-          cleanupExistingConnection();
+          if (channelRef.current) {
+            try {
+              supabase.removeChannel(channelRef.current);
+            } catch (error) {
+              console.warn('⚠️ Error during auth cleanup:', error);
+            }
+            channelRef.current = null;
+          }
           
           setIsConnected(false);
           setConnectionStatus('disconnected');
@@ -580,52 +529,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [setupRealtimeSubscription, cleanupExistingConnection]);
-
-  // Handle visibility change for better resource management
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('👁️ Page became visible, checking connection status');
-        
-        if (!isConnected && connectionStatus !== 'connecting' && connectionStatus !== 'fallback') {
-          console.log('🔄 Page visible and not connected, attempting reconnection...');
-          setupRealtimeSubscription();
-        } else if (channelRef.current && !validateWebSocketState(channelRef.current)) {
-          console.log('🔄 Page visible but WebSocket not open, attempting reconnection...');
-          setupRealtimeSubscription();
-        }
-      } else {
-        console.log('👁️ Page hidden, connection will be managed by existing logic');
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isConnected, connectionStatus, setupRealtimeSubscription, validateWebSocketState]);
-
-  // Periodic connection health check with enhanced validation
-  useEffect(() => {
-    const healthCheck = setInterval(() => {
-      if (connectionStatus === 'connected' && channelRef.current) {
-        const isWebSocketOpen = validateWebSocketState(channelRef.current);
-        
-        if (!isWebSocketOpen) {
-          console.warn('🔧 Connection health check failed - WebSocket not open, reconnecting...');
-          setConnectionStatus('error');
-          setIsConnected(false);
-          setupRealtimeSubscription();
-        } else {
-          console.log('✅ Connection health check passed');
-        }
-      }
-    }, 30000); // Check every 30 seconds
-
-    return () => clearInterval(healthCheck);
-  }, [connectionStatus, setupRealtimeSubscription, validateWebSocketState]);
+  }, [setupRealtimeSubscription]);
 
   return {
     applications,

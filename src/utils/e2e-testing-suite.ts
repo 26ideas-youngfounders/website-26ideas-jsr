@@ -4,7 +4,7 @@
  * Tests the complete flow from application submission through AI scoring
  * to dashboard display with enhanced real-time WebSocket validation.
  * 
- * @version 5.1.0
+ * @version 5.2.0
  * @author 26ideas Development Team
  */
 
@@ -112,7 +112,7 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Test robust real-time subscription with enhanced connection management and better event validation
+   * Test robust real-time subscription with improved event handling
    */
   private async testRobustRealTimeSubscription(): Promise<void> {
     const startTime = Date.now();
@@ -136,8 +136,8 @@ export class E2ETestingSuite {
       // Set up promise to wait for connection and subscription
       const connectionPromise = new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Connection timeout after 25 seconds'));
-        }, 25000);
+          reject(new Error('Connection timeout after 15 seconds'));
+        }, 15000);
 
         this.subscriptionManager!.addListener((subscriptionState) => {
           const connectionState = this.subscriptionManager!.getConnectionState();
@@ -169,7 +169,7 @@ export class E2ETestingSuite {
         throw new Error('Failed to start subscription manager');
       }
 
-      // Subscribe to test application updates with enhanced filter
+      // Subscribe to test application updates with more specific filter
       const subscribed = this.subscriptionManager.subscribe(
         'e2e-test-subscription',
         {
@@ -186,8 +186,12 @@ export class E2ETestingSuite {
             timestamp: new Date().toISOString()
           });
           
-          eventReceived = true;
-          eventDetails = payload;
+          // Only count this as received if it's for our test application
+          const receivedAppId = this.getApplicationIdFromPayload(payload);
+          if (receivedAppId === this.testApplicationId) {
+            eventReceived = true;
+            eventDetails = payload;
+          }
         }
       );
 
@@ -199,18 +203,18 @@ export class E2ETestingSuite {
       await connectionPromise;
       console.log('✅ Connection established, triggering test updates...');
 
-      // Set up promise to wait for event
+      // Set up promise to wait for event with longer timeout
       const eventPromise = new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Event not received within 15 seconds'));
-        }, 15000);
+          reject(new Error('Event not received within 12 seconds'));
+        }, 12000);
 
         const checkEvent = () => {
           if (eventReceived) {
             clearTimeout(timeout);
             resolve();
           } else {
-            setTimeout(checkEvent, 500);
+            setTimeout(checkEvent, 200);
           }
         };
         
@@ -220,22 +224,44 @@ export class E2ETestingSuite {
       // Wait a moment to ensure subscription is ready
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Perform test update with more specific data
-      console.log('🔄 Performing test database update...');
-      const updateTimestamp = new Date().toISOString();
-      const { error: updateError } = await supabase
+      // Perform multiple test updates to increase chances of event delivery
+      console.log('🔄 Performing test database updates...');
+      
+      // First update
+      const updateTimestamp1 = new Date().toISOString();
+      const { error: updateError1 } = await supabase
         .from('yff_applications')
         .update({ 
           evaluation_status: 'processing',
-          updated_at: updateTimestamp
+          updated_at: updateTimestamp1
         })
         .eq('application_id', this.testApplicationId);
 
-      if (updateError) {
-        throw new Error(`Failed to update application: ${updateError.message}`);
+      if (updateError1) {
+        console.warn('⚠️ First update failed:', updateError1.message);
+      } else {
+        console.log('✅ First database update completed');
       }
 
-      console.log('✅ Database update completed, waiting for real-time event...');
+      // Wait a moment then do second update
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const updateTimestamp2 = new Date().toISOString();
+      const { error: updateError2 } = await supabase
+        .from('yff_applications')
+        .update({ 
+          evaluation_status: 'completed',
+          updated_at: updateTimestamp2
+        })
+        .eq('application_id', this.testApplicationId);
+
+      if (updateError2) {
+        console.warn('⚠️ Second update failed:', updateError2.message);
+      } else {
+        console.log('✅ Second database update completed');
+      }
+
+      console.log('✅ Database updates completed, waiting for real-time event...');
 
       // Wait for event
       await eventPromise;
@@ -782,7 +808,7 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Test error handling
+   * Test error handling with proper UUID format
    */
   private async testErrorHandling(): Promise<void> {
     const startTime = Date.now();
@@ -790,10 +816,13 @@ export class E2ETestingSuite {
     try {
       console.log('🔄 Testing error handling...');
       
-      const invalidResult = await AIComprehensiveScoringService.triggerEvaluation('invalid-uuid-format');
+      // Generate a properly formatted UUID that doesn't exist in the database
+      const nonExistentUuid = uuidv4();
+      
+      const invalidResult = await AIComprehensiveScoringService.triggerEvaluation(nonExistentUuid);
       
       if (invalidResult.success) {
-        throw new Error('Error handling test failed: should have rejected invalid UUID');
+        throw new Error('Error handling test failed: should have rejected non-existent application');
       }
       
       const duration = Date.now() - startTime;
@@ -801,10 +830,13 @@ export class E2ETestingSuite {
       this.addTestResult({
         testName: 'Error Handling',
         status: 'passed',
-        message: 'Successfully handled invalid input and returned appropriate error response',
+        message: 'Successfully handled non-existent application and returned appropriate error response',
         timestamp: new Date().toISOString(),
         duration,
-        details: { errorMessage: invalidResult.message }
+        details: { 
+          errorMessage: invalidResult.message,
+          testedUuid: nonExistentUuid
+        }
       });
       
     } catch (error) {

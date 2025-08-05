@@ -5,7 +5,7 @@
  * Provides real-time updates for YFF applications using robust WebSocket
  * connection management with comprehensive error handling and retry logic.
  * 
- * @version 6.0.0
+ * @version 6.1.0
  * @author 26ideas Development Team
  */
 
@@ -190,7 +190,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   }, [queryClient, toast]);
 
   /**
-   * Setup real-time subscription with enhanced error handling
+   * Setup real-time subscription with simplified approach
    */
   const setupRealtimeSubscription = useCallback(async (): Promise<boolean> => {
     try {
@@ -236,16 +236,15 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
         });
       }
 
-      // Start subscription manager with timeout
+      // Start subscription manager with shorter timeout
       console.log('🚀 Starting subscription manager...');
-      const startPromise = subscriptionManagerRef.current.start();
       
-      // Set up a timeout for the start operation
+      const startPromise = subscriptionManagerRef.current.start();
       const timeoutPromise = new Promise<boolean>((resolve) => {
         setupTimeoutRef.current = setTimeout(() => {
           console.error('⏰ Subscription manager start timeout');
           resolve(false);
-        }, 30000); // 30 second timeout
+        }, 20000); // Reduced to 20 seconds
       });
       
       const started = await Promise.race([startPromise, timeoutPromise]);
@@ -325,7 +324,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     // Delay setup to allow auth to settle
     setTimeout(() => {
       setupRealtimeSubscription();
-    }, 2000);
+    }, 1000); // Reduced delay
     
     return () => {
       console.log('🧹 Cleaning up real-time subscription on unmount');
@@ -346,7 +345,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
           // Wait for auth to settle before setting up subscription
           setTimeout(() => {
             setupRealtimeSubscription();
-          }, 3000);
+          }, 1500); // Reduced delay
           
         } else if (event === 'SIGNED_OUT') {
           console.log('❌ User signed out, cleaning up real-time subscription');
@@ -370,7 +369,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
           console.log('🔄 Page visible and not connected, attempting reconnection...');
           setTimeout(() => {
             setupRealtimeSubscription();
-          }, 1000);
+          }, 500); // Quick reconnection
         }
       }
     };

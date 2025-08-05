@@ -5,7 +5,7 @@
  * Manages real-time subscriptions for database changes with automatic
  * reconnection, error handling, and event processing.
  * 
- * @version 2.0.0
+ * @version 2.1.0
  * @author 26ideas Development Team
  */
 
@@ -52,10 +52,10 @@ export class RealtimeSubscriptionManager {
   constructor() {
     this.connectionManager = new RealtimeConnectionManager({
       maxRetries: 3,
-      baseRetryDelay: 2000,
-      maxRetryDelay: 15000,
+      baseRetryDelay: 1000,
+      maxRetryDelay: 8000,
       heartbeatInterval: 30000,
-      connectionTimeout: 20000,
+      connectionTimeout: 15000,
     });
 
     // Listen to connection state changes
@@ -85,7 +85,7 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Start subscription manager with enhanced error handling
+   * Start subscription manager
    */
   async start(): Promise<boolean> {
     if (this.isStarting) {
@@ -103,8 +103,8 @@ export class RealtimeSubscriptionManager {
         return false;
       }
 
-      // Wait for connection to stabilize
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Brief wait for connection to stabilize
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       console.log('✅ Subscription manager started successfully');
       return true;
@@ -136,7 +136,7 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Subscribe to database changes with enhanced error handling
+   * Subscribe to database changes
    */
   subscribe<T = any>(
     id: string,
@@ -160,7 +160,7 @@ export class RealtimeSubscriptionManager {
     if (connectionState.status === 'connected') {
       setTimeout(() => {
         this.activateSubscription(id);
-      }, 500); // Small delay to ensure stability
+      }, 100);
     }
 
     this.updateState({
@@ -178,7 +178,6 @@ export class RealtimeSubscriptionManager {
     
     const subscription = this.subscriptions.get(id);
     if (subscription?.isActive) {
-      // Deactivate subscription if active
       subscription.isActive = false;
     }
     
@@ -190,16 +189,16 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Handle connection state changes with improved logic
+   * Handle connection state changes
    */
   private handleConnectionStateChange(connectionState: ConnectionState): void {
     console.log(`🔄 Connection state changed: ${connectionState.status}`);
     
     if (connectionState.status === 'connected') {
-      // Activate all subscriptions after a short delay to ensure stability
+      // Activate all subscriptions after connection
       setTimeout(() => {
         this.activateAllSubscriptions();
-      }, 1000);
+      }, 500);
     } else if (connectionState.status === 'disconnected' || connectionState.status === 'error') {
       // Mark all subscriptions as inactive
       this.deactivateAllSubscriptions();
@@ -212,7 +211,7 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Activate a specific subscription with enhanced error handling
+   * Activate a specific subscription
    */
   private activateSubscription(id: string): void {
     const subscription = this.subscriptions.get(id);
@@ -281,10 +280,7 @@ export class RealtimeSubscriptionManager {
     console.log('🔄 Activating all subscriptions...');
     
     for (const [id] of this.subscriptions) {
-      // Add small delay between activations to prevent overwhelming
-      setTimeout(() => {
-        this.activateSubscription(id);
-      }, Math.random() * 1000);
+      this.activateSubscription(id);
     }
   }
 

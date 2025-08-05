@@ -1,10 +1,11 @@
+
 /**
  * @fileoverview Real-time WebSocket Connection Manager
  * 
  * Manages WebSocket connection lifecycle with robust error handling,
  * authentication management, and exponential backoff retry logic.
  * 
- * @version 2.0.0
+ * @version 2.1.0
  * @author 26ideas Development Team
  */
 
@@ -31,10 +32,10 @@ export interface ConnectionManagerConfig {
 
 const DEFAULT_CONFIG: ConnectionManagerConfig = {
   maxRetries: 3,
-  baseRetryDelay: 2000,
-  maxRetryDelay: 15000,
+  baseRetryDelay: 1000,
+  maxRetryDelay: 8000,
   heartbeatInterval: 30000,
-  connectionTimeout: 20000,
+  connectionTimeout: 15000,
 };
 
 export class RealtimeConnectionManager {
@@ -103,13 +104,13 @@ export class RealtimeConnectionManager {
 
       this.updateState({ isAuthenticated: true });
 
-      // Step 2: Set up auth state monitoring to prevent disconnections
+      // Step 2: Set up auth state monitoring
       this.setupAuthStateMonitoring();
 
-      // Step 3: Create connection with enhanced validation
-      const connected = await this.createEnhancedConnection();
+      // Step 3: Create connection with simplified validation
+      const connected = await this.createConnection();
       if (!connected) {
-        await this.handleConnectionFailure('Failed to establish WebSocket connection');
+        await this.handleConnectionFailure('Failed to establish connection');
         return false;
       }
 
@@ -212,7 +213,7 @@ export class RealtimeConnectionManager {
   }
 
   /**
-   * Set up auth state monitoring to prevent mid-connection disconnections
+   * Set up auth state monitoring
    */
   private setupAuthStateMonitoring(): void {
     this.cleanupAuthStateMonitoring();
@@ -221,8 +222,8 @@ export class RealtimeConnectionManager {
       console.log(`🔐 Auth state changed during connection: ${event}`, !!session);
       
       if (event === 'SIGNED_OUT' && this.state.status === 'connected') {
-        console.warn('⚠️ User signed out while connected, maintaining connection for stability');
-        // Don't immediately disconnect, let the heartbeat handle it
+        console.warn('⚠️ User signed out while connected, disconnecting');
+        this.disconnect();
       } else if (event === 'TOKEN_REFRESHED' && session?.access_token) {
         console.log('🔄 Token refreshed, updating realtime auth');
         supabase.realtime.setAuth(session.access_token);
@@ -241,14 +242,15 @@ export class RealtimeConnectionManager {
   }
 
   /**
-   * Create WebSocket connection with enhanced validation and monitoring
+   * Create connection with simplified approach
    */
-  private async createEnhancedConnection(): Promise<boolean> {
+  private async createConnection(): Promise<boolean> {
     return new Promise((resolve) => {
-      console.log('🔌 Creating enhanced WebSocket connection...');
+      console.log('🔌 Creating WebSocket connection...');
       
-      const channelName = `realtime-connection-${Date.now()}`;
+      const channelName = `connection-${Date.now()}`;
       let connectionResolved = false;
+      let isSubscribed = false;
       
       // Set connection timeout
       this.connectionTimeout = setTimeout(() => {
@@ -264,18 +266,22 @@ export class RealtimeConnectionManager {
         this.channel = supabase
           .channel(channelName, {
             config: {
-              presence: { key: `admin-${Date.now()}` },
-              broadcast: { self: false }
+              presence: { key: `user-${Date.now()}` },
             }
           })
           .on('presence', { event: 'sync' }, () => {
-            console.log('👥 Presence sync received - connection active');
-          })
-          .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-            console.log('👋 Presence join:', key, newPresences.length, 'presences');
-          })
-          .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-            console.log('👋 Presence leave:', key, leftPresences.length, 'presences');
+            console.log('👥 Presence sync received');
+            if (isSubscribed && !connectionResolved) {
+              // Wait a bit more to ensure connection is stable
+              setTimeout(() => {
+                if (!connectionResolved) {
+                  console.log('✅ Connection validated through presence sync');
+                  connectionResolved = true;
+                  this.clearTimeout();
+                  resolve(true);
+                }
+              }, 1000);
+            }
           })
           .subscribe(async (status, err) => {
             console.log(`📡 Subscription status: ${status}`, err ? { error: err } : '');
@@ -283,17 +289,27 @@ export class RealtimeConnectionManager {
             if (connectionResolved) return;
             
             if (status === 'SUBSCRIBED') {
-              // Wait for WebSocket to stabilize
-              setTimeout(async () => {
-                if (connectionResolved) return;
-                
-                const isValid = await this.validateConnectionState();
-                console.log(`🔍 Connection validation: ${isValid ? 'VALID' : 'INVALID'}`);
-                
-                connectionResolved = true;
-                this.clearTimeout();
-                resolve(isValid);
-              }, 3000); // Extended stabilization time
+              isSubscribed = true;
+              console.log('📡 Channel subscribed successfully');
+              
+              // Try to track presence to validate connection
+              try {
+                await this.channel?.track({ status: 'online', timestamp: Date.now() });
+                console.log('✅ Presence tracking successful');
+              } catch (error) {
+                console.warn('⚠️ Presence tracking failed:', error);
+                // Don't fail the connection for presence issues
+              }
+              
+              // If presence sync doesn't happen, resolve anyway after a timeout
+              setTimeout(() => {
+                if (!connectionResolved && isSubscribed) {
+                  console.log('✅ Connection validated by subscription status');
+                  connectionResolved = true;
+                  this.clearTimeout();
+                  resolve(true);
+                }
+              }, 3000);
               
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
               if (!connectionResolved) {
@@ -314,61 +330,6 @@ export class RealtimeConnectionManager {
         }
       }
     });
-  }
-
-  /**
-   * Enhanced connection state validation
-   */
-  private async validateConnectionState(): Promise<boolean> {
-    try {
-      if (!this.channel) {
-        console.warn('⚠️ No channel to validate');
-        return false;
-      }
-
-      // Check WebSocket state
-      const socket = (this.channel as any).socket;
-      if (!socket) {
-        console.warn('⚠️ No socket found in channel');
-        return false;
-      }
-
-      const readyState = socket.readyState;
-      const isWebSocketOpen = readyState === 1; // WebSocket.OPEN
-      
-      console.log(`🔍 WebSocket readyState: ${readyState} (${this.getReadyStateString(readyState)})`);
-
-      // Additional validation: check if we can send a test presence update
-      if (isWebSocketOpen) {
-        try {
-          await this.channel.track({ status: 'online', timestamp: Date.now() });
-          console.log('✅ Test presence track successful');
-          return true;
-        } catch (error) {
-          console.warn('⚠️ Test presence track failed:', error);
-          return false;
-        }
-      }
-      
-      return false;
-      
-    } catch (error) {
-      console.error('❌ Error validating connection state:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Get readable WebSocket ready state string
-   */
-  private getReadyStateString(readyState: number): string {
-    const states = {
-      0: 'CONNECTING',
-      1: 'OPEN',
-      2: 'CLOSING',
-      3: 'CLOSED'
-    };
-    return states[readyState] || 'UNKNOWN';
   }
 
   /**
@@ -412,42 +373,24 @@ export class RealtimeConnectionManager {
   }
 
   /**
-   * Start enhanced heartbeat monitoring
+   * Start simplified heartbeat monitoring
    */
   private startHeartbeat(): void {
     this.stopHeartbeat();
     
     this.heartbeatInterval = setInterval(() => {
-      if (this.state.status === 'connected') {
-        const isValid = this.validateWebSocketState();
-        
-        if (isValid) {
+      if (this.state.status === 'connected' && this.channel) {
+        try {
+          // Simple heartbeat - track presence
+          this.channel.track({ heartbeat: Date.now() });
           this.updateState({ lastHeartbeat: new Date() });
-          console.log('💓 Heartbeat: Connection healthy');
-        } else {
-          console.warn('💔 Heartbeat: Connection unhealthy, reconnecting...');
-          this.handleConnectionFailure('Heartbeat failed - WebSocket not open');
+          console.log('💓 Heartbeat sent');
+        } catch (error) {
+          console.warn('💔 Heartbeat failed:', error);
+          this.handleConnectionFailure('Heartbeat failed');
         }
       }
     }, this.config.heartbeatInterval);
-  }
-
-  /**
-   * Validate WebSocket is in OPEN state (synchronous)
-   */
-  private validateWebSocketState(): boolean {
-    try {
-      if (!this.channel) return false;
-      
-      const socket = (this.channel as any).socket;
-      if (!socket) return false;
-      
-      return socket.readyState === 1; // WebSocket.OPEN
-      
-    } catch (error) {
-      console.error('❌ Error validating WebSocket state:', error);
-      return false;
-    }
   }
 
   /**

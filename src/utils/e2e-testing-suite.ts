@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Comprehensive E2E Testing Suite for YFF Applications
  * 
@@ -14,6 +13,7 @@ import { AIComprehensiveScoringService } from '@/services/ai-comprehensive-scori
 import { BackgroundJobService } from '@/services/background-job-service';
 import { YffFormData } from '@/types/yff-form';
 import { v4 as uuidv4 } from 'uuid';
+import type { Json } from '@supabase/supabase-js';
 
 export interface TestResult {
   testName: string;
@@ -130,7 +130,7 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Test application submission with unique identifiers
+   * Test application submission with unique identifiers and proper types
    */
   private async testApplicationSubmission(): Promise<void> {
     const startTime = Date.now();
@@ -138,12 +138,14 @@ export class E2ETestingSuite {
     try {
       console.log('🔄 Testing application submission...');
       
-      // Generate unique test data
+      // Generate unique test data with proper UUIDs
       const timestamp = Date.now();
-      const uniqueId = Math.random().toString(36).substring(2, 15);
-      this.testEmail = `e2etest+${timestamp}+${uniqueId}@example.com`;
+      const randomSuffix = Math.random().toString(36).substring(2, 15);
+      this.testEmail = `e2etest+${timestamp}+${randomSuffix}@example.com`;
       this.testIndividualId = uuidv4();
       this.testApplicationId = uuidv4();
+      
+      console.log(`🔍 Generated test IDs: individual=${this.testIndividualId}, application=${this.testApplicationId}, email=${this.testEmail}`);
       
       // Create test individual first
       const { data: individual, error: individualError } = await supabase
@@ -164,7 +166,9 @@ export class E2ETestingSuite {
         throw new Error(`Failed to create test individual: ${individualError.message}`);
       }
       
-      // Create test application data
+      console.log('✅ Test individual created successfully');
+      
+      // Create test application data with proper typing
       const testFormData: YffFormData = {
         tell_us_about_idea: 'This is a comprehensive test of an innovative AI-powered platform that revolutionizes how young entrepreneurs develop and validate their business ideas through intelligent mentorship and automated feedback systems.',
         problem_statement: 'Young entrepreneurs lack access to experienced mentors and struggle with validating their business ideas early in the development process, leading to higher failure rates and wasted resources.',
@@ -175,13 +179,16 @@ export class E2ETestingSuite {
         team_roles: 'Our founding team combines technical expertise in AI/ML with deep entrepreneurship experience, including former startup founders, product managers, and engineers from leading tech companies.'
       };
       
-      // Submit test application
+      // Convert form data to proper Json type for database insertion
+      const answersJson: Json = testFormData as Json;
+      
+      // Submit test application with proper type structure
       const { data: application, error: applicationError } = await supabase
         .from('yff_applications')
         .insert({
           application_id: this.testApplicationId,
           individual_id: this.testIndividualId,
-          answers: testFormData,
+          answers: answersJson,
           status: 'submitted',
           evaluation_status: 'pending'
         })
@@ -191,6 +198,8 @@ export class E2ETestingSuite {
       if (applicationError) {
         throw new Error(`Failed to submit test application: ${applicationError.message}`);
       }
+      
+      console.log('✅ Test application submitted successfully');
       
       const duration = Date.now() - startTime;
       
@@ -481,7 +490,7 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Test that real-time updates propagate correctly
+   * Test that real-time updates propagate correctly with proper update payload
    */
   private async testRealtimeUpdatePropagation(): Promise<{
     success: boolean;
@@ -536,12 +545,11 @@ export class E2ETestingSuite {
             setTimeout(async () => {
               updateStartTime = Date.now();
               
-              // Perform a database update that should trigger real-time event
+              // Perform a database update with proper payload structure
               const { error } = await supabase
                 .from('yff_applications')
                 .update({ 
                   updated_at: new Date().toISOString(),
-                  // Add a test field to ensure update is detected
                   status: 'test_update'
                 })
                 .eq('application_id', this.testApplicationId);

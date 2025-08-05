@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview End-to-End Testing Suite for AI Scoring System
  * 
@@ -23,6 +22,20 @@ export interface TestResult {
   duration?: number;
   details?: any;
   timestamp: string;
+}
+
+/**
+ * Type guard to check if value is an object (not array)
+ */
+function isObject(value: any): value is Record<string, any> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Type guard to check if evaluation data has scores
+ */
+function hasScores(data: any): data is { scores: Record<string, any> } {
+  return isObject(data) && data.scores && isObject(data.scores);
 }
 
 /**
@@ -415,9 +428,15 @@ export class E2ETestingSuite {
         throw new Error(`Overall score out of range: ${application.overall_score}`);
       }
 
-      // Verify evaluation data structure
-      if (!application.evaluation_data || typeof application.evaluation_data !== 'object') {
-        throw new Error('Invalid evaluation data structure');
+      // Verify evaluation data structure with proper type checking
+      if (!application.evaluation_data || !isObject(application.evaluation_data)) {
+        throw new Error('Invalid evaluation data structure - not an object');
+      }
+
+      // Use type guard to safely check for scores
+      let questionsScored = 0;
+      if (hasScores(application.evaluation_data)) {
+        questionsScored = Object.keys(application.evaluation_data.scores).length;
       }
 
       const duration = Date.now() - startTime;
@@ -428,8 +447,9 @@ export class E2ETestingSuite {
         duration,
         details: {
           overallScore: application.overall_score,
-          questionsScored: Object.keys(application.evaluation_data.scores || {}).length,
-          evaluationStatus: application.evaluation_status
+          questionsScored,
+          evaluationStatus: application.evaluation_status,
+          hasValidScores: hasScores(application.evaluation_data)
         },
         timestamp: new Date().toISOString()
       });

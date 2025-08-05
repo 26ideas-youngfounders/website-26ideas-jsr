@@ -76,10 +76,12 @@ export const E2ETestRunner: React.FC = () => {
       });
       
       setTestResults([{
+        id: 'test-suite-error',
         testName: 'Test Suite Error',
+        name: 'Test Suite Error',
         status: 'failed',
         message: error.message || 'Unknown error occurred',
-        timestamp: new Date().toISOString()
+        timestamp: new Date()
       }]);
     } finally {
       setIsRunning(false);

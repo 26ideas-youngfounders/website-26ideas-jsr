@@ -12,7 +12,7 @@ import { AIComprehensiveScoringService } from '@/services/ai-comprehensive-scori
 export interface TestResult {
   id: string;
   name: string;
-  status: 'passed' | 'failed' | 'warning' | 'pending';
+  status: 'passed' | 'failed' | 'warning' | 'pending' | 'running';
   duration?: number;
   details?: string;
   error?: string;

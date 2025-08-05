@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Enhanced E2E Test Runner Component V2
  * 
@@ -96,14 +95,13 @@ export const E2ETestRunnerV2: React.FC = () => {
       });
       
       setTestResults([{
+        id: 'test-suite-critical-error',
         testName: 'Test Suite Critical Error',
+        name: 'Test Suite Critical Error',
         status: 'failed',
         message: error.message || 'Unknown critical error occurred',
-        timestamp: new Date().toISOString(),
-        details: {
-          errorType: error.constructor.name,
-          stack: error.stack
-        }
+        timestamp: new Date(),
+        details: `Error type: ${error.constructor.name}`
       }]);
     } finally {
       setIsRunning(false);

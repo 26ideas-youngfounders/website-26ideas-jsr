@@ -5,7 +5,7 @@
  * Displays comprehensive AI evaluation results for YFF applications
  * with detailed scores, feedback, and admin controls.
  * 
- * @version 1.1.0
+ * @version 1.2.0
  * @author 26ideas Development Team
  */
 
@@ -117,14 +117,53 @@ const isValidEvaluation = (evaluation: any): boolean => {
 };
 
 /**
- * Safe type guard to check if question evaluation is valid
+ * Enhanced type guard to check if question evaluation is valid with comprehensive null checks
  */
 const isValidQuestionEvaluation = (questionEval: any): questionEval is QuestionEvaluation => {
-  return questionEval &&
-         typeof questionEval === 'object' &&
-         typeof questionEval.score === 'number' &&
-         Array.isArray(questionEval.strengths) &&
-         Array.isArray(questionEval.improvements);
+  if (!questionEval || typeof questionEval !== 'object') {
+    return false;
+  }
+  
+  // Check if score exists and is a number
+  if (typeof questionEval.score !== 'number') {
+    return false;
+  }
+  
+  // Safely check strengths array
+  if (questionEval.strengths !== undefined && questionEval.strengths !== null) {
+    if (!Array.isArray(questionEval.strengths)) {
+      return false;
+    }
+  }
+  
+  // Safely check improvements array
+  if (questionEval.improvements !== undefined && questionEval.improvements !== null) {
+    if (!Array.isArray(questionEval.improvements)) {
+      return false;
+    }
+  }
+  
+  return true;
+};
+
+/**
+ * Safe array access helper to prevent runtime errors
+ */
+const safeArrayAccess = (arr: any, fallback: any[] = []): any[] => {
+  if (Array.isArray(arr)) {
+    return arr;
+  }
+  return fallback;
+};
+
+/**
+ * Safe string conversion helper
+ */
+const safeStringify = (value: any): string => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return String(value);
 };
 
 export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDialogProps> = ({ 
@@ -153,6 +192,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
       queryClient.invalidateQueries({ queryKey: ['yff-applications'] });
     },
     onError: (error: any) => {
+      console.error('Evaluation error:', error);
       toast({
         title: "Evaluation Failed",
         description: error?.message || "Failed to start evaluation process",
@@ -173,6 +213,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
       queryClient.invalidateQueries({ queryKey: ['yff-applications'] });
     },
     onError: (error: any) => {
+      console.error('Re-evaluation error:', error);
       toast({
         title: "Re-evaluation Failed",
         description: error?.message || "Failed to start re-evaluation process",
@@ -182,20 +223,24 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
   });
 
   const handleEvaluate = () => {
+    console.log('Starting evaluation for application:', application.application_id);
     evaluateMutation.mutate();
   };
 
   const handleReEvaluate = () => {
+    console.log('Starting re-evaluation for application:', application.application_id);
     reEvaluateMutation.mutate();
   };
 
   /**
-   * Render individual question evaluation with comprehensive error handling
+   * Render individual question evaluation with enhanced error handling and null checks
    */
   const renderQuestionEvaluation = (questionId: string, questionEval: any) => {
-    // Validate questionEval structure to prevent runtime errors
+    console.log('Rendering question evaluation:', { questionId, questionEval });
+    
+    // Enhanced validation to prevent runtime errors
     if (!isValidQuestionEvaluation(questionEval)) {
-      console.warn(`Invalid question evaluation for ${questionId}:`, questionEval);
+      console.warn(`Invalid or incomplete question evaluation for ${questionId}:`, questionEval);
       return (
         <Card key={questionId} className="mb-4">
           <CardHeader className="pb-3">
@@ -212,7 +257,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="text-xs text-gray-400">Evaluation data unavailable</p>
+            <p className="text-xs text-gray-400">Evaluation data unavailable or incomplete</p>
           </CardContent>
         </Card>
       );
@@ -221,8 +266,17 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
     const IconComponent = questionIcons[questionId] || FileText;
     const label = questionLabels[questionId] || questionId;
     const score = typeof questionEval.score === 'number' ? questionEval.score : 0;
-    const strengths = Array.isArray(questionEval.strengths) ? questionEval.strengths : [];
-    const improvements = Array.isArray(questionEval.improvements) ? questionEval.improvements : [];
+    
+    // Use safe array access to prevent runtime errors
+    const strengths = safeArrayAccess(questionEval.strengths);
+    const improvements = safeArrayAccess(questionEval.improvements);
+    
+    console.log('Question evaluation data:', { 
+      questionId, 
+      score, 
+      strengthsCount: strengths.length, 
+      improvementsCount: improvements.length 
+    });
     
     return (
       <Card key={questionId} className="mb-4">
@@ -238,25 +292,25 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
           </div>
         </CardHeader>
         <CardContent className="pt-0 space-y-3">
-          {/* Strengths - Safe rendering with length check */}
+          {/* Strengths - Safe rendering with enhanced length checks */}
           {strengths.length > 0 && (
             <div>
               <h5 className="text-xs font-semibold text-green-700 mb-1">Strengths:</h5>
               <div className="text-xs text-gray-600">
                 {strengths.map((strength, idx) => (
-                  <div key={idx} className="mb-1">• {String(strength)}</div>
+                  <div key={idx} className="mb-1">• {safeStringify(strength)}</div>
                 ))}
               </div>
             </div>
           )}
           
-          {/* Areas for Improvement - Safe rendering with length check */}
+          {/* Areas for Improvement - Safe rendering with enhanced length checks */}
           {improvements.length > 0 && (
             <div>
               <h5 className="text-xs font-semibold text-orange-700 mb-1">Areas for Improvement:</h5>
               <div className="text-xs text-gray-600">
                 {improvements.map((improvement, idx) => (
-                  <div key={idx} className="mb-1">• {String(improvement)}</div>
+                  <div key={idx} className="mb-1">• {safeStringify(improvement)}</div>
                 ))}
               </div>
             </div>
@@ -273,12 +327,27 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
     );
   };
 
-  // Safe application name rendering
+  // Safe application name rendering with null checks
   const getApplicationName = () => {
-    if (application.individuals && application.individuals.first_name && application.individuals.last_name) {
-      return `${application.individuals.first_name} ${application.individuals.last_name}`;
+    try {
+      if (application?.individuals?.first_name && application?.individuals?.last_name) {
+        return `${application.individuals.first_name} ${application.individuals.last_name}`;
+      }
+      return 'Unknown Applicant';
+    } catch (error) {
+      console.error('Error getting application name:', error);
+      return 'Unknown Applicant';
     }
-    return 'Unknown Applicant';
+  };
+
+  // Safe application ID rendering
+  const getApplicationId = () => {
+    try {
+      return application?.application_id?.slice(0, 8) + '...' || 'Unknown';
+    } catch (error) {
+      console.error('Error getting application ID:', error);
+      return 'Unknown';
+    }
   };
 
   return (
@@ -297,7 +366,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
           </DialogTitle>
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500">
-              Application ID: {application.application_id?.slice(0, 8) || 'Unknown'}...
+              Application ID: {getApplicationId()}
             </div>
             <div className="flex items-center gap-2">
               {!evaluation && application.evaluation_status !== 'completed' && (
@@ -424,7 +493,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
                 </Card>
               </div>
 
-              {/* Idea Summary - Safe rendering */}
+              {/* Idea Summary - Safe rendering with null checks */}
               {evaluation.idea_summary && typeof evaluation.idea_summary === 'string' && evaluation.idea_summary.trim() && (
                 <Card>
                   <CardHeader>
@@ -443,14 +512,27 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
                 </Card>
               )}
 
-              {/* Question-by-Question Breakdown - Safe rendering */}
+              {/* Question-by-Question Breakdown - Enhanced safe rendering */}
               {evaluation.question_scores && typeof evaluation.question_scores === 'object' && (
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Question-by-Question Analysis</h3>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {Object.entries(evaluation.question_scores).map(([questionId, questionEval]) =>
-                      renderQuestionEvaluation(questionId, questionEval)
-                    )}
+                    {Object.entries(evaluation.question_scores).map(([questionId, questionEval]) => {
+                      try {
+                        return renderQuestionEvaluation(questionId, questionEval);
+                      } catch (error) {
+                        console.error(`Error rendering question ${questionId}:`, error);
+                        return (
+                          <Card key={questionId} className="mb-4">
+                            <CardContent className="pt-4">
+                              <p className="text-xs text-red-400">
+                                Error rendering evaluation for {questionLabels[questionId] || questionId}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+                    })}
                   </div>
                 </div>
               )}
@@ -466,12 +548,15 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
             </div>
           )}
 
-          {/* Invalid evaluation data */}
+          {/* Invalid evaluation data with enhanced error handling */}
           {evaluation && !isValidEvaluation(evaluation) && (
             <div className="text-center py-8">
               <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-3" />
               <p className="text-red-500">Evaluation data appears to be corrupted.</p>
               <p className="text-sm text-gray-400 mt-1">Please try re-evaluating this application.</p>
+              <div className="mt-2 text-xs text-gray-300">
+                Debug info: {JSON.stringify(evaluation, null, 2).substring(0, 200)}...
+              </div>
             </div>
           )}
         </ScrollArea>

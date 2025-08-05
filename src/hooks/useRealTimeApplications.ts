@@ -6,7 +6,7 @@
  * real-time subscriptions with comprehensive WebSocket state handling,
  * robust error recovery, and reliable connection management.
  * 
- * @version 4.0.0
+ * @version 4.1.0
  * @author 26ideas Development Team
  */
 
@@ -46,6 +46,23 @@ const getApplicationId = (newRecord: any, oldRecord: any): string | null => {
   }
   return null;
 };
+
+/**
+ * Enhanced WebSocket state constants for better error handling
+ */
+const WEBSOCKET_STATES = {
+  CONNECTING: 0,
+  OPEN: 1,
+  CLOSING: 2,
+  CLOSED: 3
+} as const;
+
+const WEBSOCKET_STATE_NAMES = {
+  [WEBSOCKET_STATES.CONNECTING]: 'CONNECTING',
+  [WEBSOCKET_STATES.OPEN]: 'OPEN',
+  [WEBSOCKET_STATES.CLOSING]: 'CLOSING',
+  [WEBSOCKET_STATES.CLOSED]: 'CLOSED'
+} as const;
 
 /**
  * Hook for real-time YFF applications with enhanced WebSocket reliability
@@ -109,30 +126,41 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   });
 
   /**
-   * Enhanced WebSocket state validation
+   * Enhanced WebSocket state validation with comprehensive error handling
    */
   const validateWebSocketState = useCallback((channel: any): boolean => {
-    if (!channel) {
-      console.warn('⚠️ No channel provided for WebSocket validation');
+    try {
+      if (!channel) {
+        console.warn('⚠️ No channel provided for WebSocket validation');
+        return false;
+      }
+
+      if (!channel.socket) {
+        console.warn('⚠️ No socket found in channel');
+        return false;
+      }
+
+      // Enhanced readyState access with null checks
+      let readyState: number;
+      
+      if (channel.socket.readyState !== undefined && channel.socket.readyState !== null) {
+        readyState = channel.socket.readyState;
+      } else if (channel.socket.conn && channel.socket.conn.readyState !== undefined) {
+        readyState = channel.socket.conn.readyState;
+      } else {
+        console.warn('⚠️ Cannot access WebSocket readyState - may be undefined');
+        return false;
+      }
+
+      const stateName = WEBSOCKET_STATE_NAMES[readyState] || 'UNKNOWN';
+      console.log(`🔍 WebSocket state: ${readyState} (${stateName})`);
+      
+      return readyState === WEBSOCKET_STATES.OPEN;
+      
+    } catch (error) {
+      console.error('❌ Error validating WebSocket state:', error);
       return false;
     }
-
-    if (!channel.socket) {
-      console.warn('⚠️ No socket found in channel');
-      return false;
-    }
-
-    const readyState = channel.socket.readyState;
-    const states = {
-      0: 'CONNECTING',
-      1: 'OPEN', 
-      2: 'CLOSING',
-      3: 'CLOSED'
-    };
-
-    console.log(`🔍 WebSocket state: ${readyState} (${states[readyState] || 'UNKNOWN'})`);
-    
-    return readyState === 1; // WebSocket.OPEN
   }, []);
 
   /**
@@ -244,7 +272,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   }, [stopPollingFallback]);
 
   /**
-   * Enhanced real-time subscription setup with WebSocket state monitoring
+   * Enhanced real-time subscription setup with improved WebSocket state monitoring
    */
   const setupRealtimeSubscription = useCallback(async (): Promise<boolean> => {
     try {
@@ -283,7 +311,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       const channelName = `yff-applications-realtime-${attemptNumber}-${Date.now()}`;
       console.log(`📡 Creating channel: ${channelName}`);
 
-      // Set connection timeout with better error handling
+      // Set connection timeout with enhanced error handling
       connectionTimeoutRef.current = setTimeout(() => {
         console.error(`⏰ Connection timeout after 30 seconds (attempt #${attemptNumber})`);
         
@@ -328,45 +356,49 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
             table: 'yff_applications'
           },
           (payload) => {
-            const applicationId = getApplicationId(payload.new, payload.old);
-            
-            console.log('📨 Real-time update received:', {
-              eventType: payload.eventType,
-              applicationId: applicationId || 'unknown',
-              timestamp: new Date().toISOString(),
-              attempt: attemptNumber
-            });
-            
-            // Invalidate and refetch applications
-            queryClient.invalidateQueries({ 
-              queryKey: ['yff-applications-realtime'] 
-            });
-            
-            setLastUpdate(new Date());
-            
-            // Show appropriate notifications
-            if (payload.eventType === 'INSERT') {
-              toast({
-                title: "New Application",
-                description: "A new YFF application has been submitted.",
+            try {
+              const applicationId = getApplicationId(payload.new, payload.old);
+              
+              console.log('📨 Real-time update received:', {
+                eventType: payload.eventType,
+                applicationId: applicationId || 'unknown',
+                timestamp: new Date().toISOString(),
+                attempt: attemptNumber
               });
-            } else if (payload.eventType === 'UPDATE') {
-              const newRecord = payload.new;
-              if (newRecord && typeof newRecord === 'object' && 'evaluation_status' in newRecord) {
-                if (newRecord.evaluation_status === 'completed') {
-                  const displayId = applicationId ? applicationId.slice(0, 8) + '...' : 'Unknown';
-                  toast({
-                    title: "Evaluation Completed",
-                    description: `Application ${displayId} has been evaluated.`,
-                  });
-                } else if (newRecord.evaluation_status === 'processing') {
-                  const displayId = applicationId ? applicationId.slice(0, 8) + '...' : 'Unknown';
-                  toast({
-                    title: "Evaluation Started",
-                    description: `Application ${displayId} is being evaluated.`,
-                  });
+              
+              // Invalidate and refetch applications
+              queryClient.invalidateQueries({ 
+                queryKey: ['yff-applications-realtime'] 
+              });
+              
+              setLastUpdate(new Date());
+              
+              // Show appropriate notifications
+              if (payload.eventType === 'INSERT') {
+                toast({
+                  title: "New Application",
+                  description: "A new YFF application has been submitted.",
+                });
+              } else if (payload.eventType === 'UPDATE') {
+                const newRecord = payload.new;
+                if (newRecord && typeof newRecord === 'object' && 'evaluation_status' in newRecord) {
+                  if (newRecord.evaluation_status === 'completed') {
+                    const displayId = applicationId ? applicationId.slice(0, 8) + '...' : 'Unknown';
+                    toast({
+                      title: "Evaluation Completed",
+                      description: `Application ${displayId} has been evaluated.`,
+                    });
+                  } else if (newRecord.evaluation_status === 'processing') {
+                    const displayId = applicationId ? applicationId.slice(0, 8) + '...' : 'Unknown';
+                    toast({
+                      title: "Evaluation Started",
+                      description: `Application ${displayId} is being evaluated.`,
+                    });
+                  }
                 }
               }
+            } catch (eventError) {
+              console.error('❌ Error handling real-time event:', eventError);
             }
           }
         )
@@ -381,7 +413,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
           });
           
           if (status === 'SUBSCRIBED') {
-            // Wait a moment for WebSocket to be fully ready
+            // Enhanced WebSocket validation with timeout
             setTimeout(() => {
               const isWebSocketOpen = validateWebSocketState(channel);
               

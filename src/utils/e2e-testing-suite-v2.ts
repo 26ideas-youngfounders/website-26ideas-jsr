@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Enhanced E2E Testing Suite v2
  * 
@@ -8,7 +9,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { AIComprehensiveScoringService } from '@/services/ai-comprehensive-scoring-service';
 
-interface TestResult {
+export interface TestResult {
   id: string;
   name: string;
   status: 'passed' | 'failed' | 'warning' | 'pending';
@@ -16,6 +17,8 @@ interface TestResult {
   details?: string;
   error?: string;
   timestamp?: Date;
+  testName?: string;
+  message?: string;
 }
 
 /**
@@ -36,14 +39,18 @@ const testDatabaseConnection = async (): Promise<TestResult> => {
       id: 'database-connection',
       name: 'Database Connection',
       status: 'passed',
-      details: 'Successfully connected to the database'
+      details: 'Successfully connected to the database',
+      testName: 'Database Connection',
+      message: 'Successfully connected to the database'
     };
   } catch (error) {
     return {
       id: 'database-connection',
       name: 'Database Connection',
       status: 'failed',
-      error: error.message
+      error: error.message,
+      testName: 'Database Connection',
+      message: error.message
     };
   }
 };
@@ -65,7 +72,9 @@ const testAIEvaluationSystem = async (): Promise<TestResult> => {
         id: 'ai-evaluation-system',
         name: 'AI Evaluation System',
         status: 'failed',
-        error: 'No pending applications found for testing'
+        error: 'No pending applications found for testing',
+        testName: 'AI Evaluation System',
+        message: 'No pending applications found for testing'
       };
     }
     
@@ -82,7 +91,9 @@ const testAIEvaluationSystem = async (): Promise<TestResult> => {
       id: 'ai-evaluation-system',
       name: 'AI Evaluation System',
       status: 'passed',
-      details: `Evaluation completed with score: ${result.overall_score}`
+      details: `Evaluation completed with score: ${result.overall_score}`,
+      testName: 'AI Evaluation System',
+      message: `Evaluation completed with score: ${result.overall_score}`
     };
     
   } catch (error) {
@@ -90,7 +101,9 @@ const testAIEvaluationSystem = async (): Promise<TestResult> => {
       id: 'ai-evaluation-system',
       name: 'AI Evaluation System',
       status: 'failed',
-      error: error.message
+      error: error.message,
+      testName: 'AI Evaluation System',
+      message: error.message
     };
   }
 };
@@ -109,21 +122,27 @@ const testUserAuthentication = async (): Promise<TestResult> => {
         id: 'user-authentication',
         name: 'User Authentication',
         status: 'warning',
-        details: 'No user is currently authenticated'
+        details: 'No user is currently authenticated',
+        testName: 'User Authentication',
+        message: 'No user is currently authenticated'
       };
     }
     return {
       id: 'user-authentication',
       name: 'User Authentication',
       status: 'passed',
-      details: `User authenticated: ${user.user.email}`
+      details: `User authenticated: ${user.user.email}`,
+      testName: 'User Authentication',
+      message: `User authenticated: ${user.user.email}`
     };
   } catch (error) {
     return {
       id: 'user-authentication',
       name: 'User Authentication',
       status: 'failed',
-      error: error.message
+      error: error.message,
+      testName: 'User Authentication',
+      message: error.message
     };
   }
 };
@@ -166,7 +185,9 @@ const testApplicationSubmission = async (): Promise<TestResult> => {
       id: 'application-submission',
       name: 'Application Submission',
       status: 'passed',
-      details: `Application submitted successfully: ${data.application_id}`
+      details: `Application submitted successfully: ${data.application_id}`,
+      testName: 'Application Submission',
+      message: `Application submitted successfully: ${data.application_id}`
     };
     
   } catch (error) {
@@ -174,10 +195,69 @@ const testApplicationSubmission = async (): Promise<TestResult> => {
       id: 'application-submission',
       name: 'Application Submission',
       status: 'failed',
-      error: error.message
+      error: error.message,
+      testName: 'Application Submission',
+      message: error.message
     };
   }
 };
+
+/**
+ * E2E Testing Suite V2 Class
+ */
+export class E2ETestingSuiteV2 {
+  private results: TestResult[] = [];
+
+  async runCompleteTestSuite(): Promise<TestResult[]> {
+    this.results = [];
+    
+    // Run tests sequentially with delay
+    const dbConnectionResult = await testDatabaseConnection();
+    this.results.push({ ...dbConnectionResult, id: 'database-connection' });
+    await delay(500);
+    
+    const userAuthResult = await testUserAuthentication();
+    this.results.push({ ...userAuthResult, id: 'user-authentication' });
+    await delay(500);
+    
+    const appSubmissionResult = await testApplicationSubmission();
+    this.results.push({ ...appSubmissionResult, id: 'application-submission' });
+    await delay(500);
+    
+    const aiEvaluationResult = await testAIEvaluationSystem();
+    this.results.push({ ...aiEvaluationResult, id: 'ai-evaluation-system' });
+    
+    return this.results;
+  }
+
+  generateTestReport(): string {
+    const passedTests = this.results.filter(r => r.status === 'passed').length;
+    const failedTests = this.results.filter(r => r.status === 'failed').length;
+    const totalTests = this.results.length;
+    
+    let report = `# E2E Test Report V2\n\n`;
+    report += `**Date:** ${new Date().toISOString()}\n`;
+    report += `**Tests Passed:** ${passedTests}/${totalTests}\n`;
+    report += `**Success Rate:** ${Math.round((passedTests / totalTests) * 100)}%\n\n`;
+    
+    report += `## Test Results\n\n`;
+    
+    this.results.forEach(result => {
+      report += `### ${result.name}\n`;
+      report += `- **Status:** ${result.status}\n`;
+      report += `- **Duration:** ${result.duration || 0}ms\n`;
+      if (result.details) {
+        report += `- **Details:** ${result.details}\n`;
+      }
+      if (result.error) {
+        report += `- **Error:** ${result.error}\n`;
+      }
+      report += `\n`;
+    });
+    
+    return report;
+  }
+}
 
 /**
  * Main testing function

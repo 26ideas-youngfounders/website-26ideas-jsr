@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview E2E Testing Suite
  * 
@@ -7,7 +8,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { AIComprehensiveScoringService } from '@/services/ai-comprehensive-scoring-service';
 
-interface TestResult {
+export interface TestResult {
   id: string;
   name: string;
   status: 'passed' | 'failed' | 'warning' | 'pending';
@@ -15,6 +16,8 @@ interface TestResult {
   details?: string;
   error?: string;
   timestamp?: Date;
+  testName?: string;
+  message?: string;
 }
 
 /**
@@ -40,14 +43,18 @@ const testDatabaseConnection = async (): Promise<TestResult> => {
       name: 'Database Connection',
       id: 'database-connection',
       status: 'passed',
-      details: 'Successfully connected to the database'
+      details: 'Successfully connected to the database',
+      testName: 'Database Connection',
+      message: 'Successfully connected to the database'
     };
   } catch (error) {
     return {
       name: 'Database Connection',
       id: 'database-connection',
       status: 'failed',
-      error: error.message
+      error: error.message,
+      testName: 'Database Connection',
+      message: error.message
     };
   }
 };
@@ -66,21 +73,27 @@ const testUserAuthentication = async (): Promise<TestResult> => {
         name: 'User Authentication',
         id: 'user-authentication',
         status: 'warning',
-        details: 'No user is currently authenticated'
+        details: 'No user is currently authenticated',
+        testName: 'User Authentication',
+        message: 'No user is currently authenticated'
       };
     }
     return {
       name: 'User Authentication',
       id: 'user-authentication',
       status: 'passed',
-      details: `User authenticated: ${user.email}`
+      details: `User authenticated: ${user.email}`,
+      testName: 'User Authentication',
+      message: `User authenticated: ${user.email}`
     };
   } catch (error) {
     return {
       name: 'User Authentication',
       id: 'user-authentication',
       status: 'failed',
-      error: error.message
+      error: error.message,
+      testName: 'User Authentication',
+      message: error.message
     };
   }
 };
@@ -113,7 +126,9 @@ const testAIEvaluationTrigger = async (): Promise<TestResult> => {
       name: 'AI Evaluation Trigger',
       id: 'ai-evaluation-trigger',
       status: 'passed',
-      details: `Score: ${result.overall_score}`
+      details: `Score: ${result.overall_score}`,
+      testName: 'AI Evaluation Trigger',
+      message: `Score: ${result.overall_score}`
     };
     
   } catch (error) {
@@ -121,7 +136,9 @@ const testAIEvaluationTrigger = async (): Promise<TestResult> => {
       name: 'AI Evaluation Trigger',
       id: 'ai-evaluation-trigger',
       status: 'failed',
-      error: error.message
+      error: error.message,
+      testName: 'AI Evaluation Trigger',
+      message: error.message
     };
   }
 };
@@ -147,7 +164,9 @@ const testComprehensiveAIScoring = async (): Promise<TestResult> => {
         name: 'Comprehensive AI Scoring',
         id: 'comprehensive-ai-scoring',
         status: 'warning',
-        details: 'No completed evaluations found to test'
+        details: 'No completed evaluations found to test',
+        testName: 'Comprehensive AI Scoring',
+        message: 'No completed evaluations found to test'
       };
     }
     
@@ -162,7 +181,9 @@ const testComprehensiveAIScoring = async (): Promise<TestResult> => {
       name: 'Comprehensive AI Scoring',
       id: 'comprehensive-ai-scoring',
       status: 'passed',
-      details: `Found evaluated application with score: ${testApplication.overall_score}`
+      details: `Found evaluated application with score: ${testApplication.overall_score}`,
+      testName: 'Comprehensive AI Scoring',
+      message: `Found evaluated application with score: ${testApplication.overall_score}`
     };
     
   } catch (error) {
@@ -170,10 +191,65 @@ const testComprehensiveAIScoring = async (): Promise<TestResult> => {
       name: 'Comprehensive AI Scoring',
       id: 'comprehensive-ai-scoring',
       status: 'failed',
-      error: error.message
+      error: error.message,
+      testName: 'Comprehensive AI Scoring',
+      message: error.message
     };
   }
 };
+
+/**
+ * E2E Testing Suite Class
+ */
+export class E2ETestingSuite {
+  private results: TestResult[] = [];
+
+  async runCompleteTestSuite(): Promise<TestResult[]> {
+    const testFunctions = [
+      testDatabaseConnection,
+      testUserAuthentication,
+      testAIEvaluationTrigger,
+      testComprehensiveAIScoring
+    ];
+
+    this.results = [];
+
+    for (const testFn of testFunctions) {
+      const result = await measureExecutionTime(testFn);
+      this.results.push({ id: result.name.toLowerCase().replace(/ /g, '-'), ...result });
+    }
+
+    return this.results;
+  }
+
+  generateTestReport(): string {
+    const passedTests = this.results.filter(r => r.status === 'passed').length;
+    const failedTests = this.results.filter(r => r.status === 'failed').length;
+    const totalTests = this.results.length;
+    
+    let report = `# E2E Test Report\n\n`;
+    report += `**Date:** ${new Date().toISOString()}\n`;
+    report += `**Tests Passed:** ${passedTests}/${totalTests}\n`;
+    report += `**Success Rate:** ${Math.round((passedTests / totalTests) * 100)}%\n\n`;
+    
+    report += `## Test Results\n\n`;
+    
+    this.results.forEach(result => {
+      report += `### ${result.name}\n`;
+      report += `- **Status:** ${result.status}\n`;
+      report += `- **Duration:** ${result.duration}ms\n`;
+      if (result.details) {
+        report += `- **Details:** ${result.details}\n`;
+      }
+      if (result.error) {
+        report += `- **Error:** ${result.error}\n`;
+      }
+      report += `\n`;
+    });
+    
+    return report;
+  }
+}
 
 /**
  * Main testing function

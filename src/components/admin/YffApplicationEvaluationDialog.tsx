@@ -3,9 +3,9 @@
  * @fileoverview YFF Application AI Evaluation Dialog
  * 
  * Displays comprehensive AI evaluation results for YFF applications
- * with detailed scores, feedback, and admin controls.
+ * with detailed scores, feedback, and admin controls including re-evaluation.
  * 
- * @version 1.2.0
+ * @version 1.3.0
  * @author 26ideas Development Team
  */
 
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -30,9 +31,14 @@ import {
   Target,
   Users,
   DollarSign,
-  Zap
+  Zap,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  MessageSquare
 } from 'lucide-react';
 import { evaluateApplication, reEvaluateApplication, getApplicationEvaluation, QuestionEvaluation } from '@/services/ai-evaluation-service';
+import { parseApplicationAnswers } from '@/types/yff-application';
 
 interface YffApplicationEvaluationDialogProps {
   application: {
@@ -73,6 +79,7 @@ const getScoreBadgeVariant = (score: number): "default" | "secondary" | "destruc
  * Question labels for better display
  */
 const questionLabels: Record<string, string> = {
+  // Idea Stage
   ideaDescription: 'Idea Description',
   problemSolved: 'Problem Statement',
   targetAudience: 'Target Audience',
@@ -84,13 +91,25 @@ const questionLabels: Record<string, string> = {
   teamInfo: 'Team Information',
   timeline: 'Timeline & Milestones',
   payingCustomers: 'Revenue Validation',
-  workingDuration: 'Working Duration'
+  workingDuration: 'Working Duration',
+  
+  // Early Revenue Stage
+  early_revenue_problem: 'Problem Statement',
+  early_revenue_whose_problem: 'Target Customer',
+  early_revenue_how_solve: 'Solution Approach',
+  early_revenue_making_money: 'Revenue Generation',
+  early_revenue_acquiring_customers: 'Customer Acquisition',
+  early_revenue_competitors: 'Competitive Analysis',
+  early_revenue_product_development: 'Product Development',
+  early_revenue_team: 'Team Information',
+  early_revenue_working_duration: 'Working Duration'
 };
 
 /**
  * Question icons for better visual organization
  */
 const questionIcons: Record<string, React.ElementType> = {
+  // Idea Stage
   ideaDescription: FileText,
   problemSolved: AlertCircle,
   targetAudience: Target,
@@ -102,7 +121,18 @@ const questionIcons: Record<string, React.ElementType> = {
   teamInfo: Users,
   timeline: Clock,
   payingCustomers: CheckCircle,
-  workingDuration: Star
+  workingDuration: Star,
+  
+  // Early Revenue Stage
+  early_revenue_problem: AlertCircle,
+  early_revenue_whose_problem: Target,
+  early_revenue_how_solve: Zap,
+  early_revenue_making_money: DollarSign,
+  early_revenue_acquiring_customers: TrendingUp,
+  early_revenue_competitors: BarChart3,
+  early_revenue_product_development: RefreshCw,
+  early_revenue_team: Users,
+  early_revenue_working_duration: Star
 };
 
 /**
@@ -166,10 +196,52 @@ const safeStringify = (value: any): string => {
   return String(value);
 };
 
+/**
+ * Get answer text for a specific question from application answers
+ */
+const getAnswerForQuestion = (questionId: string, applicationAnswers: any): string => {
+  try {
+    const parsedAnswers = parseApplicationAnswers(applicationAnswers);
+    
+    // Check questionnaire answers first
+    if (parsedAnswers.questionnaire_answers && typeof parsedAnswers.questionnaire_answers === 'object') {
+      const questionnaireAnswers = parsedAnswers.questionnaire_answers;
+      
+      // Handle both idea stage and early revenue stage question formats
+      const possibleKeys = [
+        questionId, // Direct match
+        questionId.replace('early_revenue_', ''), // Remove early_revenue_ prefix
+        questionId.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '') // Convert camelCase to snake_case
+      ];
+      
+      for (const key of possibleKeys) {
+        if (questionnaireAnswers[key]) {
+          return safeStringify(questionnaireAnswers[key]);
+        }
+      }
+    }
+    
+    // Check other answer sections
+    if (parsedAnswers.team && questionId.includes('team')) {
+      return JSON.stringify(parsedAnswers.team, null, 2);
+    }
+    
+    if (parsedAnswers.personal && questionId.includes('personal')) {
+      return JSON.stringify(parsedAnswers.personal, null, 2);
+    }
+    
+    return 'Answer not found or not accessible';
+  } catch (error) {
+    console.error('Error getting answer for question:', questionId, error);
+    return 'Error retrieving answer';
+  }
+};
+
 export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDialogProps> = ({ 
   application 
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -207,7 +279,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
     onSuccess: () => {
       toast({
         title: "Re-evaluation Started",
-        description: "AI re-evaluation is now processing. This may take a few minutes.",
+        description: "AI re-evaluation is now processing with updated system prompts. This may take a few minutes.",
       });
       refetch();
       queryClient.invalidateQueries({ queryKey: ['yff-applications'] });
@@ -232,8 +304,18 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
     reEvaluateMutation.mutate();
   };
 
+  const toggleQuestionExpanded = (questionId: string) => {
+    const newExpanded = new Set(expandedQuestions);
+    if (newExpanded.has(questionId)) {
+      newExpanded.delete(questionId);
+    } else {
+      newExpanded.add(questionId);
+    }
+    setExpandedQuestions(newExpanded);
+  };
+
   /**
-   * Render individual question evaluation with enhanced error handling and null checks
+   * Render individual question evaluation with answer display
    */
   const renderQuestionEvaluation = (questionId: string, questionEval: any) => {
     console.log('Rendering question evaluation:', { questionId, questionEval });
@@ -271,6 +353,10 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
     const strengths = safeArrayAccess(questionEval.strengths);
     const improvements = safeArrayAccess(questionEval.improvements);
     
+    // Get the answer for this question
+    const answerText = getAnswerForQuestion(questionId, application.answers);
+    const isExpanded = expandedQuestions.has(questionId);
+    
     console.log('Question evaluation data:', { 
       questionId, 
       score, 
@@ -280,49 +366,87 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
     
     return (
       <Card key={questionId} className="mb-4">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <IconComponent className="h-4 w-4 text-gray-600" />
-              <CardTitle className="text-sm font-medium">{label}</CardTitle>
-            </div>
-            <Badge variant={getScoreBadgeVariant(score)} className="font-semibold">
-              {score}/10
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0 space-y-3">
-          {/* Strengths - Safe rendering with enhanced length checks */}
-          {strengths.length > 0 && (
-            <div>
-              <h5 className="text-xs font-semibold text-green-700 mb-1">Strengths:</h5>
-              <div className="text-xs text-gray-600">
-                {strengths.map((strength, idx) => (
-                  <div key={idx} className="mb-1">• {safeStringify(strength)}</div>
-                ))}
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="pb-3 cursor-pointer hover:bg-gray-50" onClick={() => toggleQuestionExpanded(questionId)}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <IconComponent className="h-4 w-4 text-gray-600" />
+                  <CardTitle className="text-sm font-medium">{label}</CardTitle>
+                  {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={getScoreBadgeVariant(score)} className="font-semibold">
+                    {score}/10
+                  </Badge>
+                  <Button variant="ghost" size="sm" onClick={(e) => {
+                    e.stopPropagation();
+                    toggleQuestionExpanded(questionId);
+                  }}>
+                    <Eye className="h-3 w-3 mr-1" />
+                    View Details
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            </CardHeader>
+          </CollapsibleTrigger>
           
-          {/* Areas for Improvement - Safe rendering with enhanced length checks */}
-          {improvements.length > 0 && (
-            <div>
-              <h5 className="text-xs font-semibold text-orange-700 mb-1">Areas for Improvement:</h5>
-              <div className="text-xs text-gray-600">
-                {improvements.map((improvement, idx) => (
-                  <div key={idx} className="mb-1">• {safeStringify(improvement)}</div>
-                ))}
+          <CollapsibleContent>
+            <CardContent className="pt-0 space-y-4">
+              {/* User Answer Section */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <MessageSquare className="h-4 w-4 text-blue-600" />
+                  <h5 className="text-sm font-semibold text-blue-700">User Answer:</h5>
+                </div>
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="text-xs text-gray-700 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                    {answerText}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Show message if no feedback available */}
-          {strengths.length === 0 && improvements.length === 0 && (
-            <div className="text-xs text-gray-400">
-              No detailed feedback available for this question.
-            </div>
-          )}
-        </CardContent>
+              {/* AI Evaluation Section */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Star className="h-4 w-4 text-purple-600" />
+                  <h5 className="text-sm font-semibold text-purple-700">AI Evaluation:</h5>
+                </div>
+
+                {/* Strengths */}
+                {strengths.length > 0 && (
+                  <div>
+                    <h6 className="text-xs font-semibold text-green-700 mb-1">Strengths:</h6>
+                    <div className="text-xs text-gray-600 bg-green-50 p-2 rounded">
+                      {strengths.map((strength, idx) => (
+                        <div key={idx} className="mb-1">• {safeStringify(strength)}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Areas for Improvement */}
+                {improvements.length > 0 && (
+                  <div>
+                    <h6 className="text-xs font-semibold text-orange-700 mb-1">Areas for Improvement:</h6>
+                    <div className="text-xs text-gray-600 bg-orange-50 p-2 rounded">
+                      {improvements.map((improvement, idx) => (
+                        <div key={idx} className="mb-1">• {safeStringify(improvement)}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Show message if no feedback available */}
+                {strengths.length === 0 && improvements.length === 0 && (
+                  <div className="text-xs text-gray-400 bg-gray-50 p-2 rounded">
+                    No detailed feedback available for this question.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
     );
   };
@@ -348,6 +472,16 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
       console.error('Error getting application ID:', error);
       return 'Unknown';
     }
+  };
+
+  const expandAllQuestions = () => {
+    if (evaluation?.question_scores) {
+      setExpandedQuestions(new Set(Object.keys(evaluation.question_scores)));
+    }
+  };
+
+  const collapseAllQuestions = () => {
+    setExpandedQuestions(new Set());
   };
 
   return (
@@ -405,7 +539,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
                   ) : (
                     <>
                       <RefreshCw className="h-3 w-3 mr-1" />
-                      Re-evaluate
+                      Re-evaluate with New Prompts
                     </>
                   )}
                 </Button>
@@ -493,7 +627,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
                 </Card>
               </div>
 
-              {/* Idea Summary - Safe rendering with null checks */}
+              {/* Idea Summary */}
               {evaluation.idea_summary && typeof evaluation.idea_summary === 'string' && evaluation.idea_summary.trim() && (
                 <Card>
                   <CardHeader>
@@ -512,11 +646,21 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
                 </Card>
               )}
 
-              {/* Question-by-Question Breakdown - Enhanced safe rendering */}
+              {/* Question-by-Question Breakdown */}
               {evaluation.question_scores && typeof evaluation.question_scores === 'object' && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">Question-by-Question Analysis</h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Question-by-Question Analysis</h3>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={expandAllQuestions}>
+                        Expand All
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={collapseAllQuestions}>
+                        Collapse All
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
                     {Object.entries(evaluation.question_scores).map(([questionId, questionEval]) => {
                       try {
                         return renderQuestionEvaluation(questionId, questionEval);

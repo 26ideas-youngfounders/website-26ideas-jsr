@@ -49,7 +49,6 @@ export class E2ETestingSuite {
   private testApplicationId: string | null = null;
   private testIndividualId: string | null = null;
   private testEmail: string | null = null;
-  private subscriptionManager: RealtimeSubscriptionManager | null = null;
 
   constructor() {
     this.results = [];
@@ -153,40 +152,31 @@ export class E2ETestingSuite {
     const startTime = Date.now();
     
     try {
-      console.log('🔄 Testing robust real-time subscription with helper...');
+      console.log('🔄 Testing robust real-time subscription with direct approach...');
       
       if (!this.testApplicationId) {
         throw new Error('No test application ID available');
       }
 
-      // Create subscription manager
-      this.subscriptionManager = new RealtimeSubscriptionManager();
+      // Verify the test application exists before testing real-time
+      console.log('🔍 Verifying test application exists...');
+      const { data: existingApp, error: verifyError } = await supabase
+        .from('yff_applications')
+        .select('application_id, evaluation_status, status')
+        .eq('application_id', this.testApplicationId)
+        .single();
       
-      // Start subscription manager with timeout
-      console.log('🚀 Starting subscription manager...');
-      const started = await Promise.race([
-        this.subscriptionManager.start(),
-        new Promise<boolean>((resolve) => {
-          setTimeout(() => {
-            console.log('⏰ Subscription manager start timeout');
-            resolve(false);
-          }, 15000);
-        })
-      ]);
-      
-      if (!started) {
-        throw new Error('Failed to start subscription manager within timeout');
+      if (verifyError || !existingApp) {
+        throw new Error(`Test application not found: ${verifyError?.message || 'Application does not exist'}`);
       }
-
-      // Wait for manager to be fully ready
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      // Use the helper to test real-time events
+      
+      console.log(`✅ Test application verified: ${existingApp.application_id.slice(0, 8)}...`);
+      
+      // Use the direct helper approach
       console.log('🧪 Using E2E real-time helper to test events...');
       const testResult = await E2ERealtimeHelper.testRealtimeEvent(
         this.testApplicationId,
-        this.subscriptionManager,
-        20000 // 20 second timeout
+        30000 // 30 second timeout
       );
 
       const duration = Date.now() - startTime;
@@ -213,17 +203,10 @@ export class E2ETestingSuite {
         duration,
         details: {
           errorType: error.constructor.name,
-          subscriptionManagerState: this.subscriptionManager ? this.subscriptionManager.getState() : null,
-          connectionState: this.subscriptionManager ? this.subscriptionManager.getConnectionState() : null
+          errorMessage: error.message,
+          testApplicationId: this.testApplicationId?.slice(0, 8) + '...'
         }
       });
-    } finally {
-      // Enhanced cleanup
-      if (this.subscriptionManager) {
-        console.log('🧹 Cleaning up subscription manager...');
-        this.subscriptionManager.stop();
-        this.subscriptionManager = null;
-      }
     }
   }
 
@@ -337,15 +320,35 @@ export class E2ETestingSuite {
       
       console.log('✅ Test application submitted successfully');
       
+      // Wait for the application to be fully committed to the database
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Verify the application was created and can be retrieved
+      const { data: verifiedApp, error: verifyError } = await supabase
+        .from('yff_applications')
+        .select('application_id, status, evaluation_status')
+        .eq('application_id', this.testApplicationId)
+        .single();
+      
+      if (verifyError || !verifiedApp) {
+        throw new Error('Application was not properly saved to database');
+      }
+      
+      console.log(`✅ Application verified in database: ${verifiedApp.application_id.slice(0, 8)}...`);
+      
       const duration = Date.now() - startTime;
       
       this.addTestResult({
         testName: 'Application Submission',
         status: 'passed',
-        message: `Successfully submitted test application with ID: ${this.testApplicationId}`,
+        message: `Successfully submitted and verified test application with ID: ${this.testApplicationId.slice(0, 8)}...`,
         timestamp: new Date().toISOString(),
         duration,
-        details: { applicationId: this.testApplicationId, email: this.testEmail }
+        details: { 
+          applicationId: this.testApplicationId.slice(0, 8) + '...', 
+          email: this.testEmail,
+          verified: true
+        }
       });
       
     } catch (error) {

@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Robust Real-time WebSocket Connection Manager
  * 
@@ -133,42 +132,59 @@ export class RealTimeConnectionManagerV2 {
         reject(new Error('WebSocket connection timeout'));
       }, this.config.connectionTimeout);
 
-      // Check current socket state
-      const currentState = supabase.realtime.socket?.readyState;
-      console.log(`📡 Current WebSocket state: ${currentState}`);
-
-      if (currentState === WebSocket.OPEN) {
-        console.log('✅ WebSocket already connected');
-        this.clearConnectionTimeout();
-        resolve(true);
-        return;
-      }
-
-      // Force connection if not connected
-      if (currentState !== WebSocket.CONNECTING) {
-        console.log('🔄 Initiating WebSocket connection...');
+      // Check if realtime is already connected by trying to connect
+      try {
+        console.log('🔄 Initiating realtime connection...');
         supabase.realtime.connect();
-      }
-
-      // Monitor connection state changes
-      const checkConnection = () => {
-        const state = supabase.realtime.socket?.readyState;
         
-        if (state === WebSocket.OPEN) {
-          console.log('✅ WebSocket connection established');
-          this.clearConnectionTimeout();
-          resolve(true);
-        } else if (state === WebSocket.CLOSED || state === WebSocket.CLOSING) {
-          console.error('❌ WebSocket connection failed or closed');
-          this.clearConnectionTimeout();
-          reject(new Error(`WebSocket connection failed, state: ${state}`));
-        } else {
-          // Still connecting, check again
-          setTimeout(checkConnection, 200);
-        }
-      };
-
-      checkConnection();
+        // Monitor connection by attempting to create a test channel
+        const testChannel = supabase.channel(`connection-test-${Date.now()}`);
+        
+        const connectionPromise = new Promise<boolean>((resolveConnection, rejectConnection) => {
+          let isResolved = false;
+          
+          testChannel.subscribe((status) => {
+            if (isResolved) return;
+            
+            console.log(`📊 Test channel subscription status: ${status}`);
+            
+            if (status === 'SUBSCRIBED') {
+              isResolved = true;
+              console.log('✅ WebSocket connection verified through subscription');
+              // Clean up test channel
+              supabase.removeChannel(testChannel);
+              this.clearConnectionTimeout();
+              resolveConnection(true);
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              if (!isResolved) {
+                isResolved = true;
+                console.error(`❌ WebSocket connection failed: ${status}`);
+                supabase.removeChannel(testChannel);
+                this.clearConnectionTimeout();
+                rejectConnection(new Error(`WebSocket connection failed: ${status}`));
+              }
+            }
+          });
+          
+          // Fallback timeout for subscription
+          setTimeout(() => {
+            if (!isResolved) {
+              isResolved = true;
+              console.error('⏰ Test subscription timeout');
+              supabase.removeChannel(testChannel);
+              this.clearConnectionTimeout();
+              rejectConnection(new Error('Test subscription timeout'));
+            }
+          }, 15000);
+        });
+        
+        connectionPromise.then(resolve).catch(reject);
+        
+      } catch (error) {
+        console.error('❌ Error during connection establishment:', error);
+        this.clearConnectionTimeout();
+        reject(new Error(`Connection establishment failed: ${error.message}`));
+      }
     });
   }
 

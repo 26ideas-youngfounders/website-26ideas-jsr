@@ -5,7 +5,7 @@
  * Manages real-time subscriptions for database changes with automatic
  * reconnection, error handling, and event processing.
  * 
- * @version 2.2.0
+ * @version 2.3.0
  * @author 26ideas Development Team
  */
 
@@ -37,6 +37,7 @@ export class RealtimeSubscriptionManager {
     handler: EventHandler;
     isActive: boolean;
     channel?: RealtimeChannel;
+    retryCount: number;
   }> = new Map();
   
   private state: SubscriptionState = {
@@ -49,14 +50,15 @@ export class RealtimeSubscriptionManager {
 
   private listeners: Set<(state: SubscriptionState) => void> = new Set();
   private isStarting = false;
+  private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
   constructor() {
     this.connectionManager = new RealtimeConnectionManager({
-      maxRetries: 3,
+      maxRetries: 5,
       baseRetryDelay: 1000,
-      maxRetryDelay: 5000,
-      heartbeatInterval: 25000,
-      connectionTimeout: 10000,
+      maxRetryDelay: 8000,
+      heartbeatInterval: 30000,
+      connectionTimeout: 15000,
     });
 
     // Listen to connection state changes
@@ -106,7 +108,7 @@ export class RealtimeSubscriptionManager {
       }
 
       // Wait for connection to be fully established
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Verify connection state
       const connectionState = this.connectionManager.getState();
@@ -135,6 +137,12 @@ export class RealtimeSubscriptionManager {
     console.log('⏹️ Stopping subscription manager...');
     
     this.isStarting = false;
+    
+    // Clear all reconnect timeouts
+    for (const [id, timeout] of this.reconnectTimeouts) {
+      clearTimeout(timeout);
+    }
+    this.reconnectTimeouts.clear();
     
     // Cleanup all subscription channels
     for (const [id, subscription] of this.subscriptions) {
@@ -180,6 +188,7 @@ export class RealtimeSubscriptionManager {
       config,
       handler: handler as EventHandler,
       isActive: false,
+      retryCount: 0,
     });
 
     // If connected, activate the subscription immediately
@@ -187,7 +196,7 @@ export class RealtimeSubscriptionManager {
     if (connectionState.status === 'connected') {
       setTimeout(() => {
         this.activateSubscription(id);
-      }, 100);
+      }, 500);
     }
 
     this.updateState({
@@ -202,6 +211,13 @@ export class RealtimeSubscriptionManager {
    */
   unsubscribe(id: string): void {
     console.log(`📡 Removing subscription: ${id}`);
+    
+    // Clear any reconnect timeout
+    const timeout = this.reconnectTimeouts.get(id);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.reconnectTimeouts.delete(id);
+    }
     
     const subscription = this.subscriptions.get(id);
     if (subscription) {
@@ -232,7 +248,7 @@ export class RealtimeSubscriptionManager {
       // Activate all subscriptions after connection with a delay
       setTimeout(() => {
         this.activateAllSubscriptions();
-      }, 500);
+      }, 1000);
     } else if (connectionState.status === 'disconnected' || connectionState.status === 'error') {
       // Mark all subscriptions as inactive
       this.deactivateAllSubscriptions();
@@ -245,7 +261,7 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Activate a specific subscription using dedicated channel
+   * Activate a specific subscription with enhanced error handling
    */
   private activateSubscription(id: string): void {
     const subscription = this.subscriptions.get(id);
@@ -264,9 +280,9 @@ export class RealtimeSubscriptionManager {
         const channelName = `${config.table}_${id}_${Date.now()}`;
         const channel = supabase.channel(channelName);
         
-        // Set up postgres changes listener
+        // Set up postgres changes listener with enhanced error handling
         channel.on(
-          'postgres_changes' as any,
+          'postgres_changes',
           {
             event: config.event || '*',
             schema: config.schema || 'public',
@@ -300,21 +316,41 @@ export class RealtimeSubscriptionManager {
           }
         );
 
-        // Subscribe to the channel
+        // Enhanced subscription status handling
         channel.subscribe((status, err) => {
           console.log(`📡 Subscription ${id} status: ${status}`, err ? { error: err } : '');
           
           if (status === 'SUBSCRIBED') {
             subscription.isActive = true;
             subscription.channel = channel;
+            subscription.retryCount = 0;
             console.log(`✅ Subscription ${id} activated successfully`);
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.error(`❌ Subscription ${id} failed: ${status}`, err);
             subscription.isActive = false;
-            this.updateState({
-              lastError: `Subscription ${id} failed: ${status}`,
-            });
+            
+            // Implement retry logic for failed subscriptions
+            if (subscription.retryCount < 3) {
+              subscription.retryCount++;
+              console.log(`🔄 Attempting to reconnect subscription ${id} (attempt ${subscription.retryCount}/3)`);
+              
+              const retryTimeout = setTimeout(() => {
+                this.activateSubscription(id);
+              }, 2000 * subscription.retryCount); // Exponential backoff
+              
+              this.reconnectTimeouts.set(id, retryTimeout);
+            } else {
+              console.error(`💀 Max retry attempts reached for subscription ${id}`);
+              this.updateState({
+                lastError: `Subscription ${id} failed after 3 attempts: ${status}`,
+              });
+            }
           }
+        });
+      }).catch(error => {
+        console.error(`❌ Failed to import Supabase client for ${id}:`, error);
+        this.updateState({
+          lastError: `Supabase client import failed: ${error.message}`,
         });
       });
 
@@ -333,7 +369,10 @@ export class RealtimeSubscriptionManager {
     console.log('🔄 Activating all subscriptions...');
     
     for (const [id] of this.subscriptions) {
-      this.activateSubscription(id);
+      // Stagger activation to avoid overwhelming the connection
+      setTimeout(() => {
+        this.activateSubscription(id);
+      }, Math.random() * 1000);
     }
   }
 
@@ -343,7 +382,7 @@ export class RealtimeSubscriptionManager {
   private deactivateAllSubscriptions(): void {
     console.log('⏸️ Deactivating all subscriptions...');
     
-    for (const [, subscription] of this.subscriptions) {
+    for (const [id, subscription] of this.subscriptions) {
       subscription.isActive = false;
       if (subscription.channel) {
         try {
@@ -352,6 +391,13 @@ export class RealtimeSubscriptionManager {
           console.warn('⚠️ Error unsubscribing channel:', error);
         }
         subscription.channel = undefined;
+      }
+      
+      // Clear any pending reconnect timeout
+      const timeout = this.reconnectTimeouts.get(id);
+      if (timeout) {
+        clearTimeout(timeout);
+        this.reconnectTimeouts.delete(id);
       }
     }
   }

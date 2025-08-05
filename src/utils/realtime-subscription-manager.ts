@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Real-time Subscription Manager
  * 
@@ -280,73 +279,72 @@ export class RealtimeSubscriptionManager {
         const channelName = `${config.table}_${id}_${Date.now()}`;
         const channel = supabase.channel(channelName);
         
-        // Set up postgres changes listener with correct syntax
-        const changeListener = channel.on(
-          'postgres_changes',
-          {
-            event: config.event || '*',
-            schema: config.schema || 'public',
-            table: config.table,
-            ...(config.filter && { filter: config.filter })
-          },
-          (payload: RealtimePostgresChangesPayload<Record<string, any>>) => {
-            console.log(`📨 Event received for ${id}:`, {
-              eventType: payload.eventType,
-              table: payload.table,
-              schema: payload.schema,
-              timestamp: new Date().toISOString(),
-              hasNewData: !!payload.new,
-              hasOldData: !!payload.old
-            });
-
-            // Update event statistics
-            this.updateState({
-              lastEvent: new Date(),
-              eventCount: this.state.eventCount + 1,
-            });
-
-            try {
-              handler(payload);
-            } catch (error) {
-              console.error(`❌ Error in event handler for ${id}:`, error);
-              this.updateState({
-                lastError: `Handler error: ${error.message}`,
+        // Set up postgres changes listener with correct Supabase API syntax
+        channel
+          .on(
+            'postgres_changes',
+            {
+              event: config.event || '*',
+              schema: config.schema || 'public',
+              table: config.table,
+              ...(config.filter && { filter: config.filter })
+            },
+            (payload: RealtimePostgresChangesPayload<Record<string, any>>) => {
+              console.log(`📨 Event received for ${id}:`, {
+                eventType: payload.eventType,
+                table: payload.table,
+                schema: payload.schema,
+                timestamp: new Date().toISOString(),
+                hasNewData: !!payload.new,
+                hasOldData: !!payload.old
               });
-            }
-          }
-        );
 
-        // Enhanced subscription status handling
-        channel.subscribe((status, err) => {
-          console.log(`📡 Subscription ${id} status: ${status}`, err ? { error: err } : '');
-          
-          if (status === 'SUBSCRIBED') {
-            subscription.isActive = true;
-            subscription.channel = channel;
-            subscription.retryCount = 0;
-            console.log(`✅ Subscription ${id} activated successfully`);
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            console.error(`❌ Subscription ${id} failed: ${status}`, err);
-            subscription.isActive = false;
+              // Update event statistics
+              this.updateState({
+                lastEvent: new Date(),
+                eventCount: this.state.eventCount + 1,
+              });
+
+              try {
+                handler(payload);
+              } catch (error) {
+                console.error(`❌ Error in event handler for ${id}:`, error);
+                this.updateState({
+                  lastError: `Handler error: ${error.message}`,
+                });
+              }
+            }
+          )
+          .subscribe((status, err) => {
+            console.log(`📡 Subscription ${id} status: ${status}`, err ? { error: err } : '');
             
-            // Implement retry logic for failed subscriptions
-            if (subscription.retryCount < 3) {
-              subscription.retryCount++;
-              console.log(`🔄 Attempting to reconnect subscription ${id} (attempt ${subscription.retryCount}/3)`);
+            if (status === 'SUBSCRIBED') {
+              subscription.isActive = true;
+              subscription.channel = channel;
+              subscription.retryCount = 0;
+              console.log(`✅ Subscription ${id} activated successfully`);
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              console.error(`❌ Subscription ${id} failed: ${status}`, err);
+              subscription.isActive = false;
               
-              const retryTimeout = setTimeout(() => {
-                this.activateSubscription(id);
-              }, 2000 * subscription.retryCount); // Exponential backoff
-              
-              this.reconnectTimeouts.set(id, retryTimeout);
-            } else {
-              console.error(`💀 Max retry attempts reached for subscription ${id}`);
-              this.updateState({
-                lastError: `Subscription ${id} failed after 3 attempts: ${status}`,
-              });
+              // Implement retry logic for failed subscriptions
+              if (subscription.retryCount < 3) {
+                subscription.retryCount++;
+                console.log(`🔄 Attempting to reconnect subscription ${id} (attempt ${subscription.retryCount}/3)`);
+                
+                const retryTimeout = setTimeout(() => {
+                  this.activateSubscription(id);
+                }, 2000 * subscription.retryCount); // Exponential backoff
+                
+                this.reconnectTimeouts.set(id, retryTimeout);
+              } else {
+                console.error(`💀 Max retry attempts reached for subscription ${id}`);
+                this.updateState({
+                  lastError: `Subscription ${id} failed after 3 attempts: ${status}`,
+                });
+              }
             }
-          }
-        });
+          });
       }).catch(error => {
         console.error(`❌ Failed to import Supabase client for ${id}:`, error);
         this.updateState({

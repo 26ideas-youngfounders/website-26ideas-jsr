@@ -49,15 +49,15 @@ const WEBSOCKET_STATE_NAMES = {
  */
 const diagnoseWebSocketConnection = async () => {
   console.log('=== WebSocket Diagnostic Start ===');
-  console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL || 'Not configured');
-  console.log('Supabase Key Present:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
+  console.log('Supabase URL:', supabase.supabaseUrl || 'Not found');
+  console.log('Supabase Key:', supabase.supabaseKey ? `Present (${supabase.supabaseKey.substring(0, 20)}...)` : 'Missing');
   
   // Check auth status
   const { data: { session }, error } = await supabase.auth.getSession();
   console.log('Auth Session:', session ? 'Valid' : 'Invalid');
   console.log('Auth Error:', error || 'None');
   console.log('User ID:', session?.user?.id || 'None');
-  console.log('Access Token Present:', !!session?.access_token);
+  console.log('Access Token:', session?.access_token ? `Present (${session.access_token.substring(0, 20)}...)` : 'Missing');
   
   // Check realtime configuration
   const realtimeSocket = (supabase as any).realtime?.socket;
@@ -166,9 +166,8 @@ const setupRealtimeAuth = async (): Promise<Session> => {
     (supabase as any).realtime.setAuth(session.access_token);
     console.log('✅ Realtime auth set successfully');
   } catch (authError) {
-    const errorMessage = authError instanceof Error ? authError.message : 'Unknown error';
-    console.error('❌ Failed to set realtime auth:', errorMessage);
-    throw new Error(`Failed to set realtime authentication: ${errorMessage}`);
+    console.error('❌ Failed to set realtime auth:', authError);
+    throw new Error(`Failed to set realtime authentication: ${authError.message}`);
   }
   
   console.log('✅ Authentication setup complete');
@@ -254,23 +253,10 @@ const createRobustRealtimeSubscription = async (
         });
         
         if (err) {
-          // Handle different error types safely
-          let errorMessage = 'Unknown error';
-          let errorCode: string | undefined;
-          let errorDetails: string | undefined;
-          
-          if (err instanceof Error) {
-            errorMessage = err.message;
-          } else if (typeof err === 'object' && err !== null) {
-            if ('message' in err) errorMessage = String(err.message);
-            if ('code' in err) errorCode = String(err.code);
-            if ('details' in err) errorDetails = String(err.details);
-          }
-          
           console.error('❌ Subscription error details:', {
-            message: errorMessage,
-            code: errorCode || 'No code',
-            details: errorDetails || 'No details'
+            message: err.message || 'Unknown error',
+            code: err.code || 'No code',
+            details: err.details || 'No details'
           });
         }
       });
@@ -334,10 +320,9 @@ const createRobustRealtimeSubscription = async (
     });
     
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('❌ Realtime subscription setup failed:', {
-      error: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined
+      error: error.message,
+      stack: error.stack
     });
     throw error;
   }

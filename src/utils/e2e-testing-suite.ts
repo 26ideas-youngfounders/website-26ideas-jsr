@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview End-to-End Testing Suite for YFF Application System
  * 
@@ -44,12 +43,12 @@ const WEBSOCKET_STATE_NAMES = {
 const diagnoseWebSocketForTesting = async () => {
   console.log('🔍 === E2E WebSocket Diagnostic ===');
   
-  // Check Supabase configuration using environment variables
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKeyPresent = !!import.meta.env.VITE_SUPABASE_ANON_KEY;
+  // Check Supabase configuration
+  const supabaseUrl = supabase.supabaseUrl;
+  const supabaseKey = supabase.supabaseKey;
   
   console.log('Supabase URL:', supabaseUrl || 'Missing');
-  console.log('Supabase Key Present:', supabaseKeyPresent);
+  console.log('Supabase Key:', supabaseKey ? `Present (${supabaseKey.substring(0, 20)}...)` : 'Missing');
   
   // Check authentication
   const { data: { session }, error: authError } = await supabase.auth.getSession();
@@ -58,7 +57,7 @@ const diagnoseWebSocketForTesting = async () => {
   
   if (session) {
     console.log('User ID:', session.user.id);
-    console.log('Access Token Present:', !!session.access_token);
+    console.log('Access Token:', session.access_token ? `Present (${session.access_token.substring(0, 20)}...)` : 'Missing');
   }
   
   // Check realtime socket
@@ -77,7 +76,7 @@ const diagnoseWebSocketForTesting = async () => {
   return {
     session,
     realtimeSocket,
-    isConfigured: !!(supabaseUrl && supabaseKeyPresent),
+    isConfigured: !!(supabaseUrl && supabaseKey),
     isAuthenticated: !!session,
     socketState: realtimeSocket?.readyState
   };
@@ -269,8 +268,7 @@ const testRealtimeSubscriptionEstablishment = async (): Promise<TestResult> => {
     
   } catch (error) {
     const duration = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('❌ Enhanced real-time subscription test failed:', errorMessage);
+    console.error('❌ Enhanced real-time subscription test failed:', error);
     
     // Get final diagnostic state
     const finalDiagnostics = await diagnoseWebSocketForTesting().catch(() => ({}));
@@ -278,11 +276,11 @@ const testRealtimeSubscriptionEstablishment = async (): Promise<TestResult> => {
     return {
       testName: 'Enhanced Real-Time Subscription',
       status: 'failed',
-      message: `Enhanced real-time subscription test failed: ${errorMessage}`,
+      message: `Enhanced real-time subscription test failed: ${error.message}`,
       timestamp: new Date().toISOString(),
       duration,
       details: {
-        error: errorMessage,
+        error: error.message,
         ...finalDiagnostics
       }
     };

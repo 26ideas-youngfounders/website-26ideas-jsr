@@ -1,11 +1,10 @@
-
 /**
  * @fileoverview YFF Application AI Evaluation Dialog
  * 
  * Displays comprehensive AI evaluation results for YFF applications
  * with detailed scores, feedback, and admin controls including re-evaluation.
  * 
- * @version 1.3.0
+ * @version 1.4.0
  * @author 26ideas Development Team
  */
 
@@ -136,14 +135,30 @@ const questionIcons: Record<string, React.ElementType> = {
 };
 
 /**
- * Safe type guard to check if evaluation data is valid
+ * Enhanced validation with debug logging
  */
 const isValidEvaluation = (evaluation: any): boolean => {
-  return evaluation &&
-         typeof evaluation === 'object' &&
-         typeof evaluation.overall_score === 'number' &&
-         evaluation.question_scores &&
-         typeof evaluation.question_scores === 'object';
+  console.log('🔍 Validating evaluation data:', evaluation);
+  
+  if (!evaluation || typeof evaluation !== 'object') {
+    console.log('❌ Evaluation is null, undefined, or not an object');
+    return false;
+  }
+  
+  if (typeof evaluation.overall_score !== 'number') {
+    console.log('❌ Overall score is not a number:', evaluation.overall_score);
+    return false;
+  }
+  
+  if (!evaluation.question_scores || typeof evaluation.question_scores !== 'object') {
+    console.log('❌ Question scores missing or not an object:', evaluation.question_scores);
+    return false;
+  }
+  
+  const questionsCount = Object.keys(evaluation.question_scores).length;
+  console.log('✅ Evaluation is valid with', questionsCount, 'questions');
+  
+  return true;
 };
 
 /**
@@ -201,11 +216,15 @@ const safeStringify = (value: any): string => {
  */
 const getAnswerForQuestion = (questionId: string, applicationAnswers: any): string => {
   try {
+    console.log('🔍 Getting answer for question:', questionId, 'from answers:', applicationAnswers);
+    
     const parsedAnswers = parseApplicationAnswers(applicationAnswers);
+    console.log('📝 Parsed answers:', parsedAnswers);
     
     // Check questionnaire answers first
     if (parsedAnswers.questionnaire_answers && typeof parsedAnswers.questionnaire_answers === 'object') {
       const questionnaireAnswers = parsedAnswers.questionnaire_answers;
+      console.log('📋 Questionnaire answers:', questionnaireAnswers);
       
       // Handle both idea stage and early revenue stage question formats
       const possibleKeys = [
@@ -214,8 +233,11 @@ const getAnswerForQuestion = (questionId: string, applicationAnswers: any): stri
         questionId.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '') // Convert camelCase to snake_case
       ];
       
+      console.log('🔑 Checking possible keys:', possibleKeys);
+      
       for (const key of possibleKeys) {
         if (questionnaireAnswers[key]) {
+          console.log('✅ Found answer for key:', key);
           return safeStringify(questionnaireAnswers[key]);
         }
       }
@@ -230,6 +252,7 @@ const getAnswerForQuestion = (questionId: string, applicationAnswers: any): stri
       return JSON.stringify(parsedAnswers.personal, null, 2);
     }
     
+    console.log('⚠️ No answer found for question:', questionId);
     return 'Answer not found or not accessible';
   } catch (error) {
     console.error('Error getting answer for question:', questionId, error);
@@ -245,10 +268,15 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Query to fetch evaluation data
+  // Enhanced query with better error handling and logging
   const { data: evaluation, isLoading, error, refetch } = useQuery({
     queryKey: ['application-evaluation', application.application_id],
-    queryFn: () => getApplicationEvaluation(application.application_id),
+    queryFn: async () => {
+      console.log('🚀 Fetching evaluation for:', application.application_id);
+      const result = await getApplicationEvaluation(application.application_id);
+      console.log('📊 Evaluation result:', result);
+      return result;
+    },
     enabled: isOpen && !!application.application_id,
   });
 
@@ -315,10 +343,10 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
   };
 
   /**
-   * Render individual question evaluation with answer display
+   * Enhanced question evaluation rendering with better debugging
    */
   const renderQuestionEvaluation = (questionId: string, questionEval: any) => {
-    console.log('Rendering question evaluation:', { questionId, questionEval });
+    console.log('🎨 Rendering question evaluation:', { questionId, questionEval });
     
     // Enhanced validation to prevent runtime errors
     if (!isValidQuestionEvaluation(questionEval)) {
@@ -340,6 +368,9 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
           </CardHeader>
           <CardContent className="pt-0">
             <p className="text-xs text-gray-400">Evaluation data unavailable or incomplete</p>
+            <div className="mt-2 text-xs text-gray-300">
+              Debug: {JSON.stringify(questionEval, null, 2)}
+            </div>
           </CardContent>
         </Card>
       );
@@ -561,6 +592,17 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
           {error && (
             <div className="text-center py-8">
               <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500">Error loading evaluation data.</p>
+              <p className="text-sm text-gray-400 mt-1">Error: {error.message}</p>
+              <div className="mt-2 text-xs text-gray-300">
+                Application ID: {application.application_id}
+              </div>
+            </div>
+          )}
+
+          {!isLoading && !error && !evaluation && (
+            <div className="text-center py-8">
+              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
               <p className="text-gray-500">No evaluation data available yet.</p>
               <p className="text-sm text-gray-400 mt-1">Click "Start Evaluation" to begin AI assessment.</p>
             </div>
@@ -672,6 +714,9 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
                               <p className="text-xs text-red-400">
                                 Error rendering evaluation for {questionLabels[questionId] || questionId}
                               </p>
+                              <div className="mt-2 text-xs text-gray-300">
+                                Debug: {JSON.stringify(questionEval, null, 2)}
+                              </div>
                             </CardContent>
                           </Card>
                         );
@@ -699,7 +744,7 @@ export const YffApplicationEvaluationDialog: React.FC<YffApplicationEvaluationDi
               <p className="text-red-500">Evaluation data appears to be corrupted.</p>
               <p className="text-sm text-gray-400 mt-1">Please try re-evaluating this application.</p>
               <div className="mt-2 text-xs text-gray-300">
-                Debug info: {JSON.stringify(evaluation, null, 2).substring(0, 200)}...
+                Debug info: {JSON.stringify(evaluation, null, 2).substring(0, 400)}...
               </div>
             </div>
           )}

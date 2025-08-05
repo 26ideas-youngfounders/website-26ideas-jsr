@@ -10,6 +10,9 @@
 import { Database } from '@/integrations/supabase/types';
 import type { YffFormData } from './yff-form';
 
+// Define Json type to match Supabase's Json type structure
+type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
+
 // Base type from Supabase
 export type BaseYffApplication = Database['public']['Tables']['yff_applications']['Row'];
 export type BaseYffApplicationInsert = Database['public']['Tables']['yff_applications']['Insert'];
@@ -150,8 +153,10 @@ export interface QuestionScoringResult {
 
 /**
  * Comprehensive evaluation data structure stored in database
+ * Compatible with Supabase Json type
  */
 export interface EvaluationData {
+  [key: string]: Json; // Add index signature for Json compatibility
   scores: Record<string, {
     score: number;
     strengths: string[];
@@ -188,5 +193,17 @@ export type ApplicationStage = 'idea' | 'early_revenue';
 export const getStagePrompts = (stage: ApplicationStage): StagePromptMapping => {
   // This will be populated with the actual prompt mappings
   // Based on the stage (idea vs early_revenue)
+  return {};
+};
+
+/**
+ * Safe type guard to ensure evaluation data is an object
+ */
+export const ensureEvaluationDataIsObject = (data: Json): Record<string, any> => {
+  if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+    return data as Record<string, any>;
+  }
+  
+  // Fallback to empty object if data is not a proper object
   return {};
 };

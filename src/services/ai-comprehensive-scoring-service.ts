@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Comprehensive AI Scoring Service
  * 
@@ -12,7 +11,8 @@ import {
   QuestionScoringResult,
   AIEvaluationResult,
   parseApplicationAnswers,
-  ExtendedYffApplication 
+  ExtendedYffApplication,
+  ensureEvaluationDataIsObject
 } from '@/types/yff-application';
 
 /**
@@ -390,7 +390,7 @@ export class AIComprehensiveScoringService {
         model_used: this.MODEL_NAME,
         evaluation_version: this.EVALUATION_VERSION
       }
-    };
+    } as EvaluationData;
   }
   
   /**
@@ -433,7 +433,7 @@ export class AIComprehensiveScoringService {
   }
   
   /**
-   * Fetch application data from database
+   * Fetch application data from database with type safety
    */
   private static async fetchApplicationData(applicationId: string): Promise<ExtendedYffApplication | null> {
     const { data, error } = await supabase
@@ -447,7 +447,13 @@ export class AIComprehensiveScoringService {
       return null;
     }
     
-    return data;
+    // Safely handle evaluation_data type conversion
+    const safeData = {
+      ...data,
+      evaluation_data: ensureEvaluationDataIsObject(data.evaluation_data)
+    } as ExtendedYffApplication;
+    
+    return safeData;
   }
   
   /**

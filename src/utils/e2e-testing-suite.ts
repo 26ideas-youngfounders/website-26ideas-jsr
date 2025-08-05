@@ -11,6 +11,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
 import type { YffApplicationWithIndividual } from '@/types/yff-application';
 
 /**
@@ -162,8 +163,9 @@ export class E2ETestingSuite {
     try {
       console.log('📝 Testing application submission...');
 
-      // Generate unique application ID
-      this.testApplicationId = `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // Generate proper UUID for test application
+      this.testApplicationId = uuidv4();
+      console.log(`Generated test application UUID: ${this.testApplicationId}`);
 
       // Create individual record first
       const { data: individual, error: individualError } = await supabase
@@ -179,7 +181,7 @@ export class E2ETestingSuite {
 
       if (individualError) throw individualError;
 
-      // Create application record
+      // Create application record with proper UUID
       const { data: application, error: applicationError } = await supabase
         .from('yff_applications')
         .insert({
@@ -198,7 +200,7 @@ export class E2ETestingSuite {
       this.addResult({
         testName: 'Application Submission',
         status: 'passed',
-        message: `Test application created successfully with ID: ${this.testApplicationId}`,
+        message: `Test application created successfully with UUID: ${this.testApplicationId}`,
         duration,
         details: { applicationId: this.testApplicationId, individualId: individual.individual_id },
         timestamp: new Date().toISOString()
@@ -291,7 +293,7 @@ export class E2ETestingSuite {
     try {
       console.log('🤖 Testing AI scoring trigger...');
 
-      // Call the comprehensive evaluation edge function
+      // Call the comprehensive evaluation edge function with proper UUID
       const { data, error } = await supabase.functions.invoke('comprehensive-evaluation', {
         body: { applicationId: this.testApplicationId }
       });
@@ -545,9 +547,10 @@ export class E2ETestingSuite {
     try {
       console.log('❌ Testing error handling...');
 
-      // Test with invalid application ID
+      // Test with invalid UUID format (this should fail properly)
+      const invalidId = 'invalid_id_12345';
       const { data, error } = await supabase.functions.invoke('comprehensive-evaluation', {
-        body: { applicationId: 'invalid_id_12345' }
+        body: { applicationId: invalidId }
       });
 
       // We expect this to fail, so check if error handling works correctly
@@ -649,7 +652,7 @@ export class E2ETestingSuite {
     try {
       console.log('🧹 Cleaning up test data...');
 
-      // Delete application and related data
+      // Delete application and related data using proper UUID
       await supabase
         .from('yff_applications')
         .delete()

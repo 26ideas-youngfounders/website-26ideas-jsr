@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Real-Time YFF Applications Hook with Enhanced WebSocket Management
  * 
@@ -254,7 +253,7 @@ const createRobustRealtimeSubscription = async (
         });
         
         if (err) {
-          // Handle different error types safely
+          // Handle different error types safely with proper type guards
           let errorMessage = 'Unknown error';
           let errorCode: string | undefined;
           let errorDetails: string | undefined;
@@ -262,9 +261,17 @@ const createRobustRealtimeSubscription = async (
           if (err instanceof Error) {
             errorMessage = err.message;
           } else if (typeof err === 'object' && err !== null) {
-            if ('message' in err) errorMessage = String(err.message);
-            if ('code' in err) errorCode = String(err.code);
-            if ('details' in err) errorDetails = String(err.details);
+            // Type guard for accessing error properties
+            const errorObj = err as Record<string, unknown>;
+            if ('message' in errorObj && typeof errorObj.message === 'string') {
+              errorMessage = errorObj.message;
+            }
+            if ('code' in errorObj && typeof errorObj.code === 'string') {
+              errorCode = errorObj.code;
+            }
+            if ('details' in errorObj && typeof errorObj.details === 'string') {
+              errorDetails = errorObj.details;
+            }
           }
           
           console.error('❌ Subscription error details:', {

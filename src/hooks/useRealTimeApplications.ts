@@ -1,11 +1,11 @@
 
 /**
- * @fileoverview Real-Time YFF Applications Hook with Enhanced Connection Management
+ * @fileoverview Bulletproof Real-Time YFF Applications Hook
  * 
- * Provides real-time updates for YFF applications using robust WebSocket
- * connection management with comprehensive error handling and retry logic.
+ * Completely rebuilt real-time applications hook with bulletproof connection management,
+ * comprehensive error handling, and robust event processing.
  * 
- * @version 6.1.0
+ * @version 3.0.0 - COMPLETE SYSTEM REBUILD
  * @author 26ideas Development Team
  */
 
@@ -27,6 +27,30 @@ interface UseRealTimeApplicationsReturn {
 }
 
 /**
+ * Log operation with comprehensive details
+ */
+const logOperation = (operation: string, details: any, error?: any) => {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    operation,
+    details,
+    error: error ? {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      stack: error.stack
+    } : null
+  };
+  
+  console.log(`[${timestamp}] REALTIME_HOOK_${operation.toUpperCase()}:`, logEntry);
+  
+  if (error) {
+    console.error(`[${timestamp}] REALTIME_HOOK_ERROR in ${operation}:`, error);
+  }
+};
+
+/**
  * Enhanced WebSocket state constants for better error handling
  */
 const CONNECTION_STATUS_MAP = {
@@ -38,7 +62,7 @@ const CONNECTION_STATUS_MAP = {
 } as const;
 
 /**
- * Hook for real-time YFF applications with enhanced connection management
+ * BULLETPROOF REAL-TIME APPLICATIONS HOOK
  */
 export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   const [isConnected, setIsConnected] = useState(false);
@@ -56,13 +80,19 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   const isInitializedRef = useRef<boolean>(false);
   const setupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Primary data query
+  // Primary data query with enhanced error handling
   const { data: applications = [], isLoading, error } = useQuery({
     queryKey: ['yff-applications-realtime'],
     queryFn: async (): Promise<YffApplicationWithIndividual[]> => {
       try {
-        console.log('🔄 Fetching YFF applications...');
+        logOperation('DATA_FETCH_START', {});
         
+        // Verify authentication before making query
+        const { data: { session }, error: authError } = await supabase.auth.getSession();
+        if (authError || !session) {
+          throw new Error(`Authentication required: ${authError?.message || 'No session'}`);
+        }
+
         const { data, error } = await supabase
           .from('yff_applications')
           .select(`
@@ -76,22 +106,37 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
           .order('created_at', { ascending: false });
 
         if (error) {
-          console.error('❌ Supabase query error:', error);
-          throw new Error(`Database query failed: ${error.message}`);
+          logOperation('DATA_FETCH_ERROR', { error }, error);
+          throw new Error(`Database query failed: ${error.message} (${error.code})`);
         }
 
-        console.log(`✅ Fetched ${data?.length || 0} applications`);
+        logOperation('DATA_FETCH_SUCCESS', { 
+          recordCount: data?.length || 0,
+          firstRecord: data?.[0]?.application_id?.slice(0, 8) + '...' || 'none'
+        });
+        
         setLastUpdate(new Date());
         
         return (data as YffApplicationWithIndividual[]) || [];
         
       } catch (error) {
-        console.error('❌ Application fetch error:', error);
+        logOperation('DATA_FETCH_FAILED', {}, error);
         throw error;
       }
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    retry: (failureCount, error: any) => {
+      logOperation('DATA_FETCH_RETRY_DECISION', { 
+        failureCount, 
+        errorMessage: error?.message,
+        willRetry: failureCount < 3 
+      });
+      return failureCount < 3;
+    },
+    retryDelay: (attemptIndex) => {
+      const delay = Math.min(1000 * 2 ** attemptIndex, 10000);
+      logOperation('DATA_FETCH_RETRY_DELAY', { attemptIndex, delay });
+      return delay;
+    },
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     staleTime: 30000,
@@ -102,11 +147,11 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
    */
   const startFallbackMode = useCallback(() => {
     if (isFallbackMode) {
-      console.log('⚠️ Fallback mode already active');
+      logOperation('FALLBACK_ALREADY_ACTIVE', {});
       return;
     }
     
-    console.log('🔄 Starting fallback polling mode...');
+    logOperation('FALLBACK_MODE_START', {});
     setConnectionStatus('fallback');
     setIsConnected(false);
     setIsFallbackMode(true);
@@ -117,7 +162,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     }
     
     fallbackIntervalRef.current = setInterval(() => {
-      console.log('🔄 Fallback polling for updates...');
+      logOperation('FALLBACK_POLLING', {});
       queryClient.invalidateQueries({ queryKey: ['yff-applications-realtime'] });
     }, 15000);
     
@@ -136,7 +181,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       clearInterval(fallbackIntervalRef.current);
       fallbackIntervalRef.current = null;
       setIsFallbackMode(false);
-      console.log('⏹️ Stopped fallback polling');
+      logOperation('FALLBACK_MODE_STOPPED', {});
     }
   }, []);
 
@@ -147,9 +192,13 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     try {
       const applicationId = payload.new?.application_id || payload.old?.application_id;
       
-      console.log('📨 Real-time update received:', {
+      logOperation('DATABASE_EVENT_RECEIVED', {
         eventType: payload.eventType,
+        table: payload.table,
+        schema: payload.schema,
         applicationId: applicationId ? applicationId.slice(0, 8) + '...' : 'unknown',
+        hasNew: !!payload.new,
+        hasOld: !!payload.old,
         timestamp: new Date().toISOString()
       });
       
@@ -185,16 +234,16 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
         }
       }
     } catch (eventError) {
-      console.error('❌ Error handling real-time event:', eventError);
+      logOperation('DATABASE_EVENT_HANDLER_ERROR', {}, eventError);
     }
   }, [queryClient, toast]);
 
   /**
-   * Setup real-time subscription with simplified approach
+   * BULLETPROOF REAL-TIME SUBSCRIPTION SETUP
    */
   const setupRealtimeSubscription = useCallback(async (): Promise<boolean> => {
     try {
-      console.log('🔗 Setting up real-time subscription...');
+      logOperation('REALTIME_SETUP_START', {});
       
       // Clear any existing setup timeout
       if (setupTimeoutRef.current) {
@@ -204,6 +253,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       
       // Create subscription manager if not exists
       if (!subscriptionManagerRef.current) {
+        logOperation('REALTIME_CREATING_MANAGER', {});
         subscriptionManagerRef.current = new RealtimeSubscriptionManager();
         
         // Add connection state listener
@@ -211,40 +261,41 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
           const connectionState = subscriptionManagerRef.current?.getConnectionState();
           if (!connectionState) return;
 
-          console.log('📊 Subscription state updated:', {
+          logOperation('REALTIME_STATE_UPDATE', {
             connection: connectionState.status,
             subscriptions: subscriptionState.subscriptionCount,
             isActive: subscriptionState.isActive,
             eventCount: subscriptionState.eventCount,
-            retryCount: connectionState.retryCount
+            retryCount: connectionState.retryCount,
+            authenticated: connectionState.isAuthenticated
           });
 
           // Map connection status
           const mappedStatus = CONNECTION_STATUS_MAP[connectionState.status] || 'error';
           setConnectionStatus(mappedStatus);
-          setIsConnected(connectionState.status === 'connected');
+          setIsConnected(connectionState.status === 'connected' && connectionState.isAuthenticated);
           setRetryCount(connectionState.retryCount);
 
           // Handle connection errors with fallback
           if (connectionState.status === 'error' && connectionState.retryCount >= 3) {
-            console.error('💀 Max retries reached, switching to fallback mode');
+            logOperation('REALTIME_MAX_RETRIES_REACHED', { retryCount: connectionState.retryCount });
             startFallbackMode();
-          } else if (connectionState.status === 'connected') {
+          } else if (connectionState.status === 'connected' && connectionState.isAuthenticated) {
             // Connection successful, stop fallback if running
             stopFallbackMode();
           }
         });
       }
 
-      // Start subscription manager with shorter timeout
-      console.log('🚀 Starting subscription manager...');
+      // Start subscription manager with timeout
+      logOperation('REALTIME_STARTING_MANAGER', {});
       
       const startPromise = subscriptionManagerRef.current.start();
       const timeoutPromise = new Promise<boolean>((resolve) => {
         setupTimeoutRef.current = setTimeout(() => {
-          console.error('⏰ Subscription manager start timeout');
+          logOperation('REALTIME_START_TIMEOUT', {});
           resolve(false);
-        }, 20000); // Reduced to 20 seconds
+        }, 25000); // 25 second timeout
       });
       
       const started = await Promise.race([startPromise, timeoutPromise]);
@@ -255,13 +306,13 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       }
       
       if (!started) {
-        console.error('❌ Failed to start subscription manager');
+        logOperation('REALTIME_START_FAILED', {});
         startFallbackMode();
         return false;
       }
 
       // Subscribe to YFF applications changes
-      console.log('📡 Creating subscription...');
+      logOperation('REALTIME_CREATING_SUBSCRIPTION', {});
       const subscribed = subscriptionManagerRef.current.subscribe(
         'yff-applications',
         {
@@ -273,16 +324,16 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       );
 
       if (!subscribed) {
-        console.error('❌ Failed to subscribe to YFF applications');
+        logOperation('REALTIME_SUBSCRIPTION_FAILED', {});
         startFallbackMode();
         return false;
       }
 
-      console.log('✅ Real-time subscription setup completed');
+      logOperation('REALTIME_SETUP_SUCCESS', {});
       return true;
       
     } catch (error) {
-      console.error('❌ Failed to setup real-time subscription:', error);
+      logOperation('REALTIME_SETUP_ERROR', {}, error);
       startFallbackMode();
       return false;
     }
@@ -292,7 +343,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
    * Cleanup subscription
    */
   const cleanupSubscription = useCallback(() => {
-    console.log('🧹 Cleaning up real-time subscription...');
+    logOperation('REALTIME_CLEANUP_START', {});
     
     // Clear setup timeout
     if (setupTimeoutRef.current) {
@@ -310,6 +361,8 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     setIsConnected(false);
     setConnectionStatus('disconnected');
     setRetryCount(0);
+    
+    logOperation('REALTIME_CLEANUP_COMPLETE', {});
   }, [stopFallbackMode]);
 
   // Initialize subscription on mount
@@ -318,16 +371,16 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       return;
     }
     
-    console.log('🚀 Initializing real-time subscription hook');
+    logOperation('REALTIME_HOOK_INITIALIZE', {});
     isInitializedRef.current = true;
     
-    // Delay setup to allow auth to settle
+    // Setup real-time subscription with slight delay
     setTimeout(() => {
       setupRealtimeSubscription();
-    }, 1000); // Reduced delay
+    }, 2000);
     
     return () => {
-      console.log('🧹 Cleaning up real-time subscription on unmount');
+      logOperation('REALTIME_HOOK_UNMOUNT', {});
       isInitializedRef.current = false;
       cleanupSubscription();
     };
@@ -337,18 +390,18 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔐 Auth state changed:', event, !!session);
+        logOperation('AUTH_STATE_CHANGE', { event, hasSession: !!session });
         
         if (event === 'SIGNED_IN' && session) {
-          console.log('✅ User signed in, setting up real-time subscription');
+          logOperation('AUTH_SIGNED_IN', { userId: session.user.id });
           
           // Wait for auth to settle before setting up subscription
           setTimeout(() => {
             setupRealtimeSubscription();
-          }, 1500); // Reduced delay
+          }, 2000);
           
         } else if (event === 'SIGNED_OUT') {
-          console.log('❌ User signed out, cleaning up real-time subscription');
+          logOperation('AUTH_SIGNED_OUT', {});
           cleanupSubscription();
         }
       }
@@ -363,14 +416,20 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('👁️ Page became visible, checking connection status');
+        logOperation('PAGE_VISIBLE', { 
+          isConnected, 
+          connectionStatus, 
+          isFallbackMode 
+        });
         
         if (!isConnected && connectionStatus !== 'connecting' && !isFallbackMode) {
-          console.log('🔄 Page visible and not connected, attempting reconnection...');
+          logOperation('PAGE_VISIBLE_RECONNECT', {});
           setTimeout(() => {
             setupRealtimeSubscription();
-          }, 500); // Quick reconnection
+          }, 1000);
         }
+      } else {
+        logOperation('PAGE_HIDDEN', {});
       }
     };
 

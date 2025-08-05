@@ -5,7 +5,7 @@
  * Provides real-time updates for YFF applications using robust WebSocket
  * connection management with comprehensive error handling and retry logic.
  * 
- * @version 5.0.0
+ * @version 6.0.0
  * @author 26ideas Development Team
  */
 
@@ -54,6 +54,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   const subscriptionManagerRef = useRef<RealtimeSubscriptionManager | null>(null);
   const fallbackIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isInitializedRef = useRef<boolean>(false);
+  const setupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Primary data query
   const { data: applications = [], isLoading, error } = useQuery({
@@ -100,6 +101,11 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
    * Start fallback polling when real-time fails
    */
   const startFallbackMode = useCallback(() => {
+    if (isFallbackMode) {
+      console.log('⚠️ Fallback mode already active');
+      return;
+    }
+    
     console.log('🔄 Starting fallback polling mode...');
     setConnectionStatus('fallback');
     setIsConnected(false);
@@ -113,14 +119,14 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     fallbackIntervalRef.current = setInterval(() => {
       console.log('🔄 Fallback polling for updates...');
       queryClient.invalidateQueries({ queryKey: ['yff-applications-realtime'] });
-    }, 15000); // Poll every 15 seconds
+    }, 15000);
     
     toast({
       title: "Real-time Updates Unavailable",
       description: "Using periodic refresh instead.",
       variant: "default"
     });
-  }, [queryClient, toast]);
+  }, [queryClient, toast, isFallbackMode]);
 
   /**
    * Stop fallback polling
@@ -184,11 +190,17 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   }, [queryClient, toast]);
 
   /**
-   * Setup real-time subscription
+   * Setup real-time subscription with enhanced error handling
    */
   const setupRealtimeSubscription = useCallback(async (): Promise<boolean> => {
     try {
       console.log('🔗 Setting up real-time subscription...');
+      
+      // Clear any existing setup timeout
+      if (setupTimeoutRef.current) {
+        clearTimeout(setupTimeoutRef.current);
+        setupTimeoutRef.current = null;
+      }
       
       // Create subscription manager if not exists
       if (!subscriptionManagerRef.current) {
@@ -203,7 +215,8 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
             connection: connectionState.status,
             subscriptions: subscriptionState.subscriptionCount,
             isActive: subscriptionState.isActive,
-            eventCount: subscriptionState.eventCount
+            eventCount: subscriptionState.eventCount,
+            retryCount: connectionState.retryCount
           });
 
           // Map connection status
@@ -212,16 +225,36 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
           setIsConnected(connectionState.status === 'connected');
           setRetryCount(connectionState.retryCount);
 
-          // Handle connection errors
+          // Handle connection errors with fallback
           if (connectionState.status === 'error' && connectionState.retryCount >= 3) {
             console.error('💀 Max retries reached, switching to fallback mode');
             startFallbackMode();
+          } else if (connectionState.status === 'connected') {
+            // Connection successful, stop fallback if running
+            stopFallbackMode();
           }
         });
       }
 
-      // Start subscription manager
-      const started = await subscriptionManagerRef.current.start();
+      // Start subscription manager with timeout
+      console.log('🚀 Starting subscription manager...');
+      const startPromise = subscriptionManagerRef.current.start();
+      
+      // Set up a timeout for the start operation
+      const timeoutPromise = new Promise<boolean>((resolve) => {
+        setupTimeoutRef.current = setTimeout(() => {
+          console.error('⏰ Subscription manager start timeout');
+          resolve(false);
+        }, 30000); // 30 second timeout
+      });
+      
+      const started = await Promise.race([startPromise, timeoutPromise]);
+      
+      if (setupTimeoutRef.current) {
+        clearTimeout(setupTimeoutRef.current);
+        setupTimeoutRef.current = null;
+      }
+      
       if (!started) {
         console.error('❌ Failed to start subscription manager');
         startFallbackMode();
@@ -229,6 +262,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       }
 
       // Subscribe to YFF applications changes
+      console.log('📡 Creating subscription...');
       const subscribed = subscriptionManagerRef.current.subscribe(
         'yff-applications',
         {
@@ -246,10 +280,6 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       }
 
       console.log('✅ Real-time subscription setup completed');
-      
-      // Stop fallback mode if it was running
-      stopFallbackMode();
-      
       return true;
       
     } catch (error) {
@@ -264,6 +294,12 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
    */
   const cleanupSubscription = useCallback(() => {
     console.log('🧹 Cleaning up real-time subscription...');
+    
+    // Clear setup timeout
+    if (setupTimeoutRef.current) {
+      clearTimeout(setupTimeoutRef.current);
+      setupTimeoutRef.current = null;
+    }
     
     if (subscriptionManagerRef.current) {
       subscriptionManagerRef.current.stop();
@@ -286,8 +322,10 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     console.log('🚀 Initializing real-time subscription hook');
     isInitializedRef.current = true;
     
-    // Setup subscription
-    setupRealtimeSubscription();
+    // Delay setup to allow auth to settle
+    setTimeout(() => {
+      setupRealtimeSubscription();
+    }, 2000);
     
     return () => {
       console.log('🧹 Cleaning up real-time subscription on unmount');
@@ -305,10 +343,10 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
         if (event === 'SIGNED_IN' && session) {
           console.log('✅ User signed in, setting up real-time subscription');
           
-          // Wait a moment for auth to settle
+          // Wait for auth to settle before setting up subscription
           setTimeout(() => {
             setupRealtimeSubscription();
-          }, 1000);
+          }, 3000);
           
         } else if (event === 'SIGNED_OUT') {
           console.log('❌ User signed out, cleaning up real-time subscription');
@@ -330,7 +368,9 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
         
         if (!isConnected && connectionStatus !== 'connecting' && !isFallbackMode) {
           console.log('🔄 Page visible and not connected, attempting reconnection...');
-          setupRealtimeSubscription();
+          setTimeout(() => {
+            setupRealtimeSubscription();
+          }, 1000);
         }
       }
     };

@@ -5,7 +5,7 @@
  * Manages real-time subscriptions for database changes with automatic
  * reconnection, error handling, and event processing.
  * 
- * @version 1.0.0
+ * @version 2.0.0
  * @author 26ideas Development Team
  */
 
@@ -47,6 +47,7 @@ export class RealtimeSubscriptionManager {
   };
 
   private listeners: Set<(state: SubscriptionState) => void> = new Set();
+  private isStarting = false;
 
   constructor() {
     this.connectionManager = new RealtimeConnectionManager({
@@ -84,18 +85,37 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Start subscription manager
+   * Start subscription manager with enhanced error handling
    */
   async start(): Promise<boolean> {
-    console.log('🚀 Starting subscription manager...');
-    
-    const connected = await this.connectionManager.connect();
-    if (!connected) {
-      this.updateState({ lastError: 'Failed to establish connection' });
+    if (this.isStarting) {
+      console.log('⚠️ Subscription manager start already in progress');
       return false;
     }
 
-    return true;
+    this.isStarting = true;
+    console.log('🚀 Starting subscription manager...');
+    
+    try {
+      const connected = await this.connectionManager.connect();
+      if (!connected) {
+        this.updateState({ lastError: 'Failed to establish connection' });
+        return false;
+      }
+
+      // Wait for connection to stabilize
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      console.log('✅ Subscription manager started successfully');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Error starting subscription manager:', error);
+      this.updateState({ lastError: `Startup error: ${error.message}` });
+      return false;
+    } finally {
+      this.isStarting = false;
+    }
   }
 
   /**
@@ -104,6 +124,7 @@ export class RealtimeSubscriptionManager {
   stop(): void {
     console.log('⏹️ Stopping subscription manager...');
     
+    this.isStarting = false;
     this.subscriptions.clear();
     this.connectionManager.disconnect();
     
@@ -115,7 +136,7 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Subscribe to database changes
+   * Subscribe to database changes with enhanced error handling
    */
   subscribe<T = any>(
     id: string,
@@ -124,6 +145,10 @@ export class RealtimeSubscriptionManager {
   ): boolean {
     console.log(`📡 Adding subscription: ${id}`, config);
     
+    if (this.subscriptions.has(id)) {
+      console.warn(`⚠️ Subscription ${id} already exists, replacing`);
+    }
+
     this.subscriptions.set(id, {
       config,
       handler: handler as EventHandler,
@@ -133,7 +158,9 @@ export class RealtimeSubscriptionManager {
     // If connected, activate the subscription immediately
     const connectionState = this.connectionManager.getState();
     if (connectionState.status === 'connected') {
-      this.activateSubscription(id);
+      setTimeout(() => {
+        this.activateSubscription(id);
+      }, 500); // Small delay to ensure stability
     }
 
     this.updateState({
@@ -149,6 +176,12 @@ export class RealtimeSubscriptionManager {
   unsubscribe(id: string): void {
     console.log(`📡 Removing subscription: ${id}`);
     
+    const subscription = this.subscriptions.get(id);
+    if (subscription?.isActive) {
+      // Deactivate subscription if active
+      subscription.isActive = false;
+    }
+    
     this.subscriptions.delete(id);
     
     this.updateState({
@@ -157,14 +190,16 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Handle connection state changes
+   * Handle connection state changes with improved logic
    */
   private handleConnectionStateChange(connectionState: ConnectionState): void {
     console.log(`🔄 Connection state changed: ${connectionState.status}`);
     
     if (connectionState.status === 'connected') {
-      // Activate all subscriptions
-      this.activateAllSubscriptions();
+      // Activate all subscriptions after a short delay to ensure stability
+      setTimeout(() => {
+        this.activateAllSubscriptions();
+      }, 1000);
     } else if (connectionState.status === 'disconnected' || connectionState.status === 'error') {
       // Mark all subscriptions as inactive
       this.deactivateAllSubscriptions();
@@ -177,7 +212,7 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Activate a specific subscription
+   * Activate a specific subscription with enhanced error handling
    */
   private activateSubscription(id: string): void {
     const subscription = this.subscriptions.get(id);
@@ -229,7 +264,7 @@ export class RealtimeSubscriptionManager {
       );
 
       subscription.isActive = true;
-      console.log(`✅ Subscription ${id} activated`);
+      console.log(`✅ Subscription ${id} activated successfully`);
 
     } catch (error) {
       console.error(`❌ Failed to activate subscription ${id}:`, error);
@@ -246,7 +281,10 @@ export class RealtimeSubscriptionManager {
     console.log('🔄 Activating all subscriptions...');
     
     for (const [id] of this.subscriptions) {
-      this.activateSubscription(id);
+      // Add small delay between activations to prevent overwhelming
+      setTimeout(() => {
+        this.activateSubscription(id);
+      }, Math.random() * 1000);
     }
   }
 

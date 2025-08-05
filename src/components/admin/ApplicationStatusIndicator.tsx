@@ -109,9 +109,13 @@ export const ApplicationStatusIndicator: React.FC<ApplicationStatusIndicatorProp
       {/* Connection Status */}
       <div className="flex items-center">
         {isConnected ? (
-          <Wifi className="h-3 w-3 text-green-500" title="Real-time connected" />
+          <span title="Real-time connected">
+            <Wifi className="h-3 w-3 text-green-500" />
+          </span>
         ) : (
-          <WifiOff className="h-3 w-3 text-gray-400" title="Real-time disconnected" />
+          <span title="Real-time disconnected">
+            <WifiOff className="h-3 w-3 text-gray-400" />
+          </span>
         )}
       </div>
     </div>

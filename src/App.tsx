@@ -16,7 +16,7 @@ import MentorSignup from "./pages/MentorSignup";
 import PhoneInputTest from "./pages/PhoneInputTest";
 import NotFound from "./pages/NotFound";
 import { CrmDashboard } from "./pages/admin/CrmDashboard";
-import YffApplicationsPage from "./pages/admin/YffApplicationsPage";
+import YffApplicationsPageEnhanced from "./pages/admin/YffApplicationsPageEnhanced";
 import MentorApplicationsPage from "./pages/admin/MentorApplicationsPage";
 import AdminAuth from "./components/admin/AdminAuth";
 import { startLayoutMonitoring } from "./utils/layout-debug";
@@ -56,7 +56,7 @@ function App() {
                   } />
                   <Route path="/admin/yff-applications" element={
                     <AdminAuth>
-                      <YffApplicationsPage />
+                      <YffApplicationsPageEnhanced />
                     </AdminAuth>
                   } />
                   <Route path="/admin/mentor-applications" element={

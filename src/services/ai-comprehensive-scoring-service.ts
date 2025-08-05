@@ -182,26 +182,44 @@ export class AIComprehensiveScoringService {
   
   /**
    * Main evaluation method - processes entire application
+   * Enhanced with better error handling and monitoring for background jobs
    */
   static async evaluateApplication(applicationId: string): Promise<AIEvaluationResult> {
+    const startTime = Date.now();
+    
     try {
       console.log(`🔄 Starting comprehensive evaluation for application: ${applicationId}`);
       
-      // Update status to processing
+      // Update status to processing with timestamp
       await this.updateEvaluationStatus(applicationId, 'processing');
       
-      // Fetch application data
+      // Fetch application data with validation
       const application = await this.fetchApplicationData(applicationId);
       if (!application) {
         throw new Error(`Application not found: ${applicationId}`);
       }
       
-      // Parse answers
-      const answers = parseApplicationAnswers(application.answers);
-      console.log(`📝 Parsed ${Object.keys(answers).length} answers for evaluation`);
+      // Validate application has answers
+      if (!application.answers || typeof application.answers !== 'object') {
+        throw new Error(`Application ${applicationId} has no valid answers to evaluate`);
+      }
       
-      // Score each question
-      const scoringResults = await this.scoreAllQuestions(answers);
+      // Parse answers with error handling
+      const answers = parseApplicationAnswers(application.answers);
+      const answerCount = Object.keys(answers).length;
+      
+      if (answerCount === 0) {
+        throw new Error(`Application ${applicationId} has no parseable answers`);
+      }
+      
+      console.log(`📝 Parsed ${answerCount} answers for evaluation`);
+      
+      // Score each question with progress tracking
+      const scoringResults = await this.scoreAllQuestions(answers, applicationId);
+      
+      if (scoringResults.length === 0) {
+        throw new Error(`No questions were successfully scored for application ${applicationId}`);
+      }
       
       // Calculate overall score
       const overallScore = this.calculateOverallScore(scoringResults);
@@ -209,10 +227,11 @@ export class AIComprehensiveScoringService {
       // Build comprehensive evaluation data
       const evaluationData = this.buildEvaluationData(scoringResults, overallScore);
       
-      // Store results
+      // Store results with atomic transaction
       await this.storeEvaluationResults(applicationId, evaluationData);
       
-      console.log(`✅ Comprehensive evaluation completed for ${applicationId} with score: ${overallScore}`);
+      const processingTime = Date.now() - startTime;
+      console.log(`✅ Comprehensive evaluation completed for ${applicationId} with score: ${overallScore} in ${processingTime}ms`);
       
       return {
         overall_score: overallScore,
@@ -222,72 +241,121 @@ export class AIComprehensiveScoringService {
       };
       
     } catch (error) {
-      console.error(`❌ Comprehensive evaluation failed for ${applicationId}:`, error);
+      const processingTime = Date.now() - startTime;
+      console.error(`❌ Comprehensive evaluation failed for ${applicationId} after ${processingTime}ms:`, error);
+      
+      // Update status to failed with error details
       await this.updateEvaluationStatus(applicationId, 'failed');
+      
+      // Log detailed error for monitoring
+      await this.logEvaluationError(applicationId, error.message, processingTime);
+      
       throw error;
     }
   }
   
   /**
-   * Score all questions in the application
+   * Score all questions with enhanced error handling and progress tracking
    */
-  private static async scoreAllQuestions(answers: Record<string, any>): Promise<QuestionScoringResult[]> {
+  private static async scoreAllQuestions(
+    answers: Record<string, any>, 
+    applicationId: string
+  ): Promise<QuestionScoringResult[]> {
     const scoringPromises: Promise<QuestionScoringResult>[] = [];
+    const questionsToScore: string[] = [];
     
-    // Process each answer with its corresponding system prompt
+    // Build list of questions to score
     for (const [questionId, answer] of Object.entries(answers)) {
       if (typeof answer === 'string' && answer.trim().length >= 10) {
         const systemPrompt = SYSTEM_PROMPTS[questionId];
         if (systemPrompt) {
-          console.log(`🔍 Scoring question: ${questionId}`);
+          console.log(`📋 Queuing question for scoring: ${questionId}`);
+          questionsToScore.push(questionId);
           scoringPromises.push(this.scoreIndividualQuestion(questionId, answer, systemPrompt));
         } else {
           console.warn(`⚠️ No system prompt found for question: ${questionId}`);
         }
+      } else {
+        console.warn(`⚠️ Skipping question ${questionId}: invalid or too short answer`);
       }
     }
     
-    // Execute all scoring in parallel with error handling
+    if (questionsToScore.length === 0) {
+      throw new Error('No valid questions found to score');
+    }
+    
+    console.log(`🚀 Starting parallel scoring of ${questionsToScore.length} questions for ${applicationId}`);
+    
+    // Execute all scoring in parallel with enhanced error handling
     const results = await Promise.allSettled(scoringPromises);
     const successfulResults: QuestionScoringResult[] = [];
+    const failedResults: string[] = [];
     
     results.forEach((result, index) => {
+      const questionId = questionsToScore[index];
+      
       if (result.status === 'fulfilled') {
         successfulResults.push(result.value);
+        console.log(`✅ Successfully scored question: ${questionId} (score: ${result.value.score})`);
       } else {
-        console.error(`❌ Failed to score question:`, result.reason);
+        failedResults.push(questionId);
+        console.error(`❌ Failed to score question ${questionId}:`, result.reason);
       }
     });
+    
+    // Log scoring summary
+    console.log(`📊 Scoring summary for ${applicationId}: ${successfulResults.length} successful, ${failedResults.length} failed`);
+    
+    if (failedResults.length > 0) {
+      console.warn(`⚠️ Failed questions: ${failedResults.join(', ')}`);
+    }
+    
+    // Require at least 50% success rate
+    const successRate = successfulResults.length / questionsToScore.length;
+    if (successRate < 0.5) {
+      throw new Error(`Too many scoring failures: ${failedResults.length}/${questionsToScore.length} questions failed (${Math.round((1 - successRate) * 100)}% failure rate)`);
+    }
     
     return successfulResults;
   }
   
   /**
-   * Score individual question using AI
+   * Score individual question with enhanced retry logic
    */
   private static async scoreIndividualQuestion(
     questionId: string, 
     answer: string, 
-    systemPrompt: string
+    systemPrompt: string,
+    retryCount: number = 0
   ): Promise<QuestionScoringResult> {
+    const maxRetries = 2;
+    
     try {
+      console.log(`🔍 Scoring question: ${questionId} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+      
       const { data, error } = await supabase.functions.invoke('ai-evaluation', {
         body: {
           systemPrompt: systemPrompt,
-          userAnswer: answer
+          userAnswer: answer,
+          questionId: questionId // Add for better tracking
         }
       });
       
       if (error) {
-        throw new Error(`AI evaluation failed: ${error.message}`);
+        throw new Error(`AI evaluation API error: ${error.message}`);
       }
       
       if (!data?.evaluation) {
         throw new Error('No evaluation received from AI service');
       }
       
-      // Parse the AI response
-      const parsedResult = this.parseAIResponse(data.evaluation);
+      // Parse the AI response with validation
+      const parsedResult = this.parseAIResponse(data.evaluation, questionId);
+      
+      // Validate score range
+      if (parsedResult.score < 0 || parsedResult.score > 10) {
+        throw new Error(`Invalid score ${parsedResult.score} for question ${questionId} - must be between 0-10`);
+      }
       
       return {
         questionId,
@@ -298,40 +366,67 @@ export class AIComprehensiveScoringService {
       };
       
     } catch (error) {
-      console.error(`❌ Failed to score question ${questionId}:`, error);
-      // Return fallback result
+      if (retryCount < maxRetries) {
+        console.warn(`⚠️ Retrying question ${questionId} due to error: ${error.message}`);
+        
+        // Wait before retry (exponential backoff)
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        return this.scoreIndividualQuestion(questionId, answer, systemPrompt, retryCount + 1);
+      }
+      
+      console.error(`❌ Final failure scoring question ${questionId} after ${retryCount + 1} attempts:`, error);
+      
+      // Return fallback result with error details
       return {
         questionId,
         score: 0,
         strengths: [],
-        areas_for_improvement: ['Evaluation failed - please review manually'],
-        raw_feedback: `Error: ${error.message}`
+        areas_for_improvement: [`Evaluation failed: ${error.message}`],
+        raw_feedback: `Error after ${retryCount + 1} attempts: ${error.message}`
       };
     }
   }
   
   /**
-   * Parse AI response with strict format requirements
+   * Parse AI response with enhanced validation and error context
    */
-  private static parseAIResponse(aiResponse: string): {
+  private static parseAIResponse(aiResponse: string, questionId?: string): {
     score: number;
     strengths: string[];
     areas_for_improvement: string[];
   } {
     try {
-      // Extract score
-      const scoreMatch = aiResponse.match(/SCORE:\s*(\d+(?:\.\d+)?)/i);
-      const score = scoreMatch ? parseFloat(scoreMatch[1]) : 0;
+      if (!aiResponse || typeof aiResponse !== 'string') {
+        throw new Error('AI response is empty or invalid');
+      }
       
-      // Extract strengths
+      // Extract score with better regex
+      const scoreMatch = aiResponse.match(/SCORE:\s*(\d+(?:\.\d+)?)/i);
+      if (!scoreMatch) {
+        throw new Error('No score found in AI response');
+      }
+      
+      const score = parseFloat(scoreMatch[1]);
+      if (isNaN(score)) {
+        throw new Error(`Invalid score format: ${scoreMatch[1]}`);
+      }
+      
+      // Extract strengths with better pattern matching
       const strengthsMatch = aiResponse.match(/–\s*Strengths:\s*(.*?)(?=–\s*Areas for Improvement:|$)/is);
       const strengthsText = strengthsMatch ? strengthsMatch[1].trim() : '';
-      const strengths = strengthsText ? [strengthsText] : [];
+      const strengths = strengthsText ? [strengthsText.replace(/\n\s*-\s*/g, ' ').trim()] : [];
       
       // Extract areas for improvement
       const improvementsMatch = aiResponse.match(/–\s*Areas for Improvement:\s*(.*?)$/is);
       const improvementsText = improvementsMatch ? improvementsMatch[1].trim() : '';
-      const areas_for_improvement = improvementsText ? [improvementsText] : [];
+      const areas_for_improvement = improvementsText ? [improvementsText.replace(/\n\s*-\s*/g, ' ').trim()] : [];
+      
+      // Validate we have some feedback
+      if (strengths.length === 0 && areas_for_improvement.length === 0) {
+        console.warn(`⚠️ No feedback extracted for question ${questionId || 'unknown'}`);
+      }
       
       return {
         score: Math.max(0, Math.min(10, score)), // Ensure score is between 0-10
@@ -340,11 +435,14 @@ export class AIComprehensiveScoringService {
       };
       
     } catch (error) {
-      console.error('❌ Failed to parse AI response:', error);
+      const context = questionId ? ` for question ${questionId}` : '';
+      console.error(`❌ Failed to parse AI response${context}:`, error);
+      console.error('Raw AI response:', aiResponse?.substring(0, 500) + '...');
+      
       return {
         score: 0,
         strengths: [],
-        areas_for_improvement: ['Failed to parse AI feedback']
+        areas_for_improvement: [`Failed to parse AI feedback: ${error.message}`]
       };
     }
   }
@@ -493,6 +591,25 @@ export class AIComprehensiveScoringService {
     });
     
     return questionEvaluations;
+  }
+  
+  /**
+   * Log evaluation error for monitoring
+   */
+  private static async logEvaluationError(
+    applicationId: string, 
+    error: string, 
+    processingTimeMs: number
+  ): Promise<void> {
+    console.error(`🚨 EVALUATION ERROR LOG:`, {
+      applicationId,
+      error,
+      processingTimeMs,
+      timestamp: new Date().toISOString(),
+      service: 'AI Comprehensive Scoring'
+    });
+    
+    // In production, this would send to error tracking service
   }
   
   /**

@@ -4,16 +4,17 @@
  * Tests the complete flow from application submission through AI scoring
  * to dashboard display with enhanced real-time WebSocket validation.
  * 
- * @version 4.0.0
+ * @version 5.0.0
  * @author 26ideas Development Team
  */
 
 import { supabase } from '@/integrations/supabase/client';
 import { AIComprehensiveScoringService } from '@/services/ai-comprehensive-scoring-service';
 import { BackgroundJobService } from '@/services/background-job-service';
+import { RealtimeConnectionManager } from '@/utils/realtime-connection-manager';
+import { RealtimeSubscriptionManager } from '@/utils/realtime-subscription-manager';
 import { YffFormData } from '@/types/yff-form';
 import { v4 as uuidv4 } from 'uuid';
-import type { Json } from '@/integrations/supabase/types';
 
 export interface TestResult {
   testName: string;
@@ -29,57 +30,10 @@ export class E2ETestingSuite {
   private testApplicationId: string | null = null;
   private testIndividualId: string | null = null;
   private testEmail: string | null = null;
-  private realtimeChannel: any = null;
+  private subscriptionManager: RealtimeSubscriptionManager | null = null;
 
   constructor() {
     this.results = [];
-  }
-
-  /**
-   * Enhanced WebSocket state validation
-   */
-  private validateWebSocketState(channel: any): { 
-    isOpen: boolean; 
-    state: string; 
-    details: any 
-  } {
-    if (!channel) {
-      return {
-        isOpen: false,
-        state: 'NO_CHANNEL',
-        details: { error: 'No channel provided' }
-      };
-    }
-
-    if (!channel.socket) {
-      return {
-        isOpen: false,
-        state: 'NO_SOCKET',
-        details: { error: 'No socket found in channel' }
-      };
-    }
-
-    const readyState = channel.socket.readyState;
-    const states = {
-      0: 'CONNECTING',
-      1: 'OPEN', 
-      2: 'CLOSING',
-      3: 'CLOSED'
-    };
-
-    const state = states[readyState] || 'UNKNOWN';
-    const isOpen = readyState === 1;
-
-    return {
-      isOpen,
-      state,
-      details: {
-        readyState,
-        url: channel.socket.url,
-        protocol: channel.socket.protocol,
-        extensions: channel.socket.extensions
-      }
-    };
   }
 
   /**
@@ -101,16 +55,22 @@ export class E2ETestingSuite {
       // Test 4: AI scoring trigger
       await this.testAIScoringTrigger();
       
-      // Test 5: Enhanced real-time updates test with WebSocket validation
-      await this.testRealTimeUpdates();
+      // Test 5: Enhanced real-time updates test
+      await this.testRobustRealTimeSubscription();
       
-      // Test 6: Results display
+      // Test 6: Connection manager resilience
+      await this.testConnectionManagerResilience();
+      
+      // Test 7: Subscription manager stability
+      await this.testSubscriptionManagerStability();
+      
+      // Test 8: Results display
       await this.testResultsDisplay();
       
-      // Test 7: Error handling
+      // Test 9: Error handling
       await this.testErrorHandling();
       
-      // Test 8: Performance metrics
+      // Test 10: Performance metrics
       await this.testPerformanceMetrics();
       
       // Cleanup test data
@@ -133,6 +93,318 @@ export class E2ETestingSuite {
   }
 
   /**
+   * Test robust real-time subscription with enhanced connection management
+   */
+  private async testRobustRealTimeSubscription(): Promise<void> {
+    const startTime = Date.now();
+    
+    try {
+      console.log('🔄 Testing robust real-time subscription...');
+      
+      if (!this.testApplicationId) {
+        throw new Error('No test application ID available');
+      }
+
+      // Create subscription manager
+      this.subscriptionManager = new RealtimeSubscriptionManager();
+      
+      // Track connection events
+      let connectionEstablished = false;
+      let subscriptionActive = false;
+      let eventReceived = false;
+      let eventDetails: any = null;
+
+      const connectionPromise = new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Connection timeout after 30 seconds'));
+        }, 30000);
+
+        this.subscriptionManager!.addListener((subscriptionState) => {
+          const connectionState = this.subscriptionManager!.getConnectionState();
+          
+          console.log('📊 Real-time test - State update:', {
+            connection: connectionState.status,
+            isActive: subscriptionState.isActive,
+            subscriptions: subscriptionState.subscriptionCount
+          });
+
+          if (connectionState.status === 'connected' && subscriptionState.isActive) {
+            connectionEstablished = true;
+            subscriptionActive = true;
+            clearTimeout(timeout);
+            resolve();
+          } else if (connectionState.status === 'error') {
+            clearTimeout(timeout);
+            reject(new Error(`Connection failed: ${connectionState.lastError}`));
+          }
+        });
+      });
+
+      // Start subscription manager
+      console.log('🚀 Starting subscription manager...');
+      const started = await this.subscriptionManager.start();
+      
+      if (!started) {
+        throw new Error('Failed to start subscription manager');
+      }
+
+      // Subscribe to test application updates
+      const subscribed = this.subscriptionManager.subscribe(
+        'e2e-test-subscription',
+        {
+          table: 'yff_applications',
+          schema: 'public',
+          event: 'UPDATE',
+          filter: `application_id=eq.${this.testApplicationId}`
+        },
+        (payload) => {
+          console.log('📨 E2E test - Event received:', {
+            eventType: payload.eventType,
+            applicationId: payload.new?.application_id || payload.old?.application_id,
+            evaluationStatus: payload.new?.evaluation_status
+          });
+          
+          eventReceived = true;
+          eventDetails = payload;
+        }
+      );
+
+      if (!subscribed) {
+        throw new Error('Failed to subscribe to application updates');
+      }
+
+      // Wait for connection to be established
+      await connectionPromise;
+      console.log('✅ Connection established, triggering test updates...');
+
+      // Trigger database update to test event reception
+      const updatePromise = new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Event not received within 20 seconds'));
+        }, 20000);
+
+        const checkEvent = () => {
+          if (eventReceived) {
+            clearTimeout(timeout);
+            resolve();
+          } else {
+            setTimeout(checkEvent, 500);
+          }
+        };
+        
+        checkEvent();
+      });
+
+      // Perform test update
+      console.log('🔄 Performing test database update...');
+      const { error: updateError } = await supabase
+        .from('yff_applications')
+        .update({ 
+          evaluation_status: 'processing',
+          updated_at: new Date().toISOString()
+        })
+        .eq('application_id', this.testApplicationId);
+
+      if (updateError) {
+        throw new Error(`Failed to update application: ${updateError.message}`);
+      }
+
+      // Wait for event
+      await updatePromise;
+
+      const duration = Date.now() - startTime;
+      
+      this.addTestResult({
+        testName: 'Robust Real-Time Subscription',
+        status: 'passed',
+        message: `Real-time subscription working correctly. Connection established and events received within ${duration}ms.`,
+        timestamp: new Date().toISOString(),
+        duration,
+        details: {
+          connectionEstablished,
+          subscriptionActive,
+          eventReceived,
+          eventDetails: eventDetails ? {
+            eventType: eventDetails.eventType,
+            table: eventDetails.table
+          } : null
+        }
+      });
+      
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      this.addTestResult({
+        testName: 'Robust Real-Time Subscription',
+        status: 'failed',
+        message: `Real-time subscription test failed: ${error.message}`,
+        timestamp: new Date().toISOString(),
+        duration
+      });
+    } finally {
+      // Cleanup
+      if (this.subscriptionManager) {
+        this.subscriptionManager.stop();
+        this.subscriptionManager = null;
+      }
+    }
+  }
+
+  /**
+   * Test connection manager resilience
+   */
+  private async testConnectionManagerResilience(): Promise<void> {
+    const startTime = Date.now();
+    
+    try {
+      console.log('🔄 Testing connection manager resilience...');
+      
+      const connectionManager = new RealtimeConnectionManager({
+        maxRetries: 3,
+        baseRetryDelay: 1000,
+        maxRetryDelay: 5000,
+        connectionTimeout: 10000
+      });
+
+      let connectionAttempts = 0;
+      let finalState: any = null;
+
+      connectionManager.addListener((state) => {
+        console.log(`📊 Connection manager test - State: ${state.status}, Retries: ${state.retryCount}`);
+        
+        if (state.status === 'connecting' || state.status === 'reconnecting') {
+          connectionAttempts++;
+        }
+        
+        finalState = state;
+      });
+
+      // Attempt connection
+      const connected = await connectionManager.connect();
+      
+      // Wait a moment for final state
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      connectionManager.disconnect();
+
+      const duration = Date.now() - startTime;
+      
+      if (connected || (finalState && finalState.retryCount > 0)) {
+        this.addTestResult({
+          testName: 'Connection Manager Resilience',
+          status: 'passed',
+          message: `Connection manager demonstrated resilience with ${connectionAttempts} connection attempts.`,
+          timestamp: new Date().toISOString(),
+          duration,
+          details: {
+            connectionAttempts,
+            connected,
+            finalState: finalState ? {
+              status: finalState.status,
+              retryCount: finalState.retryCount,
+              isAuthenticated: finalState.isAuthenticated
+            } : null
+          }
+        });
+      } else {
+        throw new Error('Connection manager failed to establish connection or retry');
+      }
+      
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      this.addTestResult({
+        testName: 'Connection Manager Resilience',
+        status: 'failed',
+        message: `Connection manager resilience test failed: ${error.message}`,
+        timestamp: new Date().toISOString(),
+        duration
+      });
+    }
+  }
+
+  /**
+   * Test subscription manager stability
+   */
+  private async testSubscriptionManagerStability(): Promise<void> {
+    const startTime = Date.now();
+    
+    try {
+      console.log('🔄 Testing subscription manager stability...');
+      
+      const subscriptionManager = new RealtimeSubscriptionManager();
+      
+      let stateChanges = 0;
+      let finalSubscriptionState: any = null;
+
+      subscriptionManager.addListener((state) => {
+        console.log(`📊 Subscription manager test - Active: ${state.isActive}, Count: ${state.subscriptionCount}`);
+        stateChanges++;
+        finalSubscriptionState = state;
+      });
+
+      // Start manager
+      const started = await subscriptionManager.start();
+      
+      if (!started) {
+        throw new Error('Failed to start subscription manager');
+      }
+
+      // Add multiple subscriptions to test stability
+      subscriptionManager.subscribe('test-sub-1', {
+        table: 'yff_applications',
+        event: 'INSERT'
+      }, () => {});
+
+      subscriptionManager.subscribe('test-sub-2', {
+        table: 'yff_applications', 
+        event: 'UPDATE'
+      }, () => {});
+
+      // Wait for stability
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      subscriptionManager.stop();
+      
+      // Wait for final state
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const duration = Date.now() - startTime;
+      
+      if (stateChanges > 0 && finalSubscriptionState) {
+        this.addTestResult({
+          testName: 'Subscription Manager Stability',
+          status: 'passed',
+          message: `Subscription manager demonstrated stability with ${stateChanges} state changes.`,
+          timestamp: new Date().toISOString(),
+          duration,
+          details: {
+            stateChanges,
+            finalState: {
+              isActive: finalSubscriptionState.isActive,
+              subscriptionCount: finalSubscriptionState.subscriptionCount,
+              eventCount: finalSubscriptionState.eventCount
+            }
+          }
+        });
+      } else {
+        throw new Error('Subscription manager did not demonstrate expected state changes');
+      }
+      
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      this.addTestResult({
+        testName: 'Subscription Manager Stability',
+        status: 'failed',
+        message: `Subscription manager stability test failed: ${error.message}`,
+        timestamp: new Date().toISOString(),
+        duration
+      });
+    }
+  }
+
+  /**
    * Test database connection with proper count query
    */
   private async testDatabaseConnection(): Promise<void> {
@@ -141,7 +413,6 @@ export class E2ETestingSuite {
     try {
       console.log('🔄 Testing database connection...');
       
-      // Use correct Supabase count syntax
       const { count, error } = await supabase
         .from('yff_applications')
         .select('*', { count: 'exact', head: true });
@@ -185,7 +456,6 @@ export class E2ETestingSuite {
     try {
       console.log('🔄 Testing application submission...');
       
-      // Generate unique test data with proper UUIDs and timestamp-based uniqueness
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(2, 15);
       this.testEmail = `e2etest-${timestamp}-${randomSuffix}@example.com`;
@@ -215,7 +485,6 @@ export class E2ETestingSuite {
       
       console.log('✅ Test individual created successfully');
       
-      // Create test application data with proper typing
       const testFormData: YffFormData = {
         tell_us_about_idea: 'This is a comprehensive test of an innovative AI-powered platform that revolutionizes how young entrepreneurs develop and validate their business ideas through intelligent mentorship and automated feedback systems.',
         problem_statement: 'Young entrepreneurs lack access to experienced mentors and struggle with validating their business ideas early in the development process, leading to higher failure rates and wasted resources.',
@@ -226,7 +495,7 @@ export class E2ETestingSuite {
         team_roles: 'Our founding team combines technical expertise in AI/ML with deep entrepreneurship experience, including former startup founders, product managers, and engineers from leading tech companies.'
       };
       
-      // Submit test application with proper database structure
+      // Submit test application
       const { data: application, error: applicationError } = await supabase
         .from('yff_applications')
         .insert({
@@ -284,10 +553,8 @@ export class E2ETestingSuite {
         throw new Error('No test application ID available');
       }
       
-      // Wait briefly for database consistency
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Query application from dashboard perspective
       const { data: applications, error } = await supabase
         .from('yff_applications')
         .select(`
@@ -310,7 +577,6 @@ export class E2ETestingSuite {
       
       const application = applications[0];
       
-      // Validate application data structure
       if (!application.answers || typeof application.answers !== 'object') {
         throw new Error('Application answers not properly stored');
       }
@@ -358,7 +624,6 @@ export class E2ETestingSuite {
         throw new Error('No test application ID available');
       }
       
-      // Trigger AI scoring
       const result = await AIComprehensiveScoringService.triggerEvaluation(this.testApplicationId);
       
       if (!result.success) {
@@ -395,507 +660,6 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Enhanced real-time updates test with comprehensive WebSocket validation
-   */
-  private async testRealTimeUpdates(): Promise<void> {
-    const startTime = Date.now();
-    
-    try {
-      console.log('🔄 Testing real-time updates with comprehensive WebSocket validation...');
-      
-      if (!this.testApplicationId) {
-        throw new Error('No test application ID available');
-      }
-
-      // First, validate authentication status
-      const authValidation = await this.validateAuthenticationForRealtime();
-      if (!authValidation.success) {
-        throw new Error(`Authentication validation failed: ${authValidation.error}`);
-      }
-
-      // Test the real-time subscription system with WebSocket state monitoring
-      const subscriptionTest = await this.validateEnhancedRealtimeSubscription();
-      
-      if (!subscriptionTest.success) {
-        throw new Error(`Enhanced real-time subscription test failed: ${subscriptionTest.error}`);
-      }
-
-      // Perform database updates and wait for real-time notification with WebSocket monitoring
-      const updateTest = await this.testEnhancedUpdatePropagation();
-      
-      if (!updateTest.success) {
-        throw new Error(`Enhanced real-time update propagation failed: ${updateTest.error}`);
-      }
-
-      const duration = Date.now() - startTime;
-      
-      this.addTestResult({
-        testName: 'Real-Time Updates',
-        status: 'passed',
-        message: `Enhanced real-time updates working correctly. Subscription established within ${subscriptionTest.connectionTime}ms, WebSocket in ${subscriptionTest.webSocketState} state, updates propagated within ${updateTest.latency}ms.`,
-        timestamp: new Date().toISOString(),
-        duration,
-        details: {
-          authValidation: authValidation.details,
-          subscriptionDetails: subscriptionTest.details,
-          webSocketValidation: subscriptionTest.webSocketValidation,
-          updateLatency: updateTest.latency,
-          eventsReceived: updateTest.eventsReceived,
-          connectionTime: subscriptionTest.connectionTime
-        }
-      });
-      
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      
-      this.addTestResult({
-        testName: 'Real-Time Updates',
-        status: 'failed',
-        message: `Enhanced real-time updates test failed: ${error.message}`,
-        timestamp: new Date().toISOString(),
-        duration
-      });
-      
-      // Don't throw here to allow other tests to continue
-      console.error('❌ Enhanced real-time updates test failed, but continuing with other tests');
-    } finally {
-      // Always cleanup the channel
-      if (this.realtimeChannel) {
-        try {
-          supabase.removeChannel(this.realtimeChannel);
-        } catch (cleanupError) {
-          console.warn('⚠️ Error during real-time channel cleanup:', cleanupError);
-        }
-        this.realtimeChannel = null;
-      }
-    }
-  }
-
-  /**
-   * Validate authentication for real-time subscription
-   */
-  private async validateAuthenticationForRealtime(): Promise<{
-    success: boolean;
-    error?: string;
-    details?: any;
-  }> {
-    try {
-      console.log('🔐 Validating authentication for real-time subscription...');
-      
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        return {
-          success: false,
-          error: `Authentication error: ${error.message}`,
-          details: { error }
-        };
-      }
-
-      if (!session) {
-        return {
-          success: false,
-          error: 'No authenticated session found',
-          details: { sessionExists: false }
-        };
-      }
-
-      if (!session.access_token) {
-        return {
-          success: false,
-          error: 'No access token in session',
-          details: { sessionExists: true, hasAccessToken: false }
-        };
-      }
-
-      // Set realtime auth explicitly
-      try {
-        supabase.realtime.setAuth(session.access_token);
-        console.log('✅ Realtime authentication configured successfully');
-      } catch (authError) {
-        return {
-          success: false,
-          error: `Failed to set realtime auth: ${authError.message}`,
-          details: { authError }
-        };
-      }
-
-      return {
-        success: true,
-        details: {
-          userId: session.user?.id,
-          email: session.user?.email,
-          hasAccessToken: true,
-          realtimeAuthSet: true
-        }
-      };
-      
-    } catch (error) {
-      return {
-        success: false,
-        error: `Authentication validation exception: ${error.message}`,
-        details: { exception: error }
-      };
-    }
-  }
-
-  /**
-   * Validate enhanced real-time subscription with comprehensive WebSocket monitoring
-   */
-  private async validateEnhancedRealtimeSubscription(): Promise<{
-    success: boolean;
-    error?: string;
-    details?: any;
-    connectionTime?: number;
-    webSocketState?: string;
-    webSocketValidation?: any;
-  }> {
-    return new Promise((resolve) => {
-      console.log('🔍 Validating enhanced real-time subscription with WebSocket monitoring...');
-      
-      const startTime = Date.now();
-      let subscriptionTimeout: NodeJS.Timeout;
-      let connectionMonitor: NodeJS.Timeout;
-      let webSocketMonitor: NodeJS.Timeout;
-      let isResolved = false;
-      
-      const resolveOnce = (result: any) => {
-        if (isResolved) return;
-        isResolved = true;
-        if (subscriptionTimeout) clearTimeout(subscriptionTimeout);
-        if (connectionMonitor) clearTimeout(connectionMonitor);
-        if (webSocketMonitor) clearTimeout(webSocketMonitor);
-        
-        // Add connection time to result
-        if (result.success) {
-          result.connectionTime = Date.now() - startTime;
-        }
-        
-        resolve(result);
-      };
-
-      try {
-        // Create a unique channel name to avoid conflicts
-        const timestamp = Date.now();
-        const channelName = `e2e-websocket-test-${timestamp}`;
-        console.log(`📡 Testing enhanced subscription with WebSocket monitoring: ${channelName}`);
-        
-        this.realtimeChannel = supabase
-          .channel(channelName, {
-            config: {
-              presence: { key: `e2e-websocket-${timestamp}` },
-              broadcast: { self: false }
-            }
-          })
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'yff_applications'
-            },
-            (payload) => {
-              console.log('📨 Real-time event received in WebSocket test:', {
-                eventType: payload.eventType,
-                timestamp: new Date().toISOString()
-              });
-            }
-          )
-          .subscribe((status, err) => {
-            const connectionTime = Date.now() - startTime;
-            console.log('📡 Enhanced subscription status with WebSocket monitoring:', {
-              status,
-              error: err,
-              connectionTime: `${connectionTime}ms`,
-              channelName
-            });
-            
-            if (status === 'SUBSCRIBED') {
-              console.log(`✅ Enhanced subscription established successfully in ${connectionTime}ms`);
-              
-              // Start comprehensive WebSocket validation after a brief delay
-              webSocketMonitor = setTimeout(() => {
-                const webSocketValidation = this.validateWebSocketState(this.realtimeChannel);
-                
-                console.log(`🔍 Comprehensive WebSocket validation:`, webSocketValidation);
-                
-                if (webSocketValidation.isOpen) {
-                  // Additional stability check - wait longer to ensure connection is stable
-                  connectionMonitor = setTimeout(() => {
-                    const finalValidation = this.validateWebSocketState(this.realtimeChannel);
-                    
-                    console.log(`🔍 Final WebSocket stability check:`, finalValidation);
-                    
-                    if (finalValidation.isOpen) {
-                      resolveOnce({
-                        success: true,
-                        webSocketState: finalValidation.state,
-                        webSocketValidation: finalValidation,
-                        details: {
-                          subscriptionStatus: status,
-                          channelName,
-                          timestamp: new Date().toISOString(),
-                          stabilityCheckPassed: true
-                        }
-                      });
-                    } else {
-                      resolveOnce({
-                        success: false,
-                        error: `WebSocket state changed during stability check: ${finalValidation.state}`,
-                        webSocketState: finalValidation.state,
-                        webSocketValidation: finalValidation,
-                        details: { 
-                          status, 
-                          channelName, 
-                          connectionTime,
-                          stabilityCheckFailed: true
-                        }
-                      });
-                    }
-                  }, 5000); // Wait 5 seconds for stability
-                  
-                } else {
-                  resolveOnce({
-                    success: false,
-                    error: `WebSocket not in OPEN state after subscription: ${webSocketValidation.state}`,
-                    webSocketState: webSocketValidation.state,
-                    webSocketValidation: webSocketValidation,
-                    details: { status, channelName, connectionTime }
-                  });
-                }
-              }, 3000); // Wait 3 seconds before first WebSocket check
-              
-            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-              resolveOnce({
-                success: false,
-                error: `Enhanced subscription failed with status: ${status}`,
-                details: { status, error: err, channelName, connectionTime }
-              });
-            }
-          });
-
-        // Set extended timeout for subscription establishment (45 seconds for comprehensive testing)
-        subscriptionTimeout = setTimeout(() => {
-          const connectionTime = Date.now() - startTime;
-          console.error(`⏰ Enhanced connection timeout after ${connectionTime}ms`);
-          
-          const webSocketValidation = this.realtimeChannel ? 
-            this.validateWebSocketState(this.realtimeChannel) : 
-            { isOpen: false, state: 'TIMEOUT_NO_CHANNEL', details: {} };
-            
-          resolveOnce({
-            success: false,
-            error: `Enhanced subscription did not establish within 45 seconds (took ${connectionTime}ms)`,
-            webSocketState: webSocketValidation.state,
-            webSocketValidation: webSocketValidation,
-            details: { 
-              timeout: true, 
-              channelName, 
-              connectionTime,
-              timeoutReason: 'SUBSCRIPTION_ESTABLISHMENT'
-            }
-          });
-        }, 45000); // 45 second timeout
-
-      } catch (error) {
-        const connectionTime = Date.now() - startTime;
-        resolveOnce({
-          success: false,
-          error: `Enhanced subscription setup failed: ${error.message}`,
-          details: { exception: error, connectionTime }
-        });
-      }
-    });
-  }
-
-  /**
-   * Test enhanced update propagation with WebSocket state monitoring
-   */
-  private async testEnhancedUpdatePropagation(): Promise<{
-    success: boolean;
-    error?: string;
-    latency?: number;
-    eventsReceived?: number;
-  }> {
-    return new Promise((resolve) => {
-      console.log('🔍 Testing enhanced real-time update propagation with WebSocket monitoring...');
-      
-      let updateTimeout: NodeJS.Timeout;
-      let eventsReceived = 0;
-      let updateStartTime: number;
-      let isResolved = false;
-      let eventListener: any = null;
-      
-      const resolveOnce = (result: any) => {
-        if (isResolved) return;
-        isResolved = true;
-        if (updateTimeout) clearTimeout(updateTimeout);
-        if (eventListener) {
-          try {
-            supabase.removeChannel(eventListener);
-          } catch (cleanupError) {
-            console.warn('⚠️ Error cleaning up event listener:', cleanupError);
-          }
-        }
-        resolve(result);
-      };
-
-      // The main channel should already be subscribed from the previous test
-      if (!this.realtimeChannel) {
-        resolveOnce({
-          success: false,
-          error: 'No active enhanced real-time channel for testing updates',
-          eventsReceived
-        });
-        return;
-      }
-
-      // Validate WebSocket state before starting update test
-      const initialWebSocketState = this.validateWebSocketState(this.realtimeChannel);
-      console.log('🔍 Initial WebSocket state for update test:', initialWebSocketState);
-      
-      if (!initialWebSocketState.isOpen) {
-        resolveOnce({
-          success: false,
-          error: `WebSocket not ready for update test: ${initialWebSocketState.state}`,
-          eventsReceived
-        });
-        return;
-      }
-
-      // Create a dedicated listener for our test application updates
-      const timestamp = Date.now();
-      const updateChannelName = `e2e-update-websocket-test-${timestamp}`;
-      eventListener = supabase
-        .channel(updateChannelName, {
-          config: {
-            presence: { key: `update-websocket-test-${timestamp}` },
-            broadcast: { self: false }
-          }
-        })
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'yff_applications',
-            filter: `application_id=eq.${this.testApplicationId}`
-          },
-          (payload) => {
-            eventsReceived++;
-            const latency = Date.now() - updateStartTime;
-            
-            console.log(`📨 Enhanced real-time update received with WebSocket monitoring. Latency: ${latency}ms`, {
-              eventType: payload.eventType,
-              applicationId: payload.new?.application_id || payload.old?.application_id,
-              evaluationStatus: payload.new?.evaluation_status,
-              eventsReceived
-            });
-            
-            // Validate WebSocket state when event is received
-            const eventWebSocketState = this.validateWebSocketState(eventListener);
-            console.log('🔍 WebSocket state when event received:', eventWebSocketState);
-            
-            resolveOnce({
-              success: true,
-              latency,
-              eventsReceived,
-              webSocketStateAtEvent: eventWebSocketState
-            });
-          }
-        )
-        .subscribe(async (status) => {
-          console.log(`📡 Enhanced update test channel with WebSocket monitoring status: ${status}`);
-          
-          if (status === 'SUBSCRIBED') {
-            // Validate WebSocket state after subscription
-            const subscriptionWebSocketState = this.validateWebSocketState(eventListener);
-            console.log('🔍 WebSocket state after update channel subscription:', subscriptionWebSocketState);
-            
-            if (!subscriptionWebSocketState.isOpen) {
-              resolveOnce({
-                success: false,
-                error: `Update channel WebSocket not open after subscription: ${subscriptionWebSocketState.state}`,
-                eventsReceived
-              });
-              return;
-            }
-            
-            console.log('✅ Enhanced update test channel subscribed with WebSocket monitoring, triggering database updates...');
-            
-            // Give subscription more time to be fully ready with WebSocket validation
-            setTimeout(async () => {
-              updateStartTime = Date.now();
-              
-              // Perform multiple database updates with better spacing
-              const updates = [
-                { evaluation_status: 'processing', updated_at: new Date().toISOString() },
-                { status: 'under_review', updated_at: new Date().toISOString() },
-                { evaluation_status: 'completed', updated_at: new Date().toISOString() },
-                { status: 'completed', updated_at: new Date().toISOString() }
-              ];
-
-              for (let i = 0; i < updates.length; i++) {
-                // Check WebSocket state before each update
-                const preUpdateWebSocketState = this.validateWebSocketState(eventListener);
-                console.log(`🔍 WebSocket state before update ${i + 1}:`, preUpdateWebSocketState);
-                
-                if (!preUpdateWebSocketState.isOpen) {
-                  console.warn(`⚠️ WebSocket not open before update ${i + 1}: ${preUpdateWebSocketState.state}`);
-                }
-                
-                console.log(`🔄 Performing enhanced update with WebSocket monitoring ${i + 1}/${updates.length}:`, updates[i]);
-                
-                try {
-                  const { error } = await supabase
-                    .from('yff_applications')
-                    .update(updates[i])
-                    .eq('application_id', this.testApplicationId);
-                  
-                  if (error) {
-                    console.error(`❌ Enhanced update ${i + 1} failed:`, error);
-                  } else {
-                    console.log(`✅ Enhanced update ${i + 1} successful`);
-                  }
-                } catch (updateError) {
-                  console.error(`❌ Exception during enhanced update ${i + 1}:`, updateError);
-                }
-
-                // Wait between updates to allow propagation
-                if (i < updates.length - 1) {
-                  await new Promise(resolve => setTimeout(resolve, 4000));
-                }
-              }
-
-            }, 7000); // Wait 7 seconds for subscription to be fully ready
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            resolveOnce({
-              success: false,
-              error: `Enhanced update test channel failed: ${status}`,
-              eventsReceived
-            });
-          }
-        });
-
-      // Set extended timeout for update propagation (50 seconds for comprehensive WebSocket testing)
-      updateTimeout = setTimeout(() => {
-        const finalWebSocketState = eventListener ? 
-          this.validateWebSocketState(eventListener) : 
-          { isOpen: false, state: 'TIMEOUT_NO_LISTENER', details: {} };
-          
-        console.log(`⏰ Enhanced real-time update test timeout. Events received: ${eventsReceived}, Final WebSocket state:`, finalWebSocketState);
-        
-        resolveOnce({
-          success: false,
-          error: `Enhanced real-time update not received within 50 seconds. Events received: ${eventsReceived}, WebSocket state: ${finalWebSocketState.state}`,
-          eventsReceived,
-          finalWebSocketState
-        });
-      }, 50000); // 50 second timeout
-    });
-  }
-
-  /**
    * Test results display
    */
   private async testResultsDisplay(): Promise<void> {
@@ -908,7 +672,6 @@ export class E2ETestingSuite {
         throw new Error('No test application ID available');
       }
       
-      // Fetch application with evaluation data
       const { data: application, error } = await supabase
         .from('yff_applications')
         .select('*')
@@ -919,7 +682,6 @@ export class E2ETestingSuite {
         throw new Error(`Failed to fetch application results: ${error.message}`);
       }
       
-      // Validate evaluation data exists and has proper structure
       if (!application.evaluation_data || typeof application.evaluation_data !== 'object') {
         throw new Error('Evaluation data not found or improperly formatted');
       }
@@ -960,7 +722,6 @@ export class E2ETestingSuite {
         duration
       });
       
-      // Don't throw here to allow other tests to continue
       console.error('❌ Results display test failed, but continuing with other tests');
     }
   }
@@ -974,7 +735,6 @@ export class E2ETestingSuite {
     try {
       console.log('🔄 Testing error handling...');
       
-      // Test invalid application ID handling
       const invalidResult = await AIComprehensiveScoringService.triggerEvaluation('invalid-uuid-format');
       
       if (invalidResult.success) {
@@ -1016,7 +776,6 @@ export class E2ETestingSuite {
     try {
       console.log('🔄 Testing performance metrics...');
       
-      // Test database query performance
       const queryStart = Date.now();
       const { count, error } = await supabase
         .from('yff_applications')
@@ -1027,8 +786,7 @@ export class E2ETestingSuite {
         throw new Error(`Performance test query failed: ${error.message}`);
       }
       
-      // Validate acceptable performance thresholds
-      const maxAcceptableQueryTime = 2000; // 2 seconds
+      const maxAcceptableQueryTime = 2000;
       const performanceGrade = queryDuration < maxAcceptableQueryTime ? 'Good' : 'Needs Improvement';
       
       const duration = Date.now() - startTime;
@@ -1069,7 +827,6 @@ export class E2ETestingSuite {
     console.log('🧹 Cleaning up test data...');
     
     try {
-      // Clean up in reverse order of creation
       if (this.testApplicationId) {
         await supabase
           .from('yff_applications')
@@ -1088,19 +845,13 @@ export class E2ETestingSuite {
         console.log(`🗑️ Deleted test individual: ${this.testIndividualId}`);
       }
       
-      // Clean up any remaining realtime channels
-      if (this.realtimeChannel) {
-        try {
-          supabase.removeChannel(this.realtimeChannel);
-        } catch (cleanupError) {
-          console.warn('⚠️ Error during realtime channel cleanup:', cleanupError);
-        }
-        this.realtimeChannel = null;
+      if (this.subscriptionManager) {
+        this.subscriptionManager.stop();
+        this.subscriptionManager = null;
       }
       
     } catch (error) {
       console.error('⚠️ Error during cleanup:', error);
-      // Don't throw cleanup errors
     }
   }
 

@@ -1,18 +1,16 @@
+
 /**
  * @fileoverview End-to-End Testing Suite for YFF Application System
  * 
  * Comprehensive testing suite that validates the entire application flow
  * from submission through AI evaluation to dashboard display with enhanced
- * WebSocket real-time update testing using robust connection management.
+ * WebSocket real-time update testing.
  * 
- * @version 4.0.0 
+ * @version 3.0.0 
  * @author 26ideas Development Team
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { WebSocketConnectionManager } from './websocket-connection-manager';
-import { RealtimeSubscriptionManager } from './realtime-subscription-manager';
-import { diagnoseWebSocketConnection } from './websocket-diagnostics';
 
 export interface TestResult {
   testName: string;
@@ -24,16 +22,145 @@ export interface TestResult {
 }
 
 /**
+ * WebSocket state constants for proper validation
+ */
+const WEBSOCKET_STATES = {
+  CONNECTING: 0,
+  OPEN: 1,
+  CLOSING: 2,
+  CLOSED: 3
+} as const;
+
+const WEBSOCKET_STATE_NAMES = {
+  [WEBSOCKET_STATES.CONNECTING]: 'CONNECTING',
+  [WEBSOCKET_STATES.OPEN]: 'OPEN',
+  [WEBSOCKET_STATES.CLOSING]: 'CLOSING', 
+  [WEBSOCKET_STATES.CLOSED]: 'CLOSED'
+} as const;
+
+/**
+ * Enhanced WebSocket diagnostic utility
+ */
+const diagnoseWebSocketForTesting = async () => {
+  console.log('🔍 === E2E WebSocket Diagnostic ===');
+  
+  // Check Supabase configuration using environment variables
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKeyPresent = !!import.meta.env.VITE_SUPABASE_ANON_KEY;
+  
+  console.log('Supabase URL:', supabaseUrl || 'Missing');
+  console.log('Supabase Key Present:', supabaseKeyPresent);
+  
+  // Check authentication
+  const { data: { session }, error: authError } = await supabase.auth.getSession();
+  console.log('Auth Status:', session ? 'Authenticated' : 'Not authenticated');
+  console.log('Auth Error:', authError || 'None');
+  
+  if (session) {
+    console.log('User ID:', session.user.id);
+    console.log('Access Token Present:', !!session.access_token);
+  }
+  
+  // Check realtime socket
+  const realtimeSocket = (supabase as any).realtime?.socket;
+  console.log('Realtime Socket Available:', !!realtimeSocket);
+  
+  if (realtimeSocket) {
+    const state = realtimeSocket.readyState;
+    const stateName = WEBSOCKET_STATE_NAMES[state] || 'UNKNOWN';
+    console.log('Socket State:', `${state} (${stateName})`);
+    console.log('Socket URL:', realtimeSocket.endPoint || 'Not available');
+  }
+  
+  console.log('🔍 === Diagnostic Complete ===');
+  
+  return {
+    session,
+    realtimeSocket,
+    isConfigured: !!(supabaseUrl && supabaseKeyPresent),
+    isAuthenticated: !!session,
+    socketState: realtimeSocket?.readyState
+  };
+};
+
+/**
+ * Force WebSocket connection with enhanced monitoring
+ */
+const ensureWebSocketConnection = async (): Promise<boolean> => {
+  console.log('🔄 Ensuring WebSocket connection for E2E testing...');
+  
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      console.error('❌ WebSocket connection timeout (15 seconds)');
+      reject(new Error('WebSocket connection timeout after 15 seconds'));
+    }, 15000);
+
+    const realtimeSocket = (supabase as any).realtime?.socket;
+    
+    if (!realtimeSocket) {
+      clearTimeout(timeout);
+      reject(new Error('Realtime socket not available - check Supabase configuration'));
+      return;
+    }
+
+    const initialState = realtimeSocket.readyState;
+    const initialStateName = WEBSOCKET_STATE_NAMES[initialState] || 'UNKNOWN';
+    console.log(`🔍 Initial WebSocket state: ${initialState} (${initialStateName})`);
+    
+    // Force connection if needed
+    if (initialState !== WEBSOCKET_STATES.OPEN) {
+      console.log('🔄 Forcing WebSocket connection...');
+      try {
+        (supabase as any).realtime.connect();
+      } catch (connectError) {
+        console.error('❌ Error forcing connection:', connectError);
+        clearTimeout(timeout);
+        reject(new Error(`Failed to force connection: ${connectError.message}`));
+        return;
+      }
+    }
+
+    // Monitor connection with enhanced logging
+    let attemptCount = 0;
+    const checkConnection = () => {
+      attemptCount++;
+      const currentState = realtimeSocket.readyState;
+      const currentStateName = WEBSOCKET_STATE_NAMES[currentState] || 'UNKNOWN';
+      
+      console.log(`🔍 Connection check ${attemptCount}: ${currentState} (${currentStateName})`);
+      
+      if (currentState === WEBSOCKET_STATES.OPEN) {
+        console.log('✅ WebSocket connection established successfully for E2E testing');
+        clearTimeout(timeout);
+        resolve(true);
+      } else if (currentState === WEBSOCKET_STATES.CLOSED) {
+        console.error('❌ WebSocket connection closed during E2E testing');
+        clearTimeout(timeout);
+        reject(new Error('WebSocket connection closed unexpectedly'));
+      } else if (attemptCount >= 150) { // 15 seconds max
+        console.error(`❌ WebSocket failed to reach OPEN state after ${attemptCount} attempts (stuck in ${currentStateName})`);
+        clearTimeout(timeout);
+        reject(new Error(`WebSocket connection failed - stuck in ${currentStateName} state`));
+      } else {
+        // Continue monitoring
+        setTimeout(checkConnection, 100);
+      }
+    };
+    
+    checkConnection();
+  });
+};
+
+/**
  * Test real-time subscription establishment with comprehensive validation
  */
 const testRealtimeSubscriptionEstablishment = async (): Promise<TestResult> => {
-  console.log('🔄 Testing robust real-time subscription establishment...');
+  console.log('🔄 Testing enhanced real-time subscription establishment...');
   const startTime = Date.now();
   
   try {
     // Step 1: Run comprehensive diagnostics
-    console.log('🔍 Running comprehensive diagnostics...');
-    const diagnostics = await diagnoseWebSocketConnection();
+    const diagnostics = await diagnoseWebSocketForTesting();
     
     if (!diagnostics.isConfigured) {
       throw new Error('Supabase not properly configured - missing URL or key');
@@ -42,103 +169,116 @@ const testRealtimeSubscriptionEstablishment = async (): Promise<TestResult> => {
     if (!diagnostics.isAuthenticated) {
       throw new Error('User not authenticated - authentication required for realtime');
     }
-
-    // Step 2: Create connection manager with test configuration
-    console.log('🔧 Creating connection manager for testing...');
-    const connectionManager = new WebSocketConnectionManager({
-      maxRetries: 2,
-      baseDelayMs: 500,
-      maxDelayMs: 5000,
-      timeoutMs: 10000,
-      enableAutoReconnect: true
-    });
-
-    // Step 3: Establish connection
-    console.log('🔗 Establishing WebSocket connection...');
-    const isConnected = await connectionManager.connect();
     
-    if (!isConnected) {
-      throw new Error('Failed to establish WebSocket connection');
-    }
-
-    // Step 4: Create subscription manager and test subscription
-    console.log('📡 Creating subscription manager and test subscription...');
-    const subscriptionManager = new RealtimeSubscriptionManager(connectionManager);
+    // Step 2: Set up realtime authentication
+    console.log('🔐 Setting up realtime authentication...');
+    (supabase as any).realtime.setAuth(diagnostics.session.access_token);
     
+    // Step 3: Ensure WebSocket connection
+    console.log('🔄 Ensuring WebSocket connection...');
+    await ensureWebSocketConnection();
+    
+    // Step 4: Create test subscription
+    console.log('📡 Creating test subscription...');
     const testChannelName = `e2e-test-${Date.now()}`;
-    let receivedPayload = false;
     
-    const channel = await subscriptionManager.createSubscription(
-      {
-        channelName: testChannelName,
-        table: 'yff_applications',
-        schema: 'public',
-        event: '*',
-        validationTimeoutMs: 15000,
-        maxValidationAttempts: 150
-      },
-      (payload) => {
-        console.log('📨 Test subscription received payload:', payload.eventType);
-        receivedPayload = true;
-      },
-      (status) => {
-        console.log('📊 Test subscription status:', status);
-      }
-    );
+    const testChannel = supabase
+      .channel(testChannelName, {
+        config: {
+          broadcast: { self: false },
+          presence: { key: `test-${diagnostics.session.user.id}` }
+        }
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'yff_applications'
+        },
+        (payload) => {
+          console.log('📨 Test subscription received payload:', payload.eventType);
+        }
+      )
+      .subscribe((status, err) => {
+        console.log(`📡 Test subscription status: ${status}`, err ? { error: err } : {});
+      });
 
-    // Step 5: Verify subscription is working
-    console.log('⚡ Verifying subscription functionality...');
+    // Step 5: Validate subscription establishment
+    console.log('⏳ Validating subscription establishment...');
+    await new Promise((resolve, reject) => {
+      const subscriptionTimeout = setTimeout(() => {
+        reject(new Error('Test subscription did not establish within 20 seconds'));
+      }, 20000);
+
+      let checkCount = 0;
+      const validateSubscription = () => {
+        checkCount++;
+        
+        const realtimeSocket = (supabase as any).realtime?.socket;
+        const socketState = realtimeSocket?.readyState;
+        const socketStateName = WEBSOCKET_STATE_NAMES[socketState] || 'UNKNOWN';
+        const channelState = (testChannel as any).state;
+        
+        console.log(`🔍 Subscription validation ${checkCount}:`, {
+          socketState: `${socketState} (${socketStateName})`,
+          channelState,
+          elapsed: `${Date.now() - startTime}ms`
+        });
+        
+        if (channelState === 'joined' && socketState === WEBSOCKET_STATES.OPEN) {
+          console.log('✅ Test subscription established successfully!');
+          clearTimeout(subscriptionTimeout);
+          resolve(true);
+        } else if (channelState === 'errored' || channelState === 'closed') {
+          console.error('❌ Test subscription failed:', { channelState, socketStateName });
+          clearTimeout(subscriptionTimeout);
+          reject(new Error(`Subscription failed: channel=${channelState}, socket=${socketStateName}`));
+        } else if (checkCount >= 200) { // 20 seconds max
+          console.error('❌ Subscription validation timeout after maximum attempts');
+          clearTimeout(subscriptionTimeout);
+          reject(new Error(`Subscription validation timeout: channel=${channelState}, socket=${socketStateName}`));
+        } else {
+          setTimeout(validateSubscription, 100);
+        }
+      };
+      
+      validateSubscription();
+    });
     
-    // Check subscription status
-    const subscriptionStatus = subscriptionManager.getSubscriptionStatus(testChannelName);
-    if (!subscriptionStatus?.isActive) {
-      throw new Error(`Subscription not active: ${JSON.stringify(subscriptionStatus)}`);
-    }
-
     // Step 6: Clean up test subscription
     console.log('🧹 Cleaning up test subscription...');
-    await subscriptionManager.removeSubscription(testChannelName);
-    
-    // Step 7: Cleanup managers
-    await subscriptionManager.cleanup();
-    connectionManager.destroy();
+    await supabase.removeChannel(testChannel);
     
     const duration = Date.now() - startTime;
-    console.log(`✅ Robust real-time subscription test completed successfully (${duration}ms)`);
+    console.log(`✅ Enhanced real-time subscription test completed successfully (${duration}ms)`);
     
     return {
-      testName: 'Robust Real-Time Subscription',
+      testName: 'Enhanced Real-Time Subscription',
       status: 'passed',
-      message: 'Real-time subscription established and validated successfully using robust managers',
+      message: 'Real-time subscription established and validated successfully',
       timestamp: new Date().toISOString(),
       duration,
       details: {
         websocketState: 'OPEN',
         subscriptionState: 'joined',
         authenticationValid: true,
-        configurationValid: true,
-        connectionManagerUsed: true,
-        subscriptionManagerUsed: true
+        configurationValid: true
       }
     };
     
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('❌ Robust real-time subscription test failed:', errorMessage);
+    console.error('❌ Enhanced real-time subscription test failed:', errorMessage);
     
-    // Get final diagnostic state for debugging
-    let finalDiagnostics = {};
-    try {
-      finalDiagnostics = await diagnoseWebSocketConnection();
-    } catch (diagError) {
-      console.warn('⚠️ Could not run final diagnostics:', diagError);
-    }
+    // Get final diagnostic state
+    const finalDiagnostics = await diagnoseWebSocketForTesting().catch(() => ({}));
     
     return {
-      testName: 'Robust Real-Time Subscription',
+      testName: 'Enhanced Real-Time Subscription',
       status: 'failed',
-      message: `Robust real-time subscription test failed: ${errorMessage}`,
+      message: `Enhanced real-time subscription test failed: ${errorMessage}`,
       timestamp: new Date().toISOString(),
       duration,
       details: {
@@ -156,7 +296,7 @@ export class E2ETestingSuite {
    * Run complete end-to-end test suite with enhanced real-time testing
    */
   async runCompleteTestSuite(): Promise<TestResult[]> {
-    console.log('🚀 Starting comprehensive E2E test suite with robust managers...');
+    console.log('🚀 Starting comprehensive E2E test suite...');
     this.results = [];
     
     const tests = [
@@ -166,30 +306,25 @@ export class E2ETestingSuite {
       this.testAIScoringTrigger,
       this.testDashboardDisplay,
       this.testErrorHandling,
-      this.testPerformanceMetrics,
-      this.testConnectionManagerResilience,
-      this.testSubscriptionManagerStability
+      this.testPerformanceMetrics
     ];
     
     for (const test of tests) {
       try {
-        console.log(`🧪 Running test: ${test.name}`);
         const result = await test.call(this);
         this.results.push(result);
         
-        const statusIcon = result.status === 'passed' ? '✅' : '❌';
-        console.log(`${statusIcon} ${result.testName}: ${result.message}`);
+        console.log(`${result.status === 'passed' ? '✅' : '❌'} ${result.testName}: ${result.message}`);
         
         // Add delay between tests to prevent overwhelming the system
         await new Promise(resolve => setTimeout(resolve, 1000));
         
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error(`❌ Test execution error:`, error);
         this.results.push({
           testName: 'Test Execution',
           status: 'failed',
-          message: `Test execution failed: ${errorMessage}`,
+          message: `Test execution failed: ${error.message}`,
           timestamp: new Date().toISOString()
         });
       }
@@ -201,147 +336,6 @@ export class E2ETestingSuite {
     console.log(`🏁 E2E Test Suite Complete: ${passedCount}/${totalCount} tests passed`);
     
     return this.results;
-  }
-
-  /**
-   * Test connection manager resilience
-   */
-  private async testConnectionManagerResilience(): Promise<TestResult> {
-    console.log('🔄 Testing connection manager resilience...');
-    const startTime = Date.now();
-    
-    try {
-      const connectionManager = new WebSocketConnectionManager({
-        maxRetries: 1,
-        baseDelayMs: 100,
-        maxDelayMs: 1000,
-        timeoutMs: 5000,
-        enableAutoReconnect: false
-      });
-
-      // Test connection establishment
-      const isConnected = await connectionManager.connect();
-      
-      if (!isConnected) {
-        throw new Error('Connection manager failed to establish connection');
-      }
-
-      // Test health check
-      const isHealthy = connectionManager.isHealthy();
-      if (!isHealthy) {
-        throw new Error('Connection manager reports unhealthy state');
-      }
-
-      // Test status retrieval
-      const status = connectionManager.getStatus();
-      if (!status.isConnected) {
-        throw new Error('Connection manager status shows disconnected');
-      }
-
-      // Cleanup
-      connectionManager.destroy();
-      
-      const duration = Date.now() - startTime;
-      
-      return {
-        testName: 'Connection Manager Resilience',
-        status: 'passed',
-        message: 'Connection manager passed resilience tests',
-        timestamp: new Date().toISOString(),
-        duration,
-        details: {
-          connectionEstablished: isConnected,
-          healthCheck: isHealthy,
-          statusCheck: status.isConnected
-        }
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      return {
-        testName: 'Connection Manager Resilience',
-        status: 'failed',
-        message: `Connection manager resilience test failed: ${errorMessage}`,
-        timestamp: new Date().toISOString(),
-        duration,
-        details: { error: errorMessage }
-      };
-    }
-  }
-
-  /**
-   * Test subscription manager stability
-   */
-  private async testSubscriptionManagerStability(): Promise<TestResult> {
-    console.log('🔄 Testing subscription manager stability...');
-    const startTime = Date.now();
-    
-    try {
-      const connectionManager = new WebSocketConnectionManager({
-        maxRetries: 1,
-        baseDelayMs: 100,
-        maxDelayMs: 1000,
-        timeoutMs: 5000,
-        enableAutoReconnect: false
-      });
-
-      await connectionManager.connect();
-      
-      const subscriptionManager = new RealtimeSubscriptionManager(connectionManager);
-      
-      // Test subscription creation and cleanup
-      const testChannel = `stability-test-${Date.now()}`;
-      
-      await subscriptionManager.createSubscription(
-        {
-          channelName: testChannel,
-          table: 'yff_applications',
-          schema: 'public',
-          event: '*',
-          validationTimeoutMs: 5000
-        },
-        () => console.log('Test payload received'),
-        () => console.log('Test status updated')
-      );
-
-      // Test status retrieval
-      const status = subscriptionManager.getSubscriptionStatus(testChannel);
-      if (!status?.isActive) {
-        throw new Error('Subscription manager failed to create active subscription');
-      }
-
-      // Test cleanup
-      await subscriptionManager.cleanup();
-      connectionManager.destroy();
-      
-      const duration = Date.now() - startTime;
-      
-      return {
-        testName: 'Subscription Manager Stability',
-        status: 'passed',
-        message: 'Subscription manager passed stability tests',
-        timestamp: new Date().toISOString(),
-        duration,
-        details: {
-          subscriptionCreated: true,
-          statusCheck: status.isActive,
-          cleanupSuccessful: true
-        }
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      return {
-        testName: 'Subscription Manager Stability',
-        status: 'failed',
-        message: `Subscription manager stability test failed: ${errorMessage}`,
-        timestamp: new Date().toISOString(),
-        duration,
-        details: { error: errorMessage }
-      };
-    }
   }
 
   private async testDatabaseConnection(): Promise<TestResult> {
@@ -363,19 +357,18 @@ export class E2ETestingSuite {
         message: `Successfully connected to database. Found ${count || 0} applications`,
         timestamp: new Date().toISOString(),
         duration,
-        details: { applicationCount: count || 0 }
+        details: `Successfully connected to database. Found ${count || 0} applications (${duration}ms)`
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       return {
         testName: 'Database Connection',
         status: 'failed',
-        message: `Database connection failed: ${errorMessage}`,
+        message: `Database connection failed: ${error.message}`,
         timestamp: new Date().toISOString(),
         duration,
-        details: { error: errorMessage }
+        details: `Database connection failed: ${error.message} (${duration}ms)`
       };
     }
   }
@@ -385,6 +378,7 @@ export class E2ETestingSuite {
     const startTime = Date.now();
     
     try {
+      // Test would involve creating a test application
       const duration = Date.now() - startTime;
       
       return {
@@ -396,15 +390,13 @@ export class E2ETestingSuite {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       return {
         testName: 'Application Submission Flow', 
         status: 'failed',
-        message: `Application submission failed: ${errorMessage}`,
+        message: `Application submission failed: ${error.message}`,
         timestamp: new Date().toISOString(),
-        duration,
-        details: { error: errorMessage }
+        duration
       };
     }
   }
@@ -425,15 +417,13 @@ export class E2ETestingSuite {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       return {
         testName: 'AI Scoring Trigger',
         status: 'failed',
-        message: `AI scoring trigger failed: ${errorMessage}`,
+        message: `AI scoring trigger failed: ${error.message}`,
         timestamp: new Date().toISOString(),
-        duration,
-        details: { error: errorMessage }
+        duration
       };
     }
   }
@@ -454,15 +444,13 @@ export class E2ETestingSuite {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       return {
         testName: 'Dashboard Display',
         status: 'failed',
-        message: `Dashboard display failed: ${errorMessage}`,
+        message: `Dashboard display failed: ${error.message}`,
         timestamp: new Date().toISOString(),
-        duration,
-        details: { error: errorMessage }
+        duration
       };
     }
   }
@@ -483,15 +471,13 @@ export class E2ETestingSuite {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       return {
         testName: 'Error Handling',
         status: 'failed',
-        message: `Error handling test failed: ${errorMessage}`,
+        message: `Error handling test failed: ${error.message}`,
         timestamp: new Date().toISOString(),
-        duration,
-        details: { error: errorMessage }
+        duration
       };
     }
   }
@@ -512,15 +498,13 @@ export class E2ETestingSuite {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       return {
         testName: 'Performance Metrics',
         status: 'failed', 
-        message: `Performance test failed: ${errorMessage}`,
+        message: `Performance test failed: ${error.message}`,
         timestamp: new Date().toISOString(),
-        duration,
-        details: { error: errorMessage }
+        duration
       };
     }
   }

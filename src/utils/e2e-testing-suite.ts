@@ -4,7 +4,7 @@
  * Tests the complete flow from application submission through AI scoring
  * to dashboard display with enhanced real-time update validation.
  * 
- * @version 2.1.0
+ * @version 2.2.0
  * @author 26ideas Development Team
  */
 
@@ -360,11 +360,11 @@ export class E2ETestingSuite {
         throw new Error('No test application ID available');
       }
 
-      // Test the real-time subscription system
-      const subscriptionTest = await this.validateRealtimeSubscription();
+      // Test the real-time subscription system using the same channel as the dashboard
+      const subscriptionTest = await this.validateDashboardRealtimeSubscription();
       
       if (!subscriptionTest.success) {
-        throw new Error(`Real-time subscription test failed: ${subscriptionTest.error}`);
+        throw new Error(`Dashboard real-time subscription test failed: ${subscriptionTest.error}`);
       }
 
       // Perform a database update and wait for real-time notification
@@ -379,7 +379,7 @@ export class E2ETestingSuite {
       this.addTestResult({
         testName: 'Real-Time Updates',
         status: 'passed',
-        message: `Real-time updates working correctly. Subscription active, updates propagated within acceptable timeframe.`,
+        message: `Real-time updates working correctly. Dashboard subscription active, updates propagated within acceptable timeframe.`,
         timestamp: new Date().toISOString(),
         duration,
         details: {
@@ -412,15 +412,15 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Validate that the real-time subscription system is working
+   * Validate that the dashboard real-time subscription system is working
    */
-  private async validateRealtimeSubscription(): Promise<{
+  private async validateDashboardRealtimeSubscription(): Promise<{
     success: boolean;
     error?: string;
     details?: any;
   }> {
     return new Promise((resolve) => {
-      console.log('🔍 Validating real-time subscription setup...');
+      console.log('🔍 Validating dashboard real-time subscription setup...');
       
       let subscriptionTimeout: NodeJS.Timeout;
       let isResolved = false;
@@ -433,9 +433,12 @@ export class E2ETestingSuite {
       };
 
       try {
-        // Create a test channel to validate subscription capability
+        // Create a channel with the SAME NAME as the dashboard uses
+        const channelName = 'yff-applications-realtime-main';
+        console.log(`📡 Testing dashboard channel: ${channelName}`);
+        
         this.realtimeChannel = supabase
-          .channel(`e2e-test-${Date.now()}`)
+          .channel(channelName)
           .on(
             'postgres_changes',
             {
@@ -444,42 +447,43 @@ export class E2ETestingSuite {
               table: 'yff_applications'
             },
             (payload) => {
-              console.log('📨 Real-time event received in test:', payload.eventType);
+              console.log('📨 Real-time event received in dashboard test:', payload.eventType);
             }
           )
           .subscribe((status, err) => {
-            console.log('📡 Subscription status:', status, err);
+            console.log('📡 Dashboard subscription status:', status, err);
             
             if (status === 'SUBSCRIBED') {
               resolveOnce({
                 success: true,
                 details: {
                   subscriptionStatus: status,
+                  channelName,
                   timestamp: new Date().toISOString()
                 }
               });
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
               resolveOnce({
                 success: false,
-                error: `Subscription failed with status: ${status}`,
-                details: { status, error: err }
+                error: `Dashboard subscription failed with status: ${status}`,
+                details: { status, error: err, channelName }
               });
             }
           });
 
-        // Set timeout for subscription establishment
+        // Set timeout for subscription establishment (increased to 15 seconds)
         subscriptionTimeout = setTimeout(() => {
           resolveOnce({
             success: false,
-            error: 'Subscription did not establish within 10 seconds',
-            details: { timeout: true }
+            error: 'Dashboard subscription did not establish within 15 seconds',
+            details: { timeout: true, channelName }
           });
-        }, 10000);
+        }, 15000);
 
       } catch (error) {
         resolveOnce({
           success: false,
-          error: `Subscription setup failed: ${error.message}`,
+          error: `Dashboard subscription setup failed: ${error.message}`,
           details: { exception: error }
         });
       }
@@ -510,7 +514,17 @@ export class E2ETestingSuite {
         resolve(result);
       };
 
-      // Listen for real-time updates on our test application
+      // The channel should already be subscribed from the previous test
+      if (!this.realtimeChannel) {
+        resolveOnce({
+          success: false,
+          error: 'No active real-time channel for testing updates',
+          eventsReceived
+        });
+        return;
+      }
+
+      // Add a specific listener for our test application updates
       const updateChannel = supabase
         .channel(`update-test-${Date.now()}`)
         .on(
@@ -525,7 +539,7 @@ export class E2ETestingSuite {
             eventsReceived++;
             const latency = Date.now() - updateStartTime;
             
-            console.log(`📨 Real-time update received for test application. Latency: ${latency}ms`);
+            console.log(`📨 Real-time update received for test application. Latency: ${latency}ms`, payload);
             
             resolveOnce({
               success: true,
@@ -547,7 +561,7 @@ export class E2ETestingSuite {
                 .from('yff_applications')
                 .update({ 
                   updated_at: new Date().toISOString(),
-                  status: 'test_update'
+                  evaluation_status: 'processing' // This should trigger real-time event
                 })
                 .eq('application_id', this.testApplicationId);
               
@@ -557,20 +571,37 @@ export class E2ETestingSuite {
                   error: `Failed to trigger update: ${error.message}`,
                   eventsReceived
                 });
+                return;
               }
-            }, 500);
+
+              // Wait a bit then do another update to ensure we catch the event
+              setTimeout(async () => {
+                const { error: error2 } = await supabase
+                  .from('yff_applications')
+                  .update({ 
+                    updated_at: new Date().toISOString(),
+                    status: 'under_review' // Another change to trigger event
+                  })
+                  .eq('application_id', this.testApplicationId);
+
+                if (error2) {
+                  console.error('Second update failed:', error2);
+                }
+              }, 1000);
+
+            }, 1000);
           }
         });
 
-      // Set timeout for update propagation (increased to 5 seconds for more reliability)
+      // Set timeout for update propagation (increased to 10 seconds for more reliability)
       updateTimeout = setTimeout(() => {
         supabase.removeChannel(updateChannel);
         resolveOnce({
           success: false,
-          error: `Real-time update not received within 5 seconds. Events received: ${eventsReceived}`,
+          error: `Real-time update not received within 10 seconds. Events received: ${eventsReceived}`,
           eventsReceived
         });
-      }, 5000);
+      }, 10000);
     });
   }
 

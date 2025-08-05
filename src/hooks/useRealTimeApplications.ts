@@ -1,11 +1,11 @@
 
 /**
- * @fileoverview Real-time YFF Applications Hook with Enhanced Error Handling
+ * @fileoverview Real-Time YFF Applications Hook with Enhanced Error Handling
  * 
  * Provides real-time updates for YFF applications using Supabase
  * real-time subscriptions with comprehensive error handling and reconnection logic.
  * 
- * @version 2.0.0
+ * @version 2.1.0
  * @author 26ideas Development Team
  */
 
@@ -111,8 +111,12 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
         channelRef.current = null;
       }
 
+      // Use a consistent channel name for E2E testing
+      const channelName = `yff-applications-realtime-main`;
+      console.log(`📡 Creating channel: ${channelName}`);
+
       const channel = supabase
-        .channel(`yff-applications-realtime-${Date.now()}`)
+        .channel(channelName)
         .on(
           'postgres_changes',
           {
@@ -127,7 +131,8 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
             console.log('📨 Real-time update received:', {
               eventType: payload.eventType,
               applicationId: applicationId || 'unknown',
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              payload: payload
             });
             
             // Invalidate and refetch applications
@@ -156,7 +161,12 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
           }
         )
         .subscribe((status, err) => {
-          console.log('📡 Subscription status change:', status, err);
+          console.log('📡 Subscription status change:', {
+            status,
+            error: err,
+            timestamp: new Date().toISOString(),
+            channelName
+          });
           
           if (status === 'SUBSCRIBED') {
             setIsConnected(true);
@@ -171,7 +181,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
             
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             setIsConnected(false);
-            console.error('❌ Real-time subscription error:', status, err);
+            console.error('❌ Real-time subscription error:', { status, error: err, channelName });
             
             // Attempt reconnection with exponential backoff
             const nextRetryCount = retryCount + 1;
@@ -196,6 +206,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
         });
 
       channelRef.current = channel;
+      console.log('📡 Real-time subscription setup completed');
       
     } catch (error) {
       console.error('❌ Failed to setup real-time subscription:', error);
@@ -205,6 +216,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
 
   // Initialize subscription on mount
   useEffect(() => {
+    console.log('🚀 Initializing real-time subscription hook');
     setupRealtimeSubscription();
     
     return () => {

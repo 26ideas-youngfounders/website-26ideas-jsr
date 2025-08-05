@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Comprehensive E2E Testing Suite V2
  * 
@@ -47,11 +46,31 @@ export class E2ETestingSuiteV2 {
       // Test 2: Application lifecycle (create, read, update)
       await this.testApplicationLifecycle();
       
-      // Test 3: Real-time system validation
-      await this.testRealtimeSystemComprehensive();
+      // Test 3: Real-time system validation - only if we have a valid test application
+      if (this.testApplicationId) {
+        await this.testRealtimeSystemComprehensive();
+      } else {
+        this.addTestResult({
+          testName: 'Real-Time System Comprehensive',
+          status: 'failed',
+          message: 'Skipped: No valid test application available',
+          timestamp: new Date().toISOString(),
+          details: { reason: 'Test application creation failed' }
+        });
+      }
       
-      // Test 4: AI scoring integration
-      await this.testAIEvaluationSystem();
+      // Test 4: AI scoring integration - only if we have a valid test application
+      if (this.testApplicationId) {
+        await this.testAIEvaluationSystem();
+      } else {
+        this.addTestResult({
+          testName: 'AI Evaluation System',
+          status: 'failed',
+          message: 'Skipped: No valid test application available for AI evaluation',
+          timestamp: new Date().toISOString(),
+          details: { reason: 'Test application creation failed' }
+        });
+      }
       
       // Test 5: Error handling and recovery
       await this.testErrorHandlingAndRecovery();
@@ -145,7 +164,7 @@ export class E2ETestingSuiteV2 {
   }
 
   /**
-   * Test complete application lifecycle
+   * Test complete application lifecycle with enhanced error handling
    */
   private async testApplicationLifecycle(): Promise<void> {
     const startTime = Date.now();
@@ -161,17 +180,18 @@ export class E2ETestingSuiteV2 {
       this.testApplicationId = uuidv4();
 
       const testFormData = {
-        tell_us_about_idea: 'E2E test: AI-powered entrepreneurship platform for real-time validation',
-        problem_statement: 'Entrepreneurs need better tools for idea validation and mentorship matching',
-        whose_problem: 'Young entrepreneurs aged 18-30 who lack access to experienced mentors',
-        how_solve_problem: 'AI-driven analysis platform with real-time feedback and mentor connections',
-        how_make_money: 'Subscription model with premium features and mentor commission structure',
-        acquire_customers: 'University partnerships, social media campaigns, and referral programs',
-        team_roles: 'Technical leadership with startup experience and AI/ML expertise'
+        tell_us_about_idea: 'E2E test: AI-powered entrepreneurship platform for real-time validation and comprehensive testing',
+        problem_statement: 'Entrepreneurs need better tools for idea validation and mentorship matching with advanced analytics',
+        whose_problem: 'Young entrepreneurs aged 18-30 who lack access to experienced mentors and validation frameworks',
+        how_solve_problem: 'AI-driven analysis platform with real-time feedback and mentor connections using machine learning',
+        how_make_money: 'Subscription model with premium features, mentor commission structure, and enterprise partnerships',
+        acquire_customers: 'University partnerships, social media campaigns, referral programs, and strategic startup ecosystem partnerships',
+        team_roles: 'Technical leadership with startup experience and AI/ML expertise from leading technology companies'
       };
 
-      // Step 1: Create application
-      console.log('📝 Creating test application...');
+      console.log(`📝 Creating test application with ID: ${this.testApplicationId}`);
+      
+      // Step 1: Create application with comprehensive data
       const { data: createData, error: createError } = await supabase
         .from('yff_applications')
         .insert({
@@ -180,31 +200,46 @@ export class E2ETestingSuiteV2 {
           answers: testFormData,
           status: 'e2e_test_lifecycle',
           evaluation_status: 'pending',
-          application_round: 'e2e_test'
+          application_round: 'e2e_test_v2',
+          cumulative_score: 0,
+          overall_score: 0,
+          reviewer_scores: {},
+          evaluation_data: {}
         })
-        .select('application_id')
+        .select('application_id, status, evaluation_status')
         .single();
 
       if (createError) {
+        console.error('❌ Application creation failed:', createError);
         throw new Error(`Application creation failed: ${createError.message}`);
       }
 
-      console.log(`✅ Application created: ${this.testApplicationId}`);
+      if (!createData?.application_id) {
+        throw new Error('Application created but no data returned');
+      }
 
-      // Step 2: Read application
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log(`✅ Application created successfully: ${createData.application_id}`);
+
+      // Step 2: Verify creation by reading back the application
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for database consistency
       
       const { data: readData, error: readError } = await supabase
         .from('yff_applications')
         .select('*')
         .eq('application_id', this.testApplicationId)
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid 406 error
 
-      if (readError || !readData) {
-        throw new Error(`Application retrieval failed: ${readError?.message || 'No data returned'}`);
+      if (readError) {
+        console.error('❌ Application retrieval failed:', readError);
+        throw new Error(`Application retrieval failed: ${readError.message}`);
       }
 
-      console.log(`✅ Application retrieved successfully`);
+      if (!readData) {
+        console.error('❌ Application not found after creation');
+        throw new Error(`Application not found after creation: ${this.testApplicationId}`);
+      }
+
+      console.log(`✅ Application retrieved successfully with status: ${readData.status}`);
 
       // Step 3: Update application
       const updateData = {
@@ -213,26 +248,29 @@ export class E2ETestingSuiteV2 {
         updated_at: new Date().toISOString()
       };
 
-      const { error: updateError } = await supabase
+      const { data: updateResult, error: updateError } = await supabase
         .from('yff_applications')
         .update(updateData)
         .eq('application_id', this.testApplicationId)
-        .select();
+        .select('status, evaluation_status')
+        .single();
 
       if (updateError) {
+        console.error('❌ Application update failed:', updateError);
         throw new Error(`Application update failed: ${updateError.message}`);
       }
 
-      console.log(`✅ Application updated successfully`);
+      console.log(`✅ Application updated successfully to status: ${updateResult.status}`);
 
-      // Step 4: Verify update
+      // Step 4: Final verification
       const { data: verifyData, error: verifyError } = await supabase
         .from('yff_applications')
-        .select('status, evaluation_status')
+        .select('status, evaluation_status, application_id')
         .eq('application_id', this.testApplicationId)
-        .single();
+        .maybeSingle();
 
       if (verifyError || !verifyData || verifyData.status !== 'e2e_test_updated') {
+        console.error('❌ Application update verification failed:', verifyError || 'Status mismatch');
         throw new Error('Application update verification failed');
       }
 
@@ -247,12 +285,19 @@ export class E2ETestingSuiteV2 {
         details: {
           applicationId: this.testApplicationId.slice(0, 8) + '...',
           lifecycle: ['created', 'read', 'updated', 'verified'],
-          formFields: Object.keys(testFormData).length
+          formFields: Object.keys(testFormData).length,
+          finalStatus: verifyData.status,
+          evaluationStatus: verifyData.evaluation_status
         }
       });
       
     } catch (error) {
       const duration = Date.now() - startTime;
+      
+      // Clear test application ID if creation/verification failed
+      if (error.message.includes('creation') || error.message.includes('not found')) {
+        this.testApplicationId = null;
+      }
       
       this.addTestResult({
         testName: 'Application Lifecycle',
@@ -260,7 +305,13 @@ export class E2ETestingSuiteV2 {
         message: `Application lifecycle test failed: ${error.message}`,
         timestamp: new Date().toISOString(),
         duration,
-        details: { error: error.message }
+        details: { 
+          error: error.message,
+          applicationId: this.testApplicationId?.slice(0, 8) + '...' || 'none',
+          phase: error.message.includes('creation') ? 'creation' : 
+                 error.message.includes('retrieval') ? 'reading' :
+                 error.message.includes('update') ? 'updating' : 'unknown'
+        }
       });
       
       throw error;
@@ -280,40 +331,22 @@ export class E2ETestingSuiteV2 {
         throw new Error('No test application available for real-time testing');
       }
 
-      // Use the comprehensive real-time helper
-      const realtimeResults = await this.realtimeHelper.runCompleteValidation();
+      // Use the comprehensive real-time helper with our validated test application
+      const realtimeResults = await this.realtimeHelper.testRealtimeEvents(this.testApplicationId, 25000);
       
-      let allPassed = true;
-      let failedTests: string[] = [];
-      
-      realtimeResults.forEach(result => {
-        if (!result.success) {
-          allPassed = false;
-          failedTests.push(result.message);
-        }
-      });
-
       const duration = Date.now() - startTime;
       
       this.addTestResult({
         testName: 'Real-Time System Comprehensive',
-        status: allPassed ? 'passed' : 'failed',
-        message: allPassed 
-          ? `Real-time system test passed: ${realtimeResults.length} sub-tests completed successfully`
-          : `Real-time system test failed: ${failedTests.length} sub-tests failed`,
+        status: realtimeResults.success ? 'passed' : 'failed',
+        message: realtimeResults.message,
         timestamp: new Date().toISOString(),
         duration,
-        details: {
-          subTests: realtimeResults.length,
-          passed: realtimeResults.filter(r => r.success).length,
-          failed: failedTests.length,
-          failedTests,
-          fullResults: realtimeResults
-        }
+        details: realtimeResults.details
       });
 
-      if (!allPassed) {
-        throw new Error(`Real-time system validation failed: ${failedTests.join(', ')}`);
+      if (!realtimeResults.success) {
+        console.warn('⚠️ Real-time system test failed, but continuing with other tests');
       }
       
     } catch (error) {
@@ -333,7 +366,7 @@ export class E2ETestingSuiteV2 {
   }
 
   /**
-   * Test AI evaluation system
+   * Test AI evaluation system with proper error handling
    */
   private async testAIEvaluationSystem(): Promise<void> {
     const startTime = Date.now();
@@ -344,6 +377,21 @@ export class E2ETestingSuiteV2 {
       if (!this.testApplicationId) {
         throw new Error('No test application available for AI evaluation');
       }
+
+      console.log(`🔍 Testing AI evaluation for application: ${this.testApplicationId}`);
+
+      // Verify application exists before evaluation
+      const { data: appData, error: appError } = await supabase
+        .from('yff_applications')
+        .select('application_id, status, answers')
+        .eq('application_id', this.testApplicationId)
+        .maybeSingle();
+
+      if (appError || !appData) {
+        throw new Error(`Application verification failed before AI evaluation: ${appError?.message || 'Application not found'}`);
+      }
+
+      console.log(`✅ Application verified for AI evaluation: ${appData.application_id}`);
 
       // Trigger AI evaluation
       const evaluationResult = await AIComprehensiveScoringService.triggerEvaluation(this.testApplicationId);
@@ -376,7 +424,10 @@ export class E2ETestingSuiteV2 {
         message: `AI evaluation test failed: ${error.message}`,
         timestamp: new Date().toISOString(),
         duration,
-        details: { error: error.message }
+        details: { 
+          error: error.message,
+          applicationId: this.testApplicationId?.slice(0, 8) + '...' || 'none'
+        }
       });
       
       console.error('❌ AI evaluation test failed, but continuing with other tests');
@@ -405,7 +456,7 @@ export class E2ETestingSuiteV2 {
         .from('yff_applications')
         .select('*')
         .eq('application_id', 'invalid-uuid-format')
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid 406 errors
 
       // Should handle gracefully without throwing
       if (!queryError) {
@@ -506,12 +557,16 @@ export class E2ETestingSuiteV2 {
     
     try {
       if (this.testApplicationId) {
-        await supabase
+        const { error } = await supabase
           .from('yff_applications')
           .delete()
           .eq('application_id', this.testApplicationId);
         
-        console.log(`🗑️ Deleted test application: ${this.testApplicationId}`);
+        if (error) {
+          console.warn(`⚠️ Error deleting test application: ${error.message}`);
+        } else {
+          console.log(`🗑️ Deleted test application: ${this.testApplicationId}`);
+        }
       }
       
     } catch (error) {

@@ -280,14 +280,14 @@ export class RealtimeSubscriptionManager {
         const channelName = `${config.table}_${id}_${Date.now()}`;
         const channel = supabase.channel(channelName);
         
-        // Set up postgres changes listener with enhanced error handling
-        channel.on(
+        // Set up postgres changes listener with correct syntax
+        const changeListener = channel.on(
           'postgres_changes',
           {
             event: config.event || '*',
             schema: config.schema || 'public',
             table: config.table,
-            filter: config.filter,
+            ...(config.filter && { filter: config.filter })
           },
           (payload: RealtimePostgresChangesPayload<Record<string, any>>) => {
             console.log(`📨 Event received for ${id}:`, {

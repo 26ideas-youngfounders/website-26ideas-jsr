@@ -12,6 +12,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+// Define type-safe table names based on Supabase schema
+type TableNames = 'country_codes' | 'individuals' | 'mentor_applications' | 'typeform_submissions' | 'user_roles' | 'yff_applications' | 'yff_evaluations' | 'yff_team_registration_autosave' | 'yff_team_registrations';
+
 export class E2ERealtimeHelper {
   /**
    * Verify that real-time is properly configured for a table
@@ -24,9 +27,18 @@ export class E2ERealtimeHelper {
     try {
       console.log(`🔍 Verifying real-time setup for table: ${tableName}`);
       
-      // Test basic connectivity first
+      // Ensure table name is valid before using with Supabase
+      if (!E2ERealtimeHelper.isValidTableName(tableName)) {
+        return {
+          isEnabled: false,
+          message: `Invalid table name: ${tableName}`,
+          details: { error: 'Table name not recognized' }
+        };
+      }
+      
+      // Test basic connectivity first - use type assertion for dynamic table name
       const { data, error } = await supabase
-        .from(tableName)
+        .from(tableName as TableNames)
         .select('*', { count: 'exact', head: true });
       
       if (error) {
@@ -77,6 +89,24 @@ export class E2ERealtimeHelper {
         details: { error: error.message }
       };
     }
+  }
+
+  /**
+   * Validate if table name is in our known schema
+   */
+  private static isValidTableName(tableName: string): tableName is TableNames {
+    const validTables: TableNames[] = [
+      'country_codes',
+      'individuals', 
+      'mentor_applications',
+      'typeform_submissions',
+      'user_roles',
+      'yff_applications',
+      'yff_evaluations',
+      'yff_team_registration_autosave',
+      'yff_team_registrations'
+    ];
+    return validTables.includes(tableName as TableNames);
   }
 
   /**

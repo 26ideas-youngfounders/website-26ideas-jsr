@@ -49,6 +49,7 @@ export class E2ETestingSuite {
   private testApplicationId: string | null = null;
   private testIndividualId: string | null = null;
   private testEmail: string | null = null;
+  private subscriptionManager: RealtimeSubscriptionManager | null = null;
 
   constructor() {
     this.results = [];

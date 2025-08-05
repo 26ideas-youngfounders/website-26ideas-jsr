@@ -241,9 +241,9 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       const channelName = `yff-applications-realtime-main-${attemptNumber}`;
       console.log(`📡 Creating channel: ${channelName}`);
 
-      // Set connection timeout
+      // Set connection timeout (extended to 45 seconds for better reliability)
       connectionTimeoutRef.current = setTimeout(() => {
-        console.error(`⏰ Connection timeout after 30 seconds (attempt #${attemptNumber})`);
+        console.error(`⏰ Connection timeout after 45 seconds (attempt #${attemptNumber})`);
         if (channelRef.current && !isConnected) {
           setConnectionStatus('error');
           const currentRetryCount = retryCount + 1;
@@ -262,14 +262,13 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
             startPollingFallback();
           }
         }
-      }, 30000); // 30 second timeout
+      }, 45000); // 45 second timeout
 
       const channel = supabase
         .channel(channelName, {
           config: {
             presence: { key: `admin-${session.user.id}-${Date.now()}` },
-            broadcast: { self: false },
-            ack: true
+            broadcast: { self: false }
           }
         })
         .on(

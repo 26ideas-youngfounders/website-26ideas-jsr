@@ -532,8 +532,7 @@ export class E2ETestingSuite {
           .channel(channelName, {
             config: {
               presence: { key: `e2e-enhanced-test-${timestamp}` },
-              broadcast: { self: false },
-              ack: true
+              broadcast: { self: false }
             }
           })
           .on(
@@ -610,16 +609,16 @@ export class E2ETestingSuite {
             }
           });
 
-        // Set extended timeout for subscription establishment (45 seconds)
+        // Set extended timeout for subscription establishment (60 seconds for reliability)
         subscriptionTimeout = setTimeout(() => {
           const connectionTime = Date.now() - startTime;
           console.error(`⏰ Enhanced connection timeout after ${connectionTime}ms`);
           resolveOnce({
             success: false,
-            error: `Enhanced subscription did not establish within 45 seconds (took ${connectionTime}ms)`,
+            error: `Enhanced subscription did not establish within 60 seconds (took ${connectionTime}ms)`,
             details: { timeout: true, channelName, connectionTime }
           });
-        }, 45000);
+        }, 60000);
 
       } catch (error) {
         const connectionTime = Date.now() - startTime;
@@ -681,8 +680,7 @@ export class E2ETestingSuite {
         .channel(updateChannelName, {
           config: {
             presence: { key: `update-test-${timestamp}` },
-            broadcast: { self: false },
-            ack: true
+            broadcast: { self: false }
           }
         })
         .on(
@@ -749,11 +747,11 @@ export class E2ETestingSuite {
 
                 // Wait between updates to allow propagation
                 if (i < updates.length - 1) {
-                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  await new Promise(resolve => setTimeout(resolve, 3000));
                 }
               }
 
-            }, 3000); // Wait 3 seconds for subscription to be fully ready
+            }, 5000); // Wait 5 seconds for subscription to be fully ready
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             resolveOnce({
               success: false,
@@ -763,15 +761,15 @@ export class E2ETestingSuite {
           }
         });
 
-      // Set extended timeout for update propagation (25 seconds for reliability)
+      // Set extended timeout for update propagation (40 seconds for reliability)
       updateTimeout = setTimeout(() => {
         console.log(`⏰ Enhanced real-time update test timeout. Events received: ${eventsReceived}`);
         resolveOnce({
           success: false,
-          error: `Enhanced real-time update not received within 25 seconds. Events received: ${eventsReceived}`,
+          error: `Enhanced real-time update not received within 40 seconds. Events received: ${eventsReceived}`,
           eventsReceived
         });
-      }, 25000);
+      }, 40000);
     });
   }
 

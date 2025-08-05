@@ -1,10 +1,11 @@
+
 /**
  * @fileoverview Realtime Subscription Manager
  * 
  * Robust subscription management for Supabase Realtime with automatic
  * recovery, validation, and comprehensive error handling.
  * 
- * @version 1.0.0
+ * @version 1.1.0
  * @author 26ideas Development Team
  */
 
@@ -20,6 +21,8 @@ export interface SubscriptionOptions {
   event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
   validationTimeoutMs?: number;
   maxValidationAttempts?: number;
+  retryOnFailure?: boolean;
+  maxRetries?: number;
 }
 
 export interface SubscriptionStatus {
@@ -28,23 +31,34 @@ export interface SubscriptionStatus {
   socketState: string;
   lastActivity: Date | null;
   error: string | null;
+  subscriptionId: string;
+  retryCount: number;
 }
 
 /**
- * Realtime Subscription Manager with robust error handling
+ * Enhanced Realtime Subscription Manager with comprehensive error handling
  */
 export class RealtimeSubscriptionManager {
   private connectionManager: WebSocketConnectionManager;
   private activeChannels: Map<string, RealtimeChannel> = new Map();
   private subscriptionCallbacks: Map<string, (payload: any) => void> = new Map();
   private statusCallbacks: Map<string, (status: SubscriptionStatus) => void> = new Map();
+  private subscriptionRetries: Map<string, number> = new Map();
+  private subscriptionIds: Map<string, string> = new Map();
 
   constructor(connectionManager: WebSocketConnectionManager) {
     this.connectionManager = connectionManager;
   }
 
   /**
-   * Create robust realtime subscription with full validation
+   * Generate unique subscription ID
+   */
+  private generateSubscriptionId(): string {
+    return `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Create robust realtime subscription with enhanced validation and retry logic
    */
   async createSubscription(
     options: SubscriptionOptions,
@@ -56,17 +70,37 @@ export class RealtimeSubscriptionManager {
       table,
       schema = 'public',
       event = '*',
-      validationTimeoutMs = 20000,
-      maxValidationAttempts = 200
+      validationTimeoutMs = 25000,
+      maxValidationAttempts = 250,
+      retryOnFailure = true,
+      maxRetries = 3
     } = options;
 
-    console.log(`📡 Creating robust subscription for ${channelName}...`);
+    const subscriptionId = this.generateSubscriptionId();
+    this.subscriptionIds.set(channelName, subscriptionId);
+
+    console.log(`📡 Creating robust subscription [${subscriptionId}] for ${channelName}...`);
 
     try {
-      // Ensure connection is established
-      const isConnected = await this.connectionManager.connect();
+      // Ensure connection is established with retries
+      let connectionAttempts = 0;
+      const maxConnectionAttempts = 3;
+      let isConnected = false;
+
+      while (!isConnected && connectionAttempts < maxConnectionAttempts) {
+        connectionAttempts++;
+        console.log(`🔗 Connection attempt ${connectionAttempts} for subscription ${subscriptionId}...`);
+        
+        isConnected = await this.connectionManager.connect();
+        
+        if (!isConnected) {
+          console.warn(`⚠️ Connection attempt ${connectionAttempts} failed, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * connectionAttempts));
+        }
+      }
+
       if (!isConnected) {
-        throw new Error('Failed to establish WebSocket connection');
+        throw new Error(`Failed to establish connection after ${maxConnectionAttempts} attempts`);
       }
 
       // Clean up existing subscription if present
@@ -75,11 +109,13 @@ export class RealtimeSubscriptionManager {
         await this.removeSubscription(channelName);
       }
 
-      // Get authenticated session for presence
+      // Get authenticated session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('Authentication required for subscription');
       }
+
+      console.log(`📡 Creating channel [${subscriptionId}]: ${channelName}`);
 
       // Create channel with enhanced configuration
       const channel = supabase
@@ -97,7 +133,7 @@ export class RealtimeSubscriptionManager {
             table
           } as any,
           (payload: any) => {
-            console.log('📨 Realtime payload received:', {
+            console.log(`📨 Realtime payload received [${subscriptionId}]:`, {
               eventType: payload.eventType,
               table: payload.table,
               schema: payload.schema,
@@ -106,33 +142,36 @@ export class RealtimeSubscriptionManager {
               hasOldRecord: !!payload.old
             });
 
-            // Update status
+            // Update subscription status
             this.updateSubscriptionStatus(channelName, {
               isActive: true,
               channelState: (channel as any).state || 'unknown',
               socketState: this.getSocketStateName(),
               lastActivity: new Date(),
-              error: null
+              error: null,
+              subscriptionId,
+              retryCount: this.subscriptionRetries.get(channelName) || 0
             });
 
-            // Call payload handler
+            // Call payload handler with error protection
             try {
               onPayload(payload);
             } catch (error) {
-              console.error('❌ Error in payload handler:', error);
+              console.error(`❌ Error in payload handler for ${subscriptionId}:`, error);
             }
           }
         )
         .subscribe(async (status, err) => {
           const timestamp = new Date().toISOString();
           
-          console.log(`📡 Subscription status for ${channelName}: ${status}`, {
+          console.log(`📡 Subscription status [${subscriptionId}] for ${channelName}: ${status}`, {
             timestamp,
             error: err,
-            channelName
+            channelName,
+            subscriptionId
           });
 
-          // Handle subscription status changes
+          // Handle subscription status changes with enhanced error handling
           if (err) {
             let errorMessage = 'Unknown subscription error';
             
@@ -142,33 +181,52 @@ export class RealtimeSubscriptionManager {
               const errorObj = err as Record<string, unknown>;
               if ('message' in errorObj && typeof errorObj.message === 'string') {
                 errorMessage = errorObj.message;
+              } else {
+                errorMessage = JSON.stringify(err);
               }
             }
 
-            console.error('❌ Subscription error:', errorMessage);
+            console.error(`❌ Subscription error [${subscriptionId}]:`, errorMessage);
             
             this.updateSubscriptionStatus(channelName, {
               isActive: false,
               channelState: status,
               socketState: this.getSocketStateName(),
               lastActivity: new Date(),
-              error: errorMessage
+              error: errorMessage,
+              subscriptionId,
+              retryCount: this.subscriptionRetries.get(channelName) || 0
             });
+
+            // Retry subscription if enabled
+            if (retryOnFailure) {
+              await this.retrySubscription(channelName, options, onPayload, onStatus);
+            }
           } else {
+            const isActive = status === 'SUBSCRIBED';
             this.updateSubscriptionStatus(channelName, {
-              isActive: status === 'SUBSCRIBED',
+              isActive,
               channelState: status,
               socketState: this.getSocketStateName(),
               lastActivity: new Date(),
-              error: null
+              error: null,
+              subscriptionId,
+              retryCount: this.subscriptionRetries.get(channelName) || 0
             });
+
+            if (isActive) {
+              console.log(`✅ Subscription [${subscriptionId}] active and ready`);
+              // Reset retry count on success
+              this.subscriptionRetries.set(channelName, 0);
+            }
           }
         });
 
-      // Validate subscription establishment
+      // Enhanced subscription validation with timeout protection
       await this.validateSubscriptionEstablishment(
         channel, 
         channelName, 
+        subscriptionId,
         validationTimeoutMs, 
         maxValidationAttempts
       );
@@ -180,12 +238,12 @@ export class RealtimeSubscriptionManager {
         this.statusCallbacks.set(channelName, onStatus);
       }
 
-      console.log(`✅ Robust subscription created successfully: ${channelName}`);
+      console.log(`✅ Robust subscription [${subscriptionId}] created successfully: ${channelName}`);
       return channel;
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`❌ Failed to create subscription ${channelName}:`, errorMessage);
+      console.error(`❌ Failed to create subscription [${subscriptionId}] ${channelName}:`, errorMessage);
       
       // Update status with error
       this.updateSubscriptionStatus(channelName, {
@@ -193,7 +251,9 @@ export class RealtimeSubscriptionManager {
         channelState: 'error',
         socketState: this.getSocketStateName(),
         lastActivity: new Date(),
-        error: errorMessage
+        error: errorMessage,
+        subscriptionId,
+        retryCount: this.subscriptionRetries.get(channelName) || 0
       });
 
       throw error;
@@ -201,25 +261,58 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Validate that subscription is properly established
+   * Retry subscription with exponential backoff
+   */
+  private async retrySubscription(
+    channelName: string,
+    options: SubscriptionOptions,
+    onPayload: (payload: any) => void,
+    onStatus?: (status: SubscriptionStatus) => void
+  ): Promise<void> {
+    const currentRetries = this.subscriptionRetries.get(channelName) || 0;
+    const maxRetries = options.maxRetries || 3;
+
+    if (currentRetries >= maxRetries) {
+      console.error(`❌ Max retries (${maxRetries}) reached for subscription: ${channelName}`);
+      return;
+    }
+
+    this.subscriptionRetries.set(channelName, currentRetries + 1);
+    const delay = Math.min(1000 * Math.pow(2, currentRetries), 10000);
+
+    console.log(`🔄 Retrying subscription ${channelName} in ${delay}ms (attempt ${currentRetries + 1}/${maxRetries})...`);
+
+    setTimeout(async () => {
+      try {
+        await this.createSubscription(options, onPayload, onStatus);
+      } catch (retryError) {
+        console.error(`❌ Retry failed for subscription ${channelName}:`, retryError);
+      }
+    }, delay);
+  }
+
+  /**
+   * Enhanced subscription validation with detailed monitoring
    */
   private async validateSubscriptionEstablishment(
     channel: RealtimeChannel,
     channelName: string,
+    subscriptionId: string,
     timeoutMs: number,
     maxAttempts: number
   ): Promise<void> {
-    console.log(`⏳ Validating subscription establishment: ${channelName}`);
+    console.log(`⏳ Validating subscription establishment [${subscriptionId}]: ${channelName}`);
     
     return new Promise((resolve, reject) => {
       const startTime = Date.now();
       const timeout = setTimeout(() => {
         const elapsed = Date.now() - startTime;
-        console.error(`❌ Subscription validation timeout after ${elapsed}ms`);
-        reject(new Error(`Subscription ${channelName} did not establish within ${timeoutMs}ms`));
+        console.error(`❌ Subscription validation timeout [${subscriptionId}] after ${elapsed}ms`);
+        reject(new Error(`Subscription ${channelName} [${subscriptionId}] did not establish within ${timeoutMs}ms`));
       }, timeoutMs);
 
       let attemptCount = 0;
+      let lastLogTime = 0;
       
       const validateSubscription = () => {
         attemptCount++;
@@ -228,39 +321,46 @@ export class RealtimeSubscriptionManager {
         const socketState = realtimeSocket?.readyState;
         const channelState = (channel as any).state;
         const elapsed = Date.now() - startTime;
+        const now = Date.now();
         
-        if (attemptCount % 20 === 0 || attemptCount <= 5) { // Log every 2s or first 5 attempts
-          console.log(`🔍 Subscription validation ${attemptCount} (${elapsed}ms):`, {
+        // Log every 2 seconds or for first 10 attempts
+        if (now - lastLogTime >= 2000 || attemptCount <= 10) {
+          console.log(`🔍 Subscription validation [${subscriptionId}] ${attemptCount} (${elapsed}ms):`, {
             socketState: `${socketState} (${this.getSocketStateName()})`,
             channelState,
-            elapsed: `${elapsed}ms`
+            elapsed: `${elapsed}ms`,
+            subscriptionId
           });
+          lastLogTime = now;
         }
         
         if (channelState === 'joined' && socketState === WEBSOCKET_STATES.OPEN) {
-          console.log(`✅ Subscription ${channelName} established successfully!`, {
+          console.log(`✅ Subscription [${subscriptionId}] ${channelName} established successfully!`, {
             elapsed: `${elapsed}ms`,
-            attempts: attemptCount
+            attempts: attemptCount,
+            subscriptionId
           });
           clearTimeout(timeout);
           resolve();
         } else if (channelState === 'errored' || channelState === 'closed') {
-          console.error(`❌ Subscription ${channelName} failed:`, {
+          console.error(`❌ Subscription [${subscriptionId}] ${channelName} failed:`, {
             channelState,
             socketState: this.getSocketStateName(),
-            elapsed: `${elapsed}ms`
+            elapsed: `${elapsed}ms`,
+            subscriptionId
           });
           clearTimeout(timeout);
-          reject(new Error(`Subscription failed: channel=${channelState}, socket=${this.getSocketStateName()}`));
+          reject(new Error(`Subscription failed [${subscriptionId}]: channel=${channelState}, socket=${this.getSocketStateName()}`));
         } else if (attemptCount >= maxAttempts) {
-          console.error(`❌ Subscription ${channelName} validation timeout:`, {
+          console.error(`❌ Subscription [${subscriptionId}] ${channelName} validation timeout:`, {
             finalChannelState: channelState,
             finalSocketState: this.getSocketStateName(),
             totalAttempts: attemptCount,
-            elapsed: `${elapsed}ms`
+            elapsed: `${elapsed}ms`,
+            subscriptionId
           });
           clearTimeout(timeout);
-          reject(new Error(`Subscription validation timeout: channel=${channelState}, socket=${this.getSocketStateName()}`));
+          reject(new Error(`Subscription validation timeout [${subscriptionId}]: channel=${channelState}, socket=${this.getSocketStateName()}`));
         } else {
           // Continue validation
           setTimeout(validateSubscription, 100);
@@ -273,7 +373,7 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Get current socket state name
+   * Get current socket state name with fallback
    */
   private getSocketStateName(): string {
     const realtimeSocket = (supabase as any).realtime?.socket;
@@ -304,32 +404,37 @@ export class RealtimeSubscriptionManager {
   }
 
   /**
-   * Remove subscription and cleanup
+   * Remove subscription with enhanced cleanup
    */
   async removeSubscription(channelName: string): Promise<void> {
-    console.log(`🗑️ Removing subscription: ${channelName}`);
+    const subscriptionId = this.subscriptionIds.get(channelName) || 'unknown';
+    console.log(`🗑️ Removing subscription [${subscriptionId}]: ${channelName}`);
     
     const channel = this.activeChannels.get(channelName);
     if (channel) {
       try {
         await supabase.removeChannel(channel);
-        console.log(`✅ Subscription ${channelName} removed successfully`);
+        console.log(`✅ Subscription [${subscriptionId}] ${channelName} removed successfully`);
       } catch (error) {
-        console.warn(`⚠️ Error removing subscription ${channelName}:`, error);
+        console.warn(`⚠️ Error removing subscription [${subscriptionId}] ${channelName}:`, error);
       }
     }
     
-    // Clean up references
+    // Clean up all references
     this.activeChannels.delete(channelName);
     this.subscriptionCallbacks.delete(channelName);
     this.statusCallbacks.delete(channelName);
+    this.subscriptionRetries.delete(channelName);
+    this.subscriptionIds.delete(channelName);
   }
 
   /**
-   * Get subscription status
+   * Get subscription status with enhanced details
    */
   getSubscriptionStatus(channelName: string): SubscriptionStatus | null {
     const channel = this.activeChannels.get(channelName);
+    const subscriptionId = this.subscriptionIds.get(channelName) || 'unknown';
+    
     if (!channel) {
       return null;
     }
@@ -339,22 +444,43 @@ export class RealtimeSubscriptionManager {
       channelState: (channel as any).state || 'unknown',
       socketState: this.getSocketStateName(),
       lastActivity: null, // Would need to track separately
-      error: null
+      error: null,
+      subscriptionId,
+      retryCount: this.subscriptionRetries.get(channelName) || 0
     };
   }
 
   /**
-   * Cleanup all subscriptions
+   * Get all active subscriptions with metrics
+   */
+  getAllSubscriptionStatuses(): Record<string, SubscriptionStatus | null> {
+    const statuses: Record<string, SubscriptionStatus | null> = {};
+    
+    for (const channelName of this.activeChannels.keys()) {
+      statuses[channelName] = this.getSubscriptionStatus(channelName);
+    }
+    
+    return statuses;
+  }
+
+  /**
+   * Cleanup all subscriptions with comprehensive teardown
    */
   async cleanup(): Promise<void> {
     console.log('🧹 Cleaning up all subscriptions...');
     
     const channelNames = Array.from(this.activeChannels.keys());
+    const cleanupPromises = channelNames.map(channelName => this.removeSubscription(channelName));
     
-    for (const channelName of channelNames) {
-      await this.removeSubscription(channelName);
-    }
+    await Promise.all(cleanupPromises);
     
-    console.log('✅ All subscriptions cleaned up');
+    // Clear all maps
+    this.activeChannels.clear();
+    this.subscriptionCallbacks.clear();
+    this.statusCallbacks.clear();
+    this.subscriptionRetries.clear();
+    this.subscriptionIds.clear();
+    
+    console.log('✅ All subscriptions cleaned up successfully');
   }
 }

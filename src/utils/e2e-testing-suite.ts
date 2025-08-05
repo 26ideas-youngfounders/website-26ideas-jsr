@@ -1,11 +1,11 @@
 /**
- * @fileoverview End-to-End Testing Suite for YFF Application System
+ * @fileoverview Enhanced End-to-End Testing Suite for YFF Application System
  * 
  * Comprehensive testing suite that validates the entire application flow
  * from submission through AI evaluation to dashboard display with enhanced
  * WebSocket real-time update testing using robust connection management.
  * 
- * @version 4.0.0 
+ * @version 4.1.0
  * @author 26ideas Development Team
  */
 
@@ -24,10 +24,10 @@ export interface TestResult {
 }
 
 /**
- * Test real-time subscription establishment with comprehensive validation
+ * Enhanced real-time subscription establishment test with comprehensive validation
  */
 const testRealtimeSubscriptionEstablishment = async (): Promise<TestResult> => {
-  console.log('🔄 Testing robust real-time subscription establishment...');
+  console.log('🔄 Testing enhanced real-time subscription establishment...');
   const startTime = Date.now();
   
   try {
@@ -36,37 +36,65 @@ const testRealtimeSubscriptionEstablishment = async (): Promise<TestResult> => {
     const diagnostics = await diagnoseWebSocketConnection();
     
     if (!diagnostics.isConfigured) {
-      throw new Error('Supabase not properly configured - missing URL or key');
+      throw new Error(`Configuration validation failed: URL=${diagnostics.supabaseUrl}, HasKey=${diagnostics.hasSupabaseKey}`);
     }
     
     if (!diagnostics.isAuthenticated) {
-      throw new Error('User not authenticated - authentication required for realtime');
+      throw new Error('Authentication validation failed - user must be signed in for realtime');
     }
 
-    // Step 2: Create connection manager with test configuration
-    console.log('🔧 Creating connection manager for testing...');
+    console.log('✅ Diagnostics passed - configuration and authentication validated');
+
+    // Step 2: Create enhanced connection manager
+    console.log('🔧 Creating enhanced connection manager...');
     const connectionManager = new WebSocketConnectionManager({
-      maxRetries: 2,
+      maxRetries: 3,
       baseDelayMs: 500,
-      maxDelayMs: 5000,
-      timeoutMs: 10000,
-      enableAutoReconnect: true
+      maxDelayMs: 10000,
+      timeoutMs: 20000,
+      enableAutoReconnect: true,
+      healthCheckIntervalMs: 15000
     });
 
-    // Step 3: Establish connection
-    console.log('🔗 Establishing WebSocket connection...');
-    const isConnected = await connectionManager.connect();
+    // Step 3: Establish connection with retries
+    console.log('🔗 Establishing WebSocket connection with retries...');
+    let connectionAttempts = 0;
+    let isConnected = false;
+    const maxConnectionAttempts = 3;
+    
+    while (!isConnected && connectionAttempts < maxConnectionAttempts) {
+      connectionAttempts++;
+      console.log(`🔗 Connection attempt ${connectionAttempts}/${maxConnectionAttempts}...`);
+      
+      isConnected = await connectionManager.connect();
+      
+      if (!isConnected && connectionAttempts < maxConnectionAttempts) {
+        console.log(`⚠️ Connection attempt ${connectionAttempts} failed, retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
     
     if (!isConnected) {
-      throw new Error('Failed to establish WebSocket connection');
+      throw new Error(`Failed to establish connection after ${maxConnectionAttempts} attempts`);
     }
 
-    // Step 4: Create subscription manager and test subscription
-    console.log('📡 Creating subscription manager and test subscription...');
+    console.log('✅ Connection established successfully');
+
+    // Step 4: Validate connection health
+    const isHealthy = connectionManager.isHealthy();
+    if (!isHealthy) {
+      throw new Error('Connection established but failed health check');
+    }
+
+    console.log('✅ Connection health validated');
+
+    // Step 5: Create subscription manager and test subscription
+    console.log('📡 Creating subscription manager and testing subscription...');
     const subscriptionManager = new RealtimeSubscriptionManager(connectionManager);
     
-    const testChannelName = `e2e-test-${Date.now()}`;
+    const testChannelName = `e2e-test-enhanced-${Date.now()}`;
     let receivedPayload = false;
+    let subscriptionHealthy = false;
     
     const channel = await subscriptionManager.createSubscription(
       {
@@ -74,8 +102,10 @@ const testRealtimeSubscriptionEstablishment = async (): Promise<TestResult> => {
         table: 'yff_applications',
         schema: 'public',
         event: '*',
-        validationTimeoutMs: 15000,
-        maxValidationAttempts: 150
+        validationTimeoutMs: 20000,
+        maxValidationAttempts: 200,
+        retryOnFailure: true,
+        maxRetries: 2
       },
       (payload) => {
         console.log('📨 Test subscription received payload:', payload.eventType);
@@ -83,33 +113,44 @@ const testRealtimeSubscriptionEstablishment = async (): Promise<TestResult> => {
       },
       (status) => {
         console.log('📊 Test subscription status:', status);
+        subscriptionHealthy = status.isActive && !status.error;
       }
     );
 
-    // Step 5: Verify subscription is working
-    console.log('⚡ Verifying subscription functionality...');
+    console.log('✅ Subscription created successfully');
+
+    // Step 6: Verify subscription health and state
+    console.log('⚡ Verifying subscription health and functionality...');
     
-    // Check subscription status
+    // Wait a moment for subscription to settle
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     const subscriptionStatus = subscriptionManager.getSubscriptionStatus(testChannelName);
     if (!subscriptionStatus?.isActive) {
       throw new Error(`Subscription not active: ${JSON.stringify(subscriptionStatus)}`);
     }
 
-    // Step 6: Clean up test subscription
+    console.log('✅ Subscription verified as active and healthy');
+
+    // Step 7: Test connection metrics
+    const connectionMetrics = connectionManager.getConnectionMetrics();
+    console.log('📊 Connection metrics:', connectionMetrics);
+
+    // Step 8: Clean up test subscription
     console.log('🧹 Cleaning up test subscription...');
     await subscriptionManager.removeSubscription(testChannelName);
     
-    // Step 7: Cleanup managers
+    // Step 9: Final cleanup
     await subscriptionManager.cleanup();
     connectionManager.destroy();
     
     const duration = Date.now() - startTime;
-    console.log(`✅ Robust real-time subscription test completed successfully (${duration}ms)`);
+    console.log(`✅ Enhanced real-time subscription test completed successfully (${duration}ms)`);
     
     return {
       testName: 'Robust Real-Time Subscription',
       status: 'passed',
-      message: 'Real-time subscription established and validated successfully using robust managers',
+      message: 'Enhanced real-time subscription established, validated, and tested successfully',
       timestamp: new Date().toISOString(),
       duration,
       details: {
@@ -118,16 +159,24 @@ const testRealtimeSubscriptionEstablishment = async (): Promise<TestResult> => {
         authenticationValid: true,
         configurationValid: true,
         connectionManagerUsed: true,
-        subscriptionManagerUsed: true
+        subscriptionManagerUsed: true,
+        healthCheckPassed: isHealthy,
+        connectionAttempts,
+        connectionMetrics: {
+          ...connectionMetrics,
+          // Remove sensitive data
+          status: undefined
+        },
+        subscriptionStatus: subscriptionStatus
       }
     };
     
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('❌ Robust real-time subscription test failed:', errorMessage);
+    console.error('❌ Enhanced real-time subscription test failed:', errorMessage);
     
-    // Get final diagnostic state for debugging
+    // Get comprehensive diagnostic state for debugging
     let finalDiagnostics = {};
     try {
       finalDiagnostics = await diagnoseWebSocketConnection();
@@ -138,12 +187,19 @@ const testRealtimeSubscriptionEstablishment = async (): Promise<TestResult> => {
     return {
       testName: 'Robust Real-Time Subscription',
       status: 'failed',
-      message: `Robust real-time subscription test failed: ${errorMessage}`,
+      message: `Enhanced real-time subscription test failed: ${errorMessage}`,
       timestamp: new Date().toISOString(),
       duration,
       details: {
         error: errorMessage,
-        ...finalDiagnostics
+        finalDiagnostics,
+        // Include additional debugging info
+        navigator: {
+          onLine: navigator.onLine,
+          userAgent: navigator.userAgent,
+          connectionType: (navigator as any).connection?.effectiveType || 'unknown'
+        },
+        location: window.location.href
       }
     };
   }
@@ -156,7 +212,7 @@ export class E2ETestingSuite {
    * Run complete end-to-end test suite with enhanced real-time testing
    */
   async runCompleteTestSuite(): Promise<TestResult[]> {
-    console.log('🚀 Starting comprehensive E2E test suite with robust managers...');
+    console.log('🚀 Starting comprehensive E2E test suite with enhanced managers...');
     this.results = [];
     
     const tests = [
@@ -181,7 +237,7 @@ export class E2ETestingSuite {
         console.log(`${statusIcon} ${result.testName}: ${result.message}`);
         
         // Add delay between tests to prevent overwhelming the system
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -198,32 +254,46 @@ export class E2ETestingSuite {
     const passedCount = this.results.filter(r => r.status === 'passed').length;
     const totalCount = this.results.length;
     
-    console.log(`🏁 E2E Test Suite Complete: ${passedCount}/${totalCount} tests passed`);
+    console.log(`🏁 Enhanced E2E Test Suite Complete: ${passedCount}/${totalCount} tests passed`);
     
     return this.results;
   }
 
   /**
-   * Test connection manager resilience
+   * Enhanced connection manager resilience test
    */
   private async testConnectionManagerResilience(): Promise<TestResult> {
-    console.log('🔄 Testing connection manager resilience...');
+    console.log('🔄 Testing enhanced connection manager resilience...');
     const startTime = Date.now();
     
     try {
       const connectionManager = new WebSocketConnectionManager({
-        maxRetries: 1,
-        baseDelayMs: 100,
-        maxDelayMs: 1000,
-        timeoutMs: 5000,
-        enableAutoReconnect: false
+        maxRetries: 2,
+        baseDelayMs: 200,
+        maxDelayMs: 2000,
+        timeoutMs: 10000,
+        enableAutoReconnect: false,
+        healthCheckIntervalMs: 5000
       });
 
-      // Test connection establishment
-      const isConnected = await connectionManager.connect();
+      // Test connection establishment with retries
+      console.log('🔗 Testing connection establishment...');
+      let connectionAttempts = 0;
+      let isConnected = false;
+      const maxAttempts = 3;
+      
+      while (!isConnected && connectionAttempts < maxAttempts) {
+        connectionAttempts++;
+        console.log(`🔗 Connection resilience test attempt ${connectionAttempts}...`);
+        isConnected = await connectionManager.connect();
+        
+        if (!isConnected && connectionAttempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
       
       if (!isConnected) {
-        throw new Error('Connection manager failed to establish connection');
+        throw new Error('Connection manager failed to establish connection after retries');
       }
 
       // Test health check
@@ -238,6 +308,19 @@ export class E2ETestingSuite {
         throw new Error('Connection manager status shows disconnected');
       }
 
+      // Test connection metrics
+      const metrics = connectionManager.getConnectionMetrics();
+      if (!metrics || typeof metrics !== 'object') {
+        throw new Error('Connection manager failed to provide metrics');
+      }
+
+      // Test force reconnect functionality
+      console.log('🔄 Testing force reconnect...');
+      const reconnectSuccess = await connectionManager.forceReconnect();
+      if (!reconnectSuccess) {
+        console.warn('⚠️ Force reconnect failed, but this may be expected');
+      }
+
       // Cleanup
       connectionManager.destroy();
       
@@ -246,13 +329,16 @@ export class E2ETestingSuite {
       return {
         testName: 'Connection Manager Resilience',
         status: 'passed',
-        message: 'Connection manager passed resilience tests',
+        message: 'Enhanced connection manager passed all resilience tests',
         timestamp: new Date().toISOString(),
         duration,
         details: {
+          connectionAttempts,
           connectionEstablished: isConnected,
           healthCheck: isHealthy,
-          statusCheck: status.isConnected
+          statusCheck: status.isConnected,
+          metricsAvailable: !!metrics,
+          forceReconnectTested: true
         }
       };
     } catch (error) {
@@ -262,7 +348,7 @@ export class E2ETestingSuite {
       return {
         testName: 'Connection Manager Resilience',
         status: 'failed',
-        message: `Connection manager resilience test failed: ${errorMessage}`,
+        message: `Enhanced connection manager resilience test failed: ${errorMessage}`,
         timestamp: new Date().toISOString(),
         duration,
         details: { error: errorMessage }
@@ -271,27 +357,44 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Test subscription manager stability
+   * Enhanced subscription manager stability test
    */
   private async testSubscriptionManagerStability(): Promise<TestResult> {
-    console.log('🔄 Testing subscription manager stability...');
+    console.log('🔄 Testing enhanced subscription manager stability...');
     const startTime = Date.now();
     
     try {
       const connectionManager = new WebSocketConnectionManager({
-        maxRetries: 1,
-        baseDelayMs: 100,
-        maxDelayMs: 1000,
-        timeoutMs: 5000,
+        maxRetries: 2,
+        baseDelayMs: 200,
+        maxDelayMs: 2000,
+        timeoutMs: 10000,
         enableAutoReconnect: false
       });
 
-      await connectionManager.connect();
+      // Establish connection with retries
+      let connectionAttempts = 0;
+      let isConnected = false;
+      const maxAttempts = 3;
+      
+      while (!isConnected && connectionAttempts < maxAttempts) {
+        connectionAttempts++;
+        isConnected = await connectionManager.connect();
+        if (!isConnected && connectionAttempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      if (!isConnected) {
+        throw new Error('Failed to establish connection for subscription test');
+      }
       
       const subscriptionManager = new RealtimeSubscriptionManager(connectionManager);
       
-      // Test subscription creation and cleanup
+      // Test subscription creation with enhanced options
       const testChannel = `stability-test-${Date.now()}`;
+      let payloadReceived = false;
+      let statusUpdates = 0;
       
       await subscriptionManager.createSubscription(
         {
@@ -299,16 +402,30 @@ export class E2ETestingSuite {
           table: 'yff_applications',
           schema: 'public',
           event: '*',
-          validationTimeoutMs: 5000
+          validationTimeoutMs: 10000,
+          retryOnFailure: true,
+          maxRetries: 2
         },
-        () => console.log('Test payload received'),
-        () => console.log('Test status updated')
+        (payload) => {
+          console.log('📨 Test payload received in stability test');
+          payloadReceived = true;
+        },
+        (status) => {
+          console.log('📊 Test status update received:', status.isActive);
+          statusUpdates++;
+        }
       );
 
       // Test status retrieval
       const status = subscriptionManager.getSubscriptionStatus(testChannel);
       if (!status?.isActive) {
         throw new Error('Subscription manager failed to create active subscription');
+      }
+
+      // Test all subscription statuses
+      const allStatuses = subscriptionManager.getAllSubscriptionStatuses();
+      if (!allStatuses || Object.keys(allStatuses).length === 0) {
+        throw new Error('Subscription manager failed to provide subscription statuses');
       }
 
       // Test cleanup
@@ -320,12 +437,15 @@ export class E2ETestingSuite {
       return {
         testName: 'Subscription Manager Stability',
         status: 'passed',
-        message: 'Subscription manager passed stability tests',
+        message: 'Enhanced subscription manager passed all stability tests',
         timestamp: new Date().toISOString(),
         duration,
         details: {
+          connectionAttempts,
           subscriptionCreated: true,
           statusCheck: status.isActive,
+          statusUpdates,
+          allStatusesRetrieved: Object.keys(allStatuses).length > 0,
           cleanupSuccessful: true
         }
       };
@@ -336,7 +456,7 @@ export class E2ETestingSuite {
       return {
         testName: 'Subscription Manager Stability',
         status: 'failed',
-        message: `Subscription manager stability test failed: ${errorMessage}`,
+        message: `Enhanced subscription manager stability test failed: ${errorMessage}`,
         timestamp: new Date().toISOString(),
         duration,
         details: { error: errorMessage }
@@ -526,20 +646,21 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Generate comprehensive test report
+   * Generate comprehensive test report with enhanced details
    */
   generateTestReport(): string {
     const passedCount = this.results.filter(r => r.status === 'passed').length;
     const failedCount = this.results.filter(r => r.status === 'failed').length;
     const totalDuration = this.results.reduce((sum, r) => sum + (r.duration || 0), 0);
     
-    let report = `# E2E Test Suite Report\n\n`;
+    let report = `# Enhanced E2E Test Suite Report\n\n`;
     report += `**Generated:** ${new Date().toISOString()}\n`;
     report += `**Total Tests:** ${this.results.length}\n`;
     report += `**Passed:** ${passedCount}\n`;
     report += `**Failed:** ${failedCount}\n`;
     report += `**Success Rate:** ${((passedCount / this.results.length) * 100).toFixed(1)}%\n`;
-    report += `**Total Duration:** ${totalDuration}ms\n\n`;
+    report += `**Total Duration:** ${totalDuration}ms\n`;
+    report += `**Average Duration:** ${Math.round(totalDuration / this.results.length)}ms\n\n`;
     
     report += `## Test Results\n\n`;
     

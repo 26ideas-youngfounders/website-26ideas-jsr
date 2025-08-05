@@ -1,12 +1,12 @@
 
 /**
- * @fileoverview Real-Time YFF Applications Hook with Enhanced Connection Management
+ * @fileoverview Real-Time YFF Applications Hook with Enhanced WebSocket Management
  * 
  * Provides real-time updates for YFF applications using Supabase
- * real-time subscriptions with comprehensive error handling, authentication validation,
- * retry logic, and polling fallback.
+ * real-time subscriptions with comprehensive WebSocket state handling,
+ * robust error recovery, and reliable connection management.
  * 
- * @version 3.0.0
+ * @version 4.0.0
  * @author 26ideas Development Team
  */
 
@@ -48,7 +48,7 @@ const getApplicationId = (newRecord: any, oldRecord: any): string | null => {
 };
 
 /**
- * Hook for real-time YFF applications with enhanced reliability and fallback
+ * Hook for real-time YFF applications with enhanced WebSocket reliability
  */
 export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   const [isConnected, setIsConnected] = useState(false);
@@ -65,6 +65,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const connectionAttemptRef = useRef<number>(0);
   const currentSessionRef = useRef<Session | null>(null);
+  const isInitializedRef = useRef<boolean>(false);
 
   // Primary data query with improved error handling
   const { data: applications = [], isLoading, error } = useQuery({
@@ -108,6 +109,33 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   });
 
   /**
+   * Enhanced WebSocket state validation
+   */
+  const validateWebSocketState = useCallback((channel: any): boolean => {
+    if (!channel) {
+      console.warn('⚠️ No channel provided for WebSocket validation');
+      return false;
+    }
+
+    if (!channel.socket) {
+      console.warn('⚠️ No socket found in channel');
+      return false;
+    }
+
+    const readyState = channel.socket.readyState;
+    const states = {
+      0: 'CONNECTING',
+      1: 'OPEN', 
+      2: 'CLOSING',
+      3: 'CLOSED'
+    };
+
+    console.log(`🔍 WebSocket state: ${readyState} (${states[readyState] || 'UNKNOWN'})`);
+    
+    return readyState === 1; // WebSocket.OPEN
+  }, []);
+
+  /**
    * Validate authentication status for real-time subscription
    */
   const validateAuthentication = useCallback(async (): Promise<Session | null> => {
@@ -134,7 +162,8 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       console.log('✅ Authentication validated:', {
         userId: session.user?.id,
         email: session.user?.email,
-        tokenExists: !!session.access_token
+        tokenExists: !!session.access_token,
+        tokenLength: session.access_token.length
       });
 
       currentSessionRef.current = session;
@@ -152,6 +181,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   const startPollingFallback = useCallback(() => {
     console.log('🔄 Starting polling fallback...');
     setConnectionStatus('fallback');
+    setIsConnected(false);
     
     // Clear any existing polling
     if (pollingIntervalRef.current) {
@@ -182,7 +212,39 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
   }, []);
 
   /**
-   * Handle real-time subscription setup with enhanced reliability
+   * Clean up existing subscriptions and timers
+   */
+  const cleanupExistingConnection = useCallback(() => {
+    console.log('🧹 Cleaning up existing connection...');
+    
+    // Clear all timers
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+
+    // Remove existing channel
+    if (channelRef.current) {
+      try {
+        console.log('🗑️ Removing existing channel');
+        supabase.removeChannel(channelRef.current);
+      } catch (cleanupError) {
+        console.warn('⚠️ Error during channel cleanup:', cleanupError);
+      }
+      channelRef.current = null;
+    }
+
+    // Stop polling if active
+    stopPollingFallback();
+  }, [stopPollingFallback]);
+
+  /**
+   * Enhanced real-time subscription setup with WebSocket state monitoring
    */
   const setupRealtimeSubscription = useCallback(async (): Promise<boolean> => {
     try {
@@ -193,29 +255,8 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       setConnectionStatus('connecting');
       setIsConnected(false);
       
-      // Stop any existing polling fallback
-      stopPollingFallback();
-
-      // Clean up existing subscription and timeouts
-      if (channelRef.current) {
-        console.log('🧹 Cleaning up existing subscription');
-        try {
-          supabase.removeChannel(channelRef.current);
-        } catch (cleanupError) {
-          console.warn('⚠️ Error during subscription cleanup:', cleanupError);
-        }
-        channelRef.current = null;
-      }
-
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-
-      if (connectionTimeoutRef.current) {
-        clearTimeout(connectionTimeoutRef.current);
-        connectionTimeoutRef.current = null;
-      }
+      // Clean up existing connection
+      cleanupExistingConnection();
 
       // Validate authentication first
       const session = await validateAuthentication();
@@ -230,6 +271,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       try {
         console.log('🔐 Setting realtime authentication...');
         supabase.realtime.setAuth(session.access_token);
+        console.log('✅ Realtime authentication set successfully');
       } catch (authError) {
         console.error('❌ Failed to set realtime auth:', authError);
         setConnectionStatus('error');
@@ -238,31 +280,38 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       }
 
       // Create channel with enhanced configuration
-      const channelName = `yff-applications-realtime-main-${attemptNumber}`;
+      const channelName = `yff-applications-realtime-${attemptNumber}-${Date.now()}`;
       console.log(`📡 Creating channel: ${channelName}`);
 
-      // Set connection timeout (extended to 45 seconds for better reliability)
+      // Set connection timeout with better error handling
       connectionTimeoutRef.current = setTimeout(() => {
-        console.error(`⏰ Connection timeout after 45 seconds (attempt #${attemptNumber})`);
-        if (channelRef.current && !isConnected) {
-          setConnectionStatus('error');
-          const currentRetryCount = retryCount + 1;
+        console.error(`⏰ Connection timeout after 30 seconds (attempt #${attemptNumber})`);
+        
+        if (channelRef.current) {
+          const isOpen = validateWebSocketState(channelRef.current);
+          console.log(`🔍 WebSocket state at timeout: ${isOpen ? 'OPEN' : 'NOT OPEN'}`);
           
-          if (currentRetryCount <= 3) {
-            console.log(`🔄 Will retry connection (attempt ${currentRetryCount}/3)`);
-            setRetryCount(currentRetryCount);
+          if (!isOpen) {
+            setConnectionStatus('error');
+            const currentRetryCount = retryCount + 1;
             
-            // Exponential backoff
-            const delay = Math.min(1000 * Math.pow(2, currentRetryCount - 1), 10000);
-            reconnectTimeoutRef.current = setTimeout(() => {
-              setupRealtimeSubscription();
-            }, delay);
-          } else {
-            console.error('💀 Max connection attempts reached, switching to polling fallback');
-            startPollingFallback();
+            if (currentRetryCount <= 3) {
+              console.log(`🔄 Will retry connection (attempt ${currentRetryCount}/3)`);
+              setRetryCount(currentRetryCount);
+              
+              // Exponential backoff
+              const delay = Math.min(1000 * Math.pow(2, currentRetryCount - 1), 10000);
+              console.log(`⏱️ Retrying in ${delay}ms...`);
+              reconnectTimeoutRef.current = setTimeout(() => {
+                setupRealtimeSubscription();
+              }, delay);
+            } else {
+              console.error('💀 Max connection attempts reached, switching to polling fallback');
+              startPollingFallback();
+            }
           }
         }
-      }, 45000); // 45 second timeout
+      }, 30000); // 30 second timeout
 
       const channel = supabase
         .channel(channelName, {
@@ -328,29 +377,58 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
             status,
             error: err,
             timestamp,
-            channelName,
-            isConnected
+            channelName
           });
           
           if (status === 'SUBSCRIBED') {
-            console.log(`✅ Real-time subscription established (attempt #${attemptNumber})`);
-            
-            // Clear connection timeout
-            if (connectionTimeoutRef.current) {
-              clearTimeout(connectionTimeoutRef.current);
-              connectionTimeoutRef.current = null;
-            }
-            
-            setIsConnected(true);
-            setConnectionStatus('connected');
-            setRetryCount(0);
-            
-            // Show success notification
-            toast({
-              title: "Real-time Updates Active",
-              description: "Dashboard will now update automatically.",
-              variant: "default"
-            });
+            // Wait a moment for WebSocket to be fully ready
+            setTimeout(() => {
+              const isWebSocketOpen = validateWebSocketState(channel);
+              
+              console.log(`🔍 WebSocket validation after SUBSCRIBED: ${isWebSocketOpen}`);
+              
+              if (isWebSocketOpen) {
+                console.log(`✅ Real-time subscription established successfully (attempt #${attemptNumber})`);
+                
+                // Clear connection timeout
+                if (connectionTimeoutRef.current) {
+                  clearTimeout(connectionTimeoutRef.current);
+                  connectionTimeoutRef.current = null;
+                }
+                
+                setIsConnected(true);
+                setConnectionStatus('connected');
+                setRetryCount(0);
+                
+                // Stop polling fallback
+                stopPollingFallback();
+                
+                // Show success notification
+                toast({
+                  title: "Real-time Updates Active",
+                  description: "Dashboard will now update automatically.",
+                  variant: "default"
+                });
+              } else {
+                console.error(`❌ WebSocket not in OPEN state after subscription (attempt #${attemptNumber})`);
+                setConnectionStatus('error');
+                
+                // Retry logic
+                const currentRetryCount = retryCount + 1;
+                if (currentRetryCount <= 3) {
+                  console.log(`🔄 Retrying due to WebSocket state (attempt ${currentRetryCount}/3)`);
+                  setRetryCount(currentRetryCount);
+                  
+                  const delay = Math.min(2000 * Math.pow(1.5, currentRetryCount), 10000);
+                  reconnectTimeoutRef.current = setTimeout(() => {
+                    setupRealtimeSubscription();
+                  }, delay);
+                } else {
+                  console.error('💀 Max retries reached, switching to polling fallback');
+                  startPollingFallback();
+                }
+              }
+            }, 2000); // Wait 2 seconds for WebSocket to be fully ready
             
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.error(`❌ Real-time subscription error (attempt #${attemptNumber}):`, { 
@@ -410,11 +488,16 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
       startPollingFallback();
       return false;
     }
-  }, [validateAuthentication, queryClient, toast, retryCount, isConnected, stopPollingFallback, startPollingFallback]);
+  }, [validateAuthentication, queryClient, toast, retryCount, cleanupExistingConnection, validateWebSocketState, stopPollingFallback, startPollingFallback]);
 
   // Initialize subscription on mount
   useEffect(() => {
+    if (isInitializedRef.current) {
+      return;
+    }
+    
     console.log('🚀 Initializing real-time subscription hook');
+    isInitializedRef.current = true;
     
     // Reset state
     connectionAttemptRef.current = 0;
@@ -425,28 +508,10 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     
     return () => {
       console.log('🧹 Cleaning up real-time subscription on unmount');
+      isInitializedRef.current = false;
       
       // Clean up all resources
-      if (channelRef.current) {
-        try {
-          supabase.removeChannel(channelRef.current);
-        } catch (error) {
-          console.warn('⚠️ Error removing channel during cleanup:', error);
-        }
-        channelRef.current = null;
-      }
-      
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-      
-      if (connectionTimeoutRef.current) {
-        clearTimeout(connectionTimeoutRef.current);
-        connectionTimeoutRef.current = null;
-      }
-      
-      stopPollingFallback();
+      cleanupExistingConnection();
       
       setIsConnected(false);
       setConnectionStatus('disconnected');
@@ -472,14 +537,10 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
           console.log('❌ User signed out, cleaning up real-time subscription');
           currentSessionRef.current = null;
           
-          if (channelRef.current) {
-            supabase.removeChannel(channelRef.current);
-            channelRef.current = null;
-          }
+          cleanupExistingConnection();
           
           setIsConnected(false);
           setConnectionStatus('disconnected');
-          stopPollingFallback();
         }
       }
     );
@@ -487,7 +548,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [setupRealtimeSubscription, stopPollingFallback]);
+  }, [setupRealtimeSubscription, cleanupExistingConnection]);
 
   // Handle visibility change for better resource management
   useEffect(() => {
@@ -497,6 +558,9 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
         
         if (!isConnected && connectionStatus !== 'connecting' && connectionStatus !== 'fallback') {
           console.log('🔄 Page visible and not connected, attempting reconnection...');
+          setupRealtimeSubscription();
+        } else if (channelRef.current && !validateWebSocketState(channelRef.current)) {
+          console.log('🔄 Page visible but WebSocket not open, attempting reconnection...');
           setupRealtimeSubscription();
         }
       } else {
@@ -509,23 +573,27 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isConnected, connectionStatus, setupRealtimeSubscription]);
+  }, [isConnected, connectionStatus, setupRealtimeSubscription, validateWebSocketState]);
 
-  // Periodic connection health check
+  // Periodic connection health check with enhanced validation
   useEffect(() => {
     const healthCheck = setInterval(() => {
       if (connectionStatus === 'connected' && channelRef.current) {
-        // Verify the channel is still active
-        const channel = channelRef.current;
-        if (channel.socket && channel.socket.readyState !== 1) {
-          console.warn('🔧 Connection health check failed, reconnecting...');
+        const isWebSocketOpen = validateWebSocketState(channelRef.current);
+        
+        if (!isWebSocketOpen) {
+          console.warn('🔧 Connection health check failed - WebSocket not open, reconnecting...');
+          setConnectionStatus('error');
+          setIsConnected(false);
           setupRealtimeSubscription();
+        } else {
+          console.log('✅ Connection health check passed');
         }
       }
     }, 30000); // Check every 30 seconds
 
     return () => clearInterval(healthCheck);
-  }, [connectionStatus, setupRealtimeSubscription]);
+  }, [connectionStatus, setupRealtimeSubscription, validateWebSocketState]);
 
   return {
     applications,

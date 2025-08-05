@@ -2,9 +2,9 @@
  * @fileoverview Comprehensive E2E Testing Suite for YFF Applications
  * 
  * Tests the complete flow from application submission through AI scoring
- * to dashboard display with enhanced real-time update validation.
+ * to dashboard display with enhanced real-time WebSocket validation.
  * 
- * @version 3.0.0
+ * @version 4.0.0
  * @author 26ideas Development Team
  */
 
@@ -36,7 +36,54 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Run complete E2E test suite with enhanced real-time validation
+   * Enhanced WebSocket state validation
+   */
+  private validateWebSocketState(channel: any): { 
+    isOpen: boolean; 
+    state: string; 
+    details: any 
+  } {
+    if (!channel) {
+      return {
+        isOpen: false,
+        state: 'NO_CHANNEL',
+        details: { error: 'No channel provided' }
+      };
+    }
+
+    if (!channel.socket) {
+      return {
+        isOpen: false,
+        state: 'NO_SOCKET',
+        details: { error: 'No socket found in channel' }
+      };
+    }
+
+    const readyState = channel.socket.readyState;
+    const states = {
+      0: 'CONNECTING',
+      1: 'OPEN', 
+      2: 'CLOSING',
+      3: 'CLOSED'
+    };
+
+    const state = states[readyState] || 'UNKNOWN';
+    const isOpen = readyState === 1;
+
+    return {
+      isOpen,
+      state,
+      details: {
+        readyState,
+        url: channel.socket.url,
+        protocol: channel.socket.protocol,
+        extensions: channel.socket.extensions
+      }
+    };
+  }
+
+  /**
+   * Run complete E2E test suite with enhanced WebSocket validation
    */
   async runCompleteTestSuite(): Promise<TestResult[]> {
     console.log('🚀 Starting comprehensive E2E test suite...');
@@ -54,7 +101,7 @@ export class E2ETestingSuite {
       // Test 4: AI scoring trigger
       await this.testAIScoringTrigger();
       
-      // Test 5: Enhanced real-time updates test
+      // Test 5: Enhanced real-time updates test with WebSocket validation
       await this.testRealTimeUpdates();
       
       // Test 6: Results display
@@ -348,13 +395,13 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Enhanced real-time updates test with improved authentication and timeout handling
+   * Enhanced real-time updates test with comprehensive WebSocket validation
    */
   private async testRealTimeUpdates(): Promise<void> {
     const startTime = Date.now();
     
     try {
-      console.log('🔄 Testing real-time updates with enhanced authentication validation...');
+      console.log('🔄 Testing real-time updates with comprehensive WebSocket validation...');
       
       if (!this.testApplicationId) {
         throw new Error('No test application ID available');
@@ -366,14 +413,14 @@ export class E2ETestingSuite {
         throw new Error(`Authentication validation failed: ${authValidation.error}`);
       }
 
-      // Test the real-time subscription system with enhanced timeout handling
+      // Test the real-time subscription system with WebSocket state monitoring
       const subscriptionTest = await this.validateEnhancedRealtimeSubscription();
       
       if (!subscriptionTest.success) {
         throw new Error(`Enhanced real-time subscription test failed: ${subscriptionTest.error}`);
       }
 
-      // Perform database updates and wait for real-time notification with retry logic
+      // Perform database updates and wait for real-time notification with WebSocket monitoring
       const updateTest = await this.testEnhancedUpdatePropagation();
       
       if (!updateTest.success) {
@@ -385,12 +432,13 @@ export class E2ETestingSuite {
       this.addTestResult({
         testName: 'Real-Time Updates',
         status: 'passed',
-        message: `Enhanced real-time updates working correctly. Subscription established within ${subscriptionTest.connectionTime}ms, updates propagated within ${updateTest.latency}ms.`,
+        message: `Enhanced real-time updates working correctly. Subscription established within ${subscriptionTest.connectionTime}ms, WebSocket in ${subscriptionTest.webSocketState} state, updates propagated within ${updateTest.latency}ms.`,
         timestamp: new Date().toISOString(),
         duration,
         details: {
           authValidation: authValidation.details,
           subscriptionDetails: subscriptionTest.details,
+          webSocketValidation: subscriptionTest.webSocketValidation,
           updateLatency: updateTest.latency,
           eventsReceived: updateTest.eventsReceived,
           connectionTime: subscriptionTest.connectionTime
@@ -492,20 +540,23 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Validate enhanced real-time subscription with better timeout handling
+   * Validate enhanced real-time subscription with comprehensive WebSocket monitoring
    */
   private async validateEnhancedRealtimeSubscription(): Promise<{
     success: boolean;
     error?: string;
     details?: any;
     connectionTime?: number;
+    webSocketState?: string;
+    webSocketValidation?: any;
   }> {
     return new Promise((resolve) => {
-      console.log('🔍 Validating enhanced real-time subscription setup...');
+      console.log('🔍 Validating enhanced real-time subscription with WebSocket monitoring...');
       
       const startTime = Date.now();
       let subscriptionTimeout: NodeJS.Timeout;
       let connectionMonitor: NodeJS.Timeout;
+      let webSocketMonitor: NodeJS.Timeout;
       let isResolved = false;
       
       const resolveOnce = (result: any) => {
@@ -513,6 +564,7 @@ export class E2ETestingSuite {
         isResolved = true;
         if (subscriptionTimeout) clearTimeout(subscriptionTimeout);
         if (connectionMonitor) clearTimeout(connectionMonitor);
+        if (webSocketMonitor) clearTimeout(webSocketMonitor);
         
         // Add connection time to result
         if (result.success) {
@@ -525,13 +577,13 @@ export class E2ETestingSuite {
       try {
         // Create a unique channel name to avoid conflicts
         const timestamp = Date.now();
-        const channelName = `e2e-test-realtime-${timestamp}`;
-        console.log(`📡 Testing enhanced subscription with channel: ${channelName}`);
+        const channelName = `e2e-websocket-test-${timestamp}`;
+        console.log(`📡 Testing enhanced subscription with WebSocket monitoring: ${channelName}`);
         
         this.realtimeChannel = supabase
           .channel(channelName, {
             config: {
-              presence: { key: `e2e-enhanced-test-${timestamp}` },
+              presence: { key: `e2e-websocket-${timestamp}` },
               broadcast: { self: false }
             }
           })
@@ -543,7 +595,7 @@ export class E2ETestingSuite {
               table: 'yff_applications'
             },
             (payload) => {
-              console.log('📨 Real-time event received in enhanced test:', {
+              console.log('📨 Real-time event received in WebSocket test:', {
                 eventType: payload.eventType,
                 timestamp: new Date().toISOString()
               });
@@ -551,7 +603,7 @@ export class E2ETestingSuite {
           )
           .subscribe((status, err) => {
             const connectionTime = Date.now() - startTime;
-            console.log('📡 Enhanced subscription status:', {
+            console.log('📡 Enhanced subscription status with WebSocket monitoring:', {
               status,
               error: err,
               connectionTime: `${connectionTime}ms`,
@@ -561,38 +613,57 @@ export class E2ETestingSuite {
             if (status === 'SUBSCRIBED') {
               console.log(`✅ Enhanced subscription established successfully in ${connectionTime}ms`);
               
-              // Additional validation - check connection health after a brief delay
-              connectionMonitor = setTimeout(() => {
-                if (this.realtimeChannel && this.realtimeChannel.socket) {
-                  const socketState = this.realtimeChannel.socket.readyState;
-                  console.log(`🔍 Enhanced WebSocket state verification: ${socketState}`);
+              // Start comprehensive WebSocket validation after a brief delay
+              webSocketMonitor = setTimeout(() => {
+                const webSocketValidation = this.validateWebSocketState(this.realtimeChannel);
+                
+                console.log(`🔍 Comprehensive WebSocket validation:`, webSocketValidation);
+                
+                if (webSocketValidation.isOpen) {
+                  // Additional stability check - wait longer to ensure connection is stable
+                  connectionMonitor = setTimeout(() => {
+                    const finalValidation = this.validateWebSocketState(this.realtimeChannel);
+                    
+                    console.log(`🔍 Final WebSocket stability check:`, finalValidation);
+                    
+                    if (finalValidation.isOpen) {
+                      resolveOnce({
+                        success: true,
+                        webSocketState: finalValidation.state,
+                        webSocketValidation: finalValidation,
+                        details: {
+                          subscriptionStatus: status,
+                          channelName,
+                          timestamp: new Date().toISOString(),
+                          stabilityCheckPassed: true
+                        }
+                      });
+                    } else {
+                      resolveOnce({
+                        success: false,
+                        error: `WebSocket state changed during stability check: ${finalValidation.state}`,
+                        webSocketState: finalValidation.state,
+                        webSocketValidation: finalValidation,
+                        details: { 
+                          status, 
+                          channelName, 
+                          connectionTime,
+                          stabilityCheckFailed: true
+                        }
+                      });
+                    }
+                  }, 5000); // Wait 5 seconds for stability
                   
-                  if (socketState === 1) { // WebSocket.OPEN
-                    resolveOnce({
-                      success: true,
-                      details: {
-                        subscriptionStatus: status,
-                        channelName,
-                        socketState,
-                        connectionTime,
-                        timestamp: new Date().toISOString()
-                      }
-                    });
-                  } else {
-                    resolveOnce({
-                      success: false,
-                      error: `WebSocket not in OPEN state after subscription: ${socketState}`,
-                      details: { status, socketState, channelName, connectionTime }
-                    });
-                  }
                 } else {
                   resolveOnce({
                     success: false,
-                    error: 'No socket available after enhanced subscription',
+                    error: `WebSocket not in OPEN state after subscription: ${webSocketValidation.state}`,
+                    webSocketState: webSocketValidation.state,
+                    webSocketValidation: webSocketValidation,
                     details: { status, channelName, connectionTime }
                   });
                 }
-              }, 3000); // Wait 3 seconds to ensure connection is stable
+              }, 3000); // Wait 3 seconds before first WebSocket check
               
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
               resolveOnce({
@@ -600,25 +671,31 @@ export class E2ETestingSuite {
                 error: `Enhanced subscription failed with status: ${status}`,
                 details: { status, error: err, channelName, connectionTime }
               });
-            } else if (status === 'CHANNEL_TIMEOUT') {
-              resolveOnce({
-                success: false,
-                error: 'Enhanced subscription timed out during establishment',
-                details: { status, error: err, channelName, connectionTime }
-              });
             }
           });
 
-        // Set extended timeout for subscription establishment (60 seconds for reliability)
+        // Set extended timeout for subscription establishment (45 seconds for comprehensive testing)
         subscriptionTimeout = setTimeout(() => {
           const connectionTime = Date.now() - startTime;
           console.error(`⏰ Enhanced connection timeout after ${connectionTime}ms`);
+          
+          const webSocketValidation = this.realtimeChannel ? 
+            this.validateWebSocketState(this.realtimeChannel) : 
+            { isOpen: false, state: 'TIMEOUT_NO_CHANNEL', details: {} };
+            
           resolveOnce({
             success: false,
-            error: `Enhanced subscription did not establish within 60 seconds (took ${connectionTime}ms)`,
-            details: { timeout: true, channelName, connectionTime }
+            error: `Enhanced subscription did not establish within 45 seconds (took ${connectionTime}ms)`,
+            webSocketState: webSocketValidation.state,
+            webSocketValidation: webSocketValidation,
+            details: { 
+              timeout: true, 
+              channelName, 
+              connectionTime,
+              timeoutReason: 'SUBSCRIPTION_ESTABLISHMENT'
+            }
           });
-        }, 60000);
+        }, 45000); // 45 second timeout
 
       } catch (error) {
         const connectionTime = Date.now() - startTime;
@@ -632,7 +709,7 @@ export class E2ETestingSuite {
   }
 
   /**
-   * Test enhanced update propagation with retry logic
+   * Test enhanced update propagation with WebSocket state monitoring
    */
   private async testEnhancedUpdatePropagation(): Promise<{
     success: boolean;
@@ -641,7 +718,7 @@ export class E2ETestingSuite {
     eventsReceived?: number;
   }> {
     return new Promise((resolve) => {
-      console.log('🔍 Testing enhanced real-time update propagation...');
+      console.log('🔍 Testing enhanced real-time update propagation with WebSocket monitoring...');
       
       let updateTimeout: NodeJS.Timeout;
       let eventsReceived = 0;
@@ -673,13 +750,26 @@ export class E2ETestingSuite {
         return;
       }
 
-      // Create a dedicated listener for our test application updates with enhanced configuration
+      // Validate WebSocket state before starting update test
+      const initialWebSocketState = this.validateWebSocketState(this.realtimeChannel);
+      console.log('🔍 Initial WebSocket state for update test:', initialWebSocketState);
+      
+      if (!initialWebSocketState.isOpen) {
+        resolveOnce({
+          success: false,
+          error: `WebSocket not ready for update test: ${initialWebSocketState.state}`,
+          eventsReceived
+        });
+        return;
+      }
+
+      // Create a dedicated listener for our test application updates
       const timestamp = Date.now();
-      const updateChannelName = `e2e-update-test-${timestamp}`;
+      const updateChannelName = `e2e-update-websocket-test-${timestamp}`;
       eventListener = supabase
         .channel(updateChannelName, {
           config: {
-            presence: { key: `update-test-${timestamp}` },
+            presence: { key: `update-websocket-test-${timestamp}` },
             broadcast: { self: false }
           }
         })
@@ -695,31 +785,49 @@ export class E2ETestingSuite {
             eventsReceived++;
             const latency = Date.now() - updateStartTime;
             
-            console.log(`📨 Enhanced real-time update received for test application. Latency: ${latency}ms`, {
+            console.log(`📨 Enhanced real-time update received with WebSocket monitoring. Latency: ${latency}ms`, {
               eventType: payload.eventType,
               applicationId: payload.new?.application_id || payload.old?.application_id,
               evaluationStatus: payload.new?.evaluation_status,
               eventsReceived
             });
             
+            // Validate WebSocket state when event is received
+            const eventWebSocketState = this.validateWebSocketState(eventListener);
+            console.log('🔍 WebSocket state when event received:', eventWebSocketState);
+            
             resolveOnce({
               success: true,
               latency,
-              eventsReceived
+              eventsReceived,
+              webSocketStateAtEvent: eventWebSocketState
             });
           }
         )
         .subscribe(async (status) => {
-          console.log(`📡 Enhanced update test channel status: ${status}`);
+          console.log(`📡 Enhanced update test channel with WebSocket monitoring status: ${status}`);
           
           if (status === 'SUBSCRIBED') {
-            console.log('✅ Enhanced update test channel subscribed, triggering database updates...');
+            // Validate WebSocket state after subscription
+            const subscriptionWebSocketState = this.validateWebSocketState(eventListener);
+            console.log('🔍 WebSocket state after update channel subscription:', subscriptionWebSocketState);
             
-            // Give subscription more time to be fully ready
+            if (!subscriptionWebSocketState.isOpen) {
+              resolveOnce({
+                success: false,
+                error: `Update channel WebSocket not open after subscription: ${subscriptionWebSocketState.state}`,
+                eventsReceived
+              });
+              return;
+            }
+            
+            console.log('✅ Enhanced update test channel subscribed with WebSocket monitoring, triggering database updates...');
+            
+            // Give subscription more time to be fully ready with WebSocket validation
             setTimeout(async () => {
               updateStartTime = Date.now();
               
-              // Perform multiple database updates with better spacing to ensure we catch an event
+              // Perform multiple database updates with better spacing
               const updates = [
                 { evaluation_status: 'processing', updated_at: new Date().toISOString() },
                 { status: 'under_review', updated_at: new Date().toISOString() },
@@ -728,7 +836,15 @@ export class E2ETestingSuite {
               ];
 
               for (let i = 0; i < updates.length; i++) {
-                console.log(`🔄 Performing enhanced update ${i + 1}/${updates.length}:`, updates[i]);
+                // Check WebSocket state before each update
+                const preUpdateWebSocketState = this.validateWebSocketState(eventListener);
+                console.log(`🔍 WebSocket state before update ${i + 1}:`, preUpdateWebSocketState);
+                
+                if (!preUpdateWebSocketState.isOpen) {
+                  console.warn(`⚠️ WebSocket not open before update ${i + 1}: ${preUpdateWebSocketState.state}`);
+                }
+                
+                console.log(`🔄 Performing enhanced update with WebSocket monitoring ${i + 1}/${updates.length}:`, updates[i]);
                 
                 try {
                   const { error } = await supabase
@@ -747,11 +863,11 @@ export class E2ETestingSuite {
 
                 // Wait between updates to allow propagation
                 if (i < updates.length - 1) {
-                  await new Promise(resolve => setTimeout(resolve, 3000));
+                  await new Promise(resolve => setTimeout(resolve, 4000));
                 }
               }
 
-            }, 5000); // Wait 5 seconds for subscription to be fully ready
+            }, 7000); // Wait 7 seconds for subscription to be fully ready
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             resolveOnce({
               success: false,
@@ -761,15 +877,21 @@ export class E2ETestingSuite {
           }
         });
 
-      // Set extended timeout for update propagation (40 seconds for reliability)
+      // Set extended timeout for update propagation (50 seconds for comprehensive WebSocket testing)
       updateTimeout = setTimeout(() => {
-        console.log(`⏰ Enhanced real-time update test timeout. Events received: ${eventsReceived}`);
+        const finalWebSocketState = eventListener ? 
+          this.validateWebSocketState(eventListener) : 
+          { isOpen: false, state: 'TIMEOUT_NO_LISTENER', details: {} };
+          
+        console.log(`⏰ Enhanced real-time update test timeout. Events received: ${eventsReceived}, Final WebSocket state:`, finalWebSocketState);
+        
         resolveOnce({
           success: false,
-          error: `Enhanced real-time update not received within 40 seconds. Events received: ${eventsReceived}`,
-          eventsReceived
+          error: `Enhanced real-time update not received within 50 seconds. Events received: ${eventsReceived}, WebSocket state: ${finalWebSocketState.state}`,
+          eventsReceived,
+          finalWebSocketState
         });
-      }, 40000);
+      }, 50000); // 50 second timeout
     });
   }
 

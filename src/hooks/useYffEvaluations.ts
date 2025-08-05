@@ -113,7 +113,7 @@ export const useYffEvaluations = () => {
     onSuccess: (result) => {
       toast({
         title: "Evaluation Completed",
-        description: `Application evaluated with score: ${result.overallScore}/10`,
+        description: `Application evaluated with score: ${result.overall_score}/10`,
       });
       queryClient.invalidateQueries({ queryKey: ['yff-evaluation-stats'] });
       queryClient.invalidateQueries({ queryKey: ['pending-evaluations'] });
@@ -137,7 +137,7 @@ export const useYffEvaluations = () => {
     onSuccess: (result) => {
       toast({
         title: "Re-evaluation Completed",
-        description: `Application re-evaluated with score: ${result.overallScore}/10`,
+        description: `Application re-evaluated with score: ${result.overall_score}/10`,
       });
       queryClient.invalidateQueries({ queryKey: ['yff-evaluation-stats'] });
       queryClient.invalidateQueries({ queryKey: ['yff-applications'] });

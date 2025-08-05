@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Comprehensive E2E Testing Suite V2
  * 
@@ -365,9 +366,6 @@ export class E2ETestingSuiteV2 {
     }
   }
 
-  /**
-   * Test AI evaluation system with proper error handling
-   */
   private async testAIEvaluationSystem(): Promise<void> {
     const startTime = Date.now();
     
@@ -435,7 +433,7 @@ export class E2ETestingSuiteV2 {
   }
 
   /**
-   * Test error handling and recovery mechanisms
+   * Test error handling and recovery mechanisms - FIXED to avoid using real application IDs
    */
   private async testErrorHandlingAndRecovery(): Promise<void> {
     const startTime = Date.now();
@@ -443,38 +441,54 @@ export class E2ETestingSuiteV2 {
     try {
       console.log('🛠️ Testing error handling and recovery...');
 
-      // Test 1: Invalid application ID handling
-      const invalidUuid = uuidv4();
-      const invalidResult = await AIComprehensiveScoringService.triggerEvaluation(invalidUuid);
+      // Test 1: Invalid application ID handling - use clearly invalid format
+      console.log('🔍 Testing with invalid application ID format...');
+      const invalidApplicationId = 'invalid-application-id-format-for-testing';
+      const invalidResult = await AIComprehensiveScoringService.triggerEvaluation(invalidApplicationId);
       
       if (invalidResult.success) {
-        throw new Error('Error handling test failed: should have rejected invalid application ID');
+        throw new Error('Error handling test failed: should have rejected invalid application ID format');
       }
 
-      // Test 2: Database query with invalid conditions
+      console.log('✅ Invalid application ID properly rejected');
+
+      // Test 2: Database query with malformed UUID
+      console.log('🔍 Testing database error handling with malformed UUID...');
       const { data: invalidQuery, error: queryError } = await supabase
         .from('yff_applications')
         .select('*')
-        .eq('application_id', 'invalid-uuid-format')
+        .eq('application_id', 'not-a-valid-uuid-format')
         .maybeSingle(); // Use maybeSingle to avoid 406 errors
 
       // Should handle gracefully without throwing
-      if (!queryError) {
-        console.log('⚠️ Expected query error but none occurred');
+      const queryHandled = !!queryError || !invalidQuery;
+      console.log(queryHandled ? '✅ Database query error handled gracefully' : '⚠️ Query unexpectedly succeeded');
+
+      // Test 3: Non-existent but valid UUID format
+      console.log('🔍 Testing with non-existent but valid UUID...');
+      const nonExistentUuid = '00000000-0000-0000-0000-000000000000'; // Use zero UUID which won't exist
+      const nonExistentResult = await AIComprehensiveScoringService.triggerEvaluation(nonExistentUuid);
+      
+      if (nonExistentResult.success) {
+        throw new Error('Error handling test failed: should have rejected non-existent application');
       }
+
+      console.log('✅ Non-existent application properly handled');
 
       const duration = Date.now() - startTime;
       
       this.addTestResult({
         testName: 'Error Handling and Recovery',
         status: 'passed',
-        message: 'Error handling mechanisms working correctly',
+        message: 'Error handling mechanisms working correctly for all test scenarios',
         timestamp: new Date().toISOString(),
         duration,
         details: {
-          invalidIdHandled: !invalidResult.success,
-          queryErrorHandled: !!queryError,
-          testScenarios: 2
+          invalidIdFormatHandled: !invalidResult.success,
+          queryErrorHandled: queryHandled,
+          nonExistentUuidHandled: !nonExistentResult.success,
+          testScenarios: 3,
+          testedFormats: ['invalid-format', 'malformed-uuid', 'valid-but-nonexistent-uuid']
         }
       });
       
@@ -549,9 +563,6 @@ export class E2ETestingSuiteV2 {
     }
   }
 
-  /**
-   * Clean up all test data
-   */
   private async cleanupTestData(): Promise<void> {
     console.log('🧹 Cleaning up test data...');
     
@@ -574,16 +585,10 @@ export class E2ETestingSuiteV2 {
     }
   }
 
-  /**
-   * Add test result to results array
-   */
   private addTestResult(result: TestResult): void {
     this.results.push(result);
   }
 
-  /**
-   * Generate comprehensive test report
-   */
   generateTestReport(): string {
     const timestamp = new Date().toISOString();
     const passedTests = this.results.filter(r => r.status === 'passed').length;

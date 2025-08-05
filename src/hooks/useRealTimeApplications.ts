@@ -39,7 +39,9 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     status: 'disconnected',
     retryCount: 0,
     lastError: null,
-    lastUpdate: null
+    lastUpdate: null,
+    connectionId: `hook_${Date.now()}`,
+    uptime: 0
   });
 
   const { toast } = useToast();

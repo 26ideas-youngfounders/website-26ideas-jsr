@@ -20,7 +20,7 @@ export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evalua
   created_at: string;
   updated_at: string;
   evaluation_status: string; // Required field, not optional
-  overall_score?: number;
+  overall_score: number; // Made required to match base type
   evaluation_completed_at?: string | null;
   evaluation_data: Record<string, any>; // Make required to match base type
   individuals?: {
@@ -127,13 +127,47 @@ export interface QuestionEvaluation {
 }
 
 /**
- * AI evaluation result interface
+ * AI evaluation result interface - structured scoring results
  */
 export interface AIEvaluationResult {
   overall_score: number;
   question_scores: Record<string, QuestionEvaluation>;
   idea_summary?: string;
   evaluation_completed_at: string;
+  evaluation_status: 'completed' | 'failed' | 'processing';
+}
+
+/**
+ * Individual question scoring result from AI
+ */
+export interface QuestionScoringResult {
+  questionId: string;
+  score: number;
+  strengths: string[];
+  areas_for_improvement: string[];
+  raw_feedback: string;
+}
+
+/**
+ * Comprehensive evaluation data structure stored in database
+ */
+export interface EvaluationData {
+  scores: Record<string, {
+    score: number;
+    strengths: string[];
+    areas_for_improvement: string[];
+    raw_feedback: string;
+  }>;
+  average_score: number;
+  evaluation_summary?: string;
+  evaluation_completed_at: string;
+  evaluation_status: 'pending' | 'processing' | 'completed' | 'failed';
+  evaluation_metadata: {
+    total_questions: number;
+    questions_scored: number;
+    model_used: string;
+    evaluation_version: string;
+  };
 }
 
 /**

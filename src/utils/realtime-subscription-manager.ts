@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Realtime Subscription Manager
  * 
@@ -91,13 +90,13 @@ export class RealtimeSubscriptionManager {
           }
         })
         .on(
-          'postgres_changes',
+          'postgres_changes' as any,
           {
             event,
             schema,
             table
-          },
-          (payload) => {
+          } as any,
+          (payload: any) => {
             console.log('📨 Realtime payload received:', {
               eventType: payload.eventType,
               table: payload.table,

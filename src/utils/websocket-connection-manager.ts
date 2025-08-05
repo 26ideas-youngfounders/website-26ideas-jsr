@@ -5,7 +5,7 @@
  * Robust WebSocket connection management with automatic reconnection,
  * exponential backoff, and comprehensive error recovery for Supabase Realtime.
  * 
- * @version 1.0.0
+ * @version 2.0.0
  * @author 26ideas Development Team
  */
 
@@ -129,11 +129,11 @@ export class WebSocketConnectionManager {
       console.log('🚀 Establishing WebSocket connection...');
       this.updateStatus({ status: 'connecting', lastError: null });
 
-      // Step 1: Run diagnostics
+      // Step 1: Run diagnostics with improved logic
       const diagnostics = await diagnoseWebSocketConnection();
       
       if (!diagnostics.isConfigured) {
-        throw new Error('Supabase not properly configured - missing URL or key');
+        throw new Error('Supabase configuration check failed');
       }
       
       if (!diagnostics.isAuthenticated) {
@@ -144,7 +144,16 @@ export class WebSocketConnectionManager {
       const session = await setupRealtimeAuth();
       console.log('✅ Authentication setup completed');
 
-      // Step 3: Ensure WebSocket connection
+      // Step 3: Initialize realtime if needed
+      if (!(supabase as any).realtime?.socket) {
+        console.log('🔄 Initializing realtime connection...');
+        (supabase as any).realtime.connect();
+        
+        // Wait a moment for initialization
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      // Step 4: Ensure WebSocket connection with extended timeout for tests
       await ensureWebSocketConnection(this.options.timeoutMs);
       console.log('✅ WebSocket connection established');
 

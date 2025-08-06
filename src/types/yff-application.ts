@@ -99,15 +99,15 @@ export interface ApplicationAnswers {
 }
 
 // Extended types that include the missing timestamp columns and related data
-export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evaluation_completed_at'> {
+export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evaluation_completed_at' | 'answers'> {
   created_at: string;
   updated_at: string;
   evaluation_status: string; // Required field, not optional
   overall_score: number; // Made required to match base type
   evaluation_completed_at?: string | null;
   evaluation_data: Record<string, any>; // Make required to match base type
-  // Enhanced answers typing
-  answers?: ApplicationAnswers | string | any; // Allow for JSON string or parsed object
+  // Enhanced answers typing - keep required but with better structure
+  answers: ApplicationAnswers | string | Json; // Required field with enhanced typing
   individuals?: {
     first_name: string;
     last_name: string;

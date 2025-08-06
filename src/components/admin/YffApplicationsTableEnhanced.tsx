@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,17 +24,26 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Loader2, Star } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Loader2, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 
-export const YffApplicationsTableEnhanced: React.FC = () => {
+interface YffApplicationsTableEnhancedProps {
+  applications?: ExtendedYffApplication[];
+  isLoading?: boolean;
+}
+
+export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhancedProps> = ({ 
+  applications: propApplications, 
+  isLoading: propIsLoading 
+}) => {
   const [applications, setApplications] = useState<ExtendedYffApplication[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [applicationsPerPage] = useState(10);
 
-  const { data, isLoading, error } = useQuery({
+  // Use query only if no props are provided
+  const { data, isLoading: queryLoading, error } = useQuery({
     queryKey: ['yff-applications'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -68,13 +78,16 @@ export const YffApplicationsTableEnhanced: React.FC = () => {
 
       return data as ExtendedYffApplication[];
     },
+    enabled: !propApplications, // Only run query if no prop applications provided
   });
 
+  // Use prop data if available, otherwise use query data
+  const isLoading = propIsLoading !== undefined ? propIsLoading : queryLoading;
+  const applicationsData = propApplications || data || [];
+
   useEffect(() => {
-    if (data) {
-      setApplications(data);
-    }
-  }, [data]);
+    setApplications(applicationsData);
+  }, [applicationsData]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -88,11 +101,12 @@ export const YffApplicationsTableEnhanced: React.FC = () => {
 
   const filteredApplications = applications?.filter((app) => {
     const searchTerm = searchQuery.toLowerCase();
+    const parsedAnswers = parseApplicationAnswers(app.answers);
     const matchesSearch =
       app.application_id.toLowerCase().includes(searchTerm) ||
       app.individuals?.first_name?.toLowerCase().includes(searchTerm) ||
       app.individuals?.last_name?.toLowerCase().includes(searchTerm) ||
-      parseApplicationAnswers(app.answers)?.team?.email?.toLowerCase().includes(searchTerm);
+      parsedAnswers?.team?.email?.toLowerCase().includes(searchTerm);
 
     const matchesStatus = statusFilter === '' || app.status === statusFilter;
 
@@ -106,7 +120,9 @@ export const YffApplicationsTableEnhanced: React.FC = () => {
   );
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
   };
 
   return (
@@ -177,14 +193,17 @@ export const YffApplicationsTableEnhanced: React.FC = () => {
               ) : (
                 paginatedApplications?.map((app) => {
                   const answers = parseApplicationAnswers(app.answers);
+                  const evaluationData = parseEvaluationData(app.evaluation_data);
+                  
+                  // Create a properly typed application object for dialogs
                   const fullApplication: ExtendedYffApplication = {
                     application_id: app.application_id,
                     individual_id: app.individual_id || '',
                     status: app.status,
-                    evaluation_status: app.evaluation_status,
-                    overall_score: app.overall_score,
+                    evaluation_status: app.evaluation_status || 'pending',
+                    overall_score: app.overall_score || 0,
                     evaluation_completed_at: app.evaluation_completed_at,
-                    evaluation_data: parseEvaluationData(app.evaluation_data),
+                    evaluation_data: evaluationData,
                     answers: app.answers,
                     application_round: app.application_round || '',
                     cumulative_score: app.cumulative_score || 0,
@@ -193,6 +212,17 @@ export const YffApplicationsTableEnhanced: React.FC = () => {
                     created_at: app.created_at || '',
                     updated_at: app.updated_at || '',
                     individuals: app.individuals
+                  };
+
+                  // Create a properly typed application for scoring dialog
+                  const scoringApplication = {
+                    application_id: app.application_id,
+                    answers: answers as Record<string, any>,
+                    cumulative_score: app.cumulative_score || 0,
+                    individuals: {
+                      first_name: app.individuals?.first_name || '',
+                      last_name: app.individuals?.last_name || ''
+                    }
                   };
 
                   return (
@@ -245,13 +275,13 @@ export const YffApplicationsTableEnhanced: React.FC = () => {
                           variant={app.evaluation_status === 'completed' ? 'default' : 'secondary'}
                           className="capitalize"
                         >
-                          {app.evaluation_status}
+                          {app.evaluation_status || 'pending'}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <YffApplicationDetailsDialog application={fullApplication} />
-                          <ApplicationScoringDialog application={fullApplication} />
+                          <ApplicationScoringDialog application={scoringApplication} />
                           <YffApplicationEvaluationDialog application={fullApplication} />
                         </div>
                       </TableCell>
@@ -264,25 +294,41 @@ export const YffApplicationsTableEnhanced: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Pagination>
-        <PaginationContent>
-          <PaginationPrevious
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-          />
+      {/* Custom Pagination */}
+      <div className="flex items-center justify-center space-x-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Previous
+        </Button>
+        
+        <div className="flex items-center space-x-1">
           {Array.from({ length: totalPages }, (_, i) => (
-            <PaginationItem key={i + 1} active={currentPage === i + 1}>
-              <button onClick={() => handlePageChange(i + 1)} className="h-full w-full p-0">
-                {i + 1}
-              </button>
-            </PaginationItem>
+            <Button
+              key={i + 1}
+              variant={currentPage === i + 1 ? "default" : "outline"}
+              size="sm"
+              onClick={() => handlePageChange(i + 1)}
+            >
+              {i + 1}
+            </Button>
           ))}
-          <PaginationNext
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          />
-        </PaginationContent>
-      </Pagination>
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages || totalPages === 0}
+        >
+          Next
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 };

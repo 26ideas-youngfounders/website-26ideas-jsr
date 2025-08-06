@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview YFF Applications Admin Table
  * 
@@ -51,8 +50,10 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { YffApplicationEvaluationDialog } from './YffApplicationEvaluationDialog';
+import { useBackgroundScoring } from '@/hooks/useBackgroundScoring';
 import type { YffApplicationWithIndividual } from '@/types/yff-application';
 import { parseApplicationAnswers, parseEvaluationData } from '@/types/yff-application';
+import { useToast } from '@/hooks/use-toast';
 
 export interface YffApplicationsTableProps {
   applications: YffApplicationWithIndividual[];
@@ -115,6 +116,29 @@ export const YffApplicationsTable: React.FC<YffApplicationsTableProps> = ({
   const [evaluationFilter, setEvaluationFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'date' | 'score' | 'status'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const { triggerScoring } = useBackgroundScoring();
+  const { toast } = useToast();
+
+  /**
+   * Handle manual evaluation trigger
+   */
+  const handleTriggerEvaluation = async (applicationId: string) => {
+    try {
+      await triggerScoring(applicationId);
+      toast({
+        title: "Evaluation Started",
+        description: "AI evaluation has been triggered for this application.",
+      });
+    } catch (error) {
+      console.error('Failed to trigger evaluation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to trigger evaluation. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Filter and sort applications
   const filteredAndSortedApplications = useMemo(() => {
@@ -405,10 +429,19 @@ export const YffApplicationsTable: React.FC<YffApplicationsTableProps> = ({
                     <div className="flex items-center gap-2">
                       <YffApplicationEvaluationDialog 
                         application={application}
-                        open={false}
-                        onOpenChange={() => {}}
                       />
                       
+                      {(!application.evaluation_status || application.evaluation_status === 'pending' || application.evaluation_status === 'failed') && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleTriggerEvaluation(application.application_id)}
+                        >
+                          <Star className="h-3 w-3 mr-1" />
+                          Evaluate
+                        </Button>
+                        )}
+
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm">

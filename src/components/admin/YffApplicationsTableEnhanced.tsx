@@ -162,8 +162,17 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
   const handleTriggerEvaluation = async (applicationId: string) => {
     try {
       await triggerScoring(applicationId);
+      toast({
+        title: "Evaluation Started",
+        description: "AI evaluation has been triggered for this application.",
+      });
     } catch (error) {
       console.error('Failed to trigger evaluation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to trigger evaluation. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -471,8 +480,6 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                     <div className="flex items-center gap-2">
                       <YffApplicationEvaluationDialog 
                         application={application}
-                        open={false}
-                        onOpenChange={() => {}}
                       />
                       
                       {(!application.evaluation_status || application.evaluation_status === 'pending' || application.evaluation_status === 'failed') && (

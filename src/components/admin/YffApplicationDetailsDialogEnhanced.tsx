@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
@@ -6,7 +5,7 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.6.0
+ * @version 1.7.0
  * @author 26ideas Development Team
  */
 
@@ -256,11 +255,13 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   console.log('📊 Evaluation scores:', evaluationData.scores);
 
   /**
-   * Process questionnaire answers (all answered questions) - FIXED VERSION
+   * Process questionnaire answers (all answered questions) - COMPLETELY FIXED VERSION
    */
   const answeredQuestionnaireQuestions = useMemo(() => {
-    console.log('🗂️ Processing questionnaire questions...');
+    console.log('🗂️ Processing questionnaire questions - COMPLETE REBUILD...');
+    console.log('🔍 Raw questionnaire answers object:', questionnaireAnswers);
     console.log('🔍 Questionnaire answers keys:', Object.keys(questionnaireAnswers));
+    console.log('🔍 Number of keys found:', Object.keys(questionnaireAnswers).length);
     
     const answeredQuestions: Array<{
       questionKey: string;
@@ -272,20 +273,32 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       rawFeedback?: string;
     }> = [];
 
-    // Process all keys in questionnaireAnswers - FIXED: Remove restrictive filtering
-    Object.entries(questionnaireAnswers).forEach(([questionKey, userAnswer]) => {
-      console.log(`🔍 Processing question: ${questionKey}, Answer type: ${typeof userAnswer}, Answer length: ${String(userAnswer).length}`);
+    // Process ALL entries in questionnaireAnswers without any restrictive filtering
+    for (const [questionKey, userAnswer] of Object.entries(questionnaireAnswers)) {
+      console.log(`🔍 Processing question key: "${questionKey}"`);
+      console.log(`🔍 Raw answer value:`, userAnswer);
+      console.log(`🔍 Answer type: ${typeof userAnswer}`);
+      console.log(`🔍 Answer length: ${userAnswer ? String(userAnswer).length : 0}`);
       
-      // Only check if the answer exists and is not empty string
+      // Convert answer to string and check if it has meaningful content
       const answerString = String(userAnswer || '').trim();
-      const hasAnswer = answerString.length > 0;
+      const hasAnswer = answerString.length > 0 && answerString !== 'undefined' && answerString !== 'null';
       
       if (hasAnswer) {
-        const questionText = QUESTIONNAIRE_KEY_TO_QUESTION[questionKey] || questionKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-        const evalKey = getEvaluationKey(questionKey);
-        const evaluationScore = evaluationData.scores?.[evalKey] || evaluationData.scores?.[questionKey];
+        // Get human-readable question text
+        const questionText = QUESTIONNAIRE_KEY_TO_QUESTION[questionKey] || 
+          questionKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
         
-        console.log(`✅ Including question: ${questionKey} (${questionText}) with answer length: ${answerString.length}`);
+        // Look up evaluation score using different key mappings
+        const evalKey = getEvaluationKey(questionKey);
+        const evaluationScore = evaluationData.scores?.[evalKey] || 
+                              evaluationData.scores?.[questionKey] ||
+                              evaluationData.scores?.[questionKey.toLowerCase()];
+        
+        console.log(`✅ INCLUDING question: "${questionKey}" -> "${questionText}"`);
+        console.log(`📏 Answer length: ${answerString.length} characters`);
+        console.log(`🎯 Evaluation key used: ${evalKey}`);
+        console.log(`📊 Score found:`, evaluationScore?.score);
         
         answeredQuestions.push({
           questionKey,
@@ -297,12 +310,14 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
           rawFeedback: evaluationScore?.raw_feedback
         });
       } else {
-        console.log(`❌ Skipping empty question: ${questionKey}`);
+        console.log(`❌ SKIPPING empty/invalid question: "${questionKey}" (value: "${answerString}")`);
       }
-    });
+    }
 
-    console.log(`✅ Final answered questionnaire questions count: ${answeredQuestions.length}`);
-    console.log(`📋 Question keys included:`, answeredQuestions.map(q => q.questionKey));
+    console.log(`🎉 FINAL RESULT: ${answeredQuestions.length} answered questions will be displayed`);
+    console.log(`📋 Questions that will be shown:`, answeredQuestions.map(q => `"${q.questionKey}"`));
+    
+    // Ensure we return all valid questions
     return answeredQuestions;
   }, [questionnaireAnswers, evaluationData.scores]);
 
@@ -431,6 +446,21 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
+          {/* Debug Information Card - TEMPORARY */}
+          <Card className="border-yellow-200 bg-yellow-50">
+            <CardHeader>
+              <CardTitle className="text-yellow-800 text-sm">🔍 Debug Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xs text-yellow-700 space-y-1">
+                <div>Questionnaire keys found: {Object.keys(questionnaireAnswers).length}</div>
+                <div>Keys: {Object.keys(questionnaireAnswers).join(', ')}</div>
+                <div>Questions to display: {answeredQuestionnaireQuestions.length}</div>
+                <div>Questions: {answeredQuestionnaireQuestions.map(q => q.questionKey).join(', ')}</div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Questionnaire Answers (Only Answered Questions) */}
           <Card>
             <CardHeader>
@@ -465,6 +495,9 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                                 {item.score}/10
                               </Badge>
                             )}
+                            <Badge variant="outline" className="text-xs">
+                              {item.questionKey}
+                            </Badge>
                           </div>
                           <h4 className="font-medium text-gray-900 mb-2">
                             {item.questionText}
@@ -541,6 +574,10 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                   <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">No questionnaire answers available</p>
                   <p className="text-sm text-gray-400">The participant has not answered any questionnaire questions yet</p>
+                  <div className="mt-4 text-xs text-gray-400">
+                    <div>Debug: Found {Object.keys(questionnaireAnswers).length} raw keys</div>
+                    <div>Keys: {Object.keys(questionnaireAnswers).join(', ')}</div>
+                  </div>
                 </div>
               )}
             </CardContent>

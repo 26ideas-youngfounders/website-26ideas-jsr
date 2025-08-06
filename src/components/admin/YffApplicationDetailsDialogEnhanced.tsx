@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
@@ -5,7 +6,7 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.9.0
+ * @version 1.10.0
  * @author 26ideas Development Team
  */
 
@@ -212,17 +213,30 @@ const getEvaluationKey = (questionKey: string): string => {
 };
 
 /**
- * Check if an answer has meaningful content - simplified validation
+ * Extremely permissive validation - show almost everything
  */
 const isValidAnswer = (value: any): boolean => {
-  if (value === null || value === undefined) return false;
+  console.log('🔍 Validating answer:', { value, type: typeof value, isNull: value === null, isUndefined: value === undefined });
+  
+  // Only exclude truly empty/null values
+  if (value === null || value === undefined) {
+    console.log('❌ Answer is null or undefined');
+    return false;
+  }
   
   const stringValue = String(value).trim();
+  console.log('🔍 String value:', `"${stringValue}"`, 'Length:', stringValue.length);
   
-  // Much more lenient validation - just check it's not empty
-  return stringValue.length > 0 && 
-         stringValue !== 'undefined' && 
-         stringValue !== 'null';
+  // Only exclude completely empty strings or obvious invalid values
+  if (stringValue === '' || 
+      stringValue === 'undefined' || 
+      stringValue === 'null') {
+    console.log('❌ Answer is empty string or invalid literal');
+    return false;
+  }
+  
+  console.log('✅ Answer is valid');
+  return true;
 };
 
 export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetailsDialogEnhancedProps> = ({
@@ -269,11 +283,13 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   console.log('📊 Evaluation scores:', evaluationData.scores);
 
   /**
-   * Process questionnaire answers - show ALL valid answers
+   * Process questionnaire answers - show ALL answers with extremely permissive filtering
    */
   const answeredQuestionnaireQuestions = useMemo(() => {
-    console.log('🗂️ Processing questionnaire questions - SHOWING ALL ANSWERS...');
+    console.log('🗂️ Processing questionnaire questions - EXTREMELY PERMISSIVE APPROACH...');
     console.log('🔍 Raw questionnaire answers object:', questionnaireAnswers);
+    console.log('🔍 Object keys:', Object.keys(questionnaireAnswers));
+    console.log('🔍 Object entries count:', Object.entries(questionnaireAnswers || {}).length);
     
     const answeredQuestions: Array<{
       questionKey: string;
@@ -285,15 +301,18 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       rawFeedback?: string;
     }> = [];
 
-    // Process ALL entries in questionnaireAnswers
-    Object.entries(questionnaireAnswers || {}).forEach(([questionKey, userAnswer]) => {
-      console.log(`🔍 Processing question: "${questionKey}"`);
-      console.log(`🔍 Answer value:`, userAnswer);
-      console.log(`🔍 Answer type: ${typeof userAnswer}`);
-      console.log(`🔍 Answer valid check:`, isValidAnswer(userAnswer));
+    // Process ALL entries in questionnaireAnswers with detailed logging
+    Object.entries(questionnaireAnswers || {}).forEach(([questionKey, userAnswer], index) => {
+      console.log(`\n🔍 [${index + 1}] Processing question: "${questionKey}"`);
+      console.log(`🔍 [${index + 1}] Answer value:`, userAnswer);
+      console.log(`🔍 [${index + 1}] Answer type: ${typeof userAnswer}`);
+      console.log(`🔍 [${index + 1}] Answer JSON:`, JSON.stringify(userAnswer));
       
-      // Use the simplified validation
-      if (isValidAnswer(userAnswer)) {
+      const isValid = isValidAnswer(userAnswer);
+      console.log(`🔍 [${index + 1}] Is valid check result:`, isValid);
+      
+      // Use the extremely permissive validation
+      if (isValid) {
         const answerString = String(userAnswer).trim();
         
         // Get human-readable question text
@@ -306,10 +325,10 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                               evaluationData.scores?.[questionKey] ||
                               evaluationData.scores?.[questionKey.toLowerCase()];
         
-        console.log(`✅ ADDING question: "${questionKey}" -> "${questionText}"`);
-        console.log(`📏 Answer length: ${answerString.length} characters`);
-        console.log(`🎯 Evaluation key: ${evalKey}`);
-        console.log(`📊 Score:`, evaluationScore?.score);
+        console.log(`✅ [${index + 1}] ADDING question: "${questionKey}" -> "${questionText}"`);
+        console.log(`📏 [${index + 1}] Answer length: ${answerString.length} characters`);
+        console.log(`🎯 [${index + 1}] Evaluation key: ${evalKey}`);
+        console.log(`📊 [${index + 1}] Score:`, evaluationScore?.score);
         
         answeredQuestions.push({
           questionKey,
@@ -321,12 +340,21 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
           rawFeedback: evaluationScore?.raw_feedback
         });
       } else {
-        console.log(`❌ SKIPPING invalid question: "${questionKey}" - Answer:`, userAnswer);
+        console.log(`❌ [${index + 1}] SKIPPING invalid question: "${questionKey}" - Answer:`, userAnswer);
+        console.log(`❌ [${index + 1}] Validation details:`, {
+          isNull: userAnswer === null,
+          isUndefined: userAnswer === undefined,
+          stringValue: String(userAnswer).trim(),
+          stringLength: String(userAnswer).trim().length
+        });
       }
     });
 
-    console.log(`🎉 FINAL: ${answeredQuestions.length} questions will be displayed`);
+    console.log(`\n🎉 FINAL RESULT: ${answeredQuestions.length} questions will be displayed out of ${Object.keys(questionnaireAnswers).length} total`);
     console.log(`📋 Questions to show:`, answeredQuestions.map(q => q.questionKey));
+    console.log(`📋 Questions skipped:`, Object.keys(questionnaireAnswers).filter(key => 
+      !answeredQuestions.some(q => q.questionKey === key)
+    ));
     
     return answeredQuestions;
   }, [questionnaireAnswers, evaluationData.scores]);
@@ -456,18 +484,28 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* Debug Information Card */}
+          {/* Enhanced Debug Information Card */}
           <Card className="border-yellow-200 bg-yellow-50">
             <CardHeader>
-              <CardTitle className="text-yellow-800 text-sm">🔍 Debug Information</CardTitle>
+              <CardTitle className="text-yellow-800 text-sm">🔍 Enhanced Debug Information</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-xs text-yellow-700 space-y-1">
-                <div>Questionnaire keys found: {Object.keys(questionnaireAnswers).length}</div>
-                <div>Keys: {Object.keys(questionnaireAnswers).join(', ')}</div>
-                <div>Valid questions to display: {answeredQuestionnaireQuestions.length}</div>
-                <div>Questions: {answeredQuestionnaireQuestions.map(q => q.questionKey).join(', ')}</div>
-                <div>Raw questionnaire object: {JSON.stringify(questionnaireAnswers, null, 2).slice(0, 200)}...</div>
+                <div><strong>Total questionnaire keys found:</strong> {Object.keys(questionnaireAnswers).length}</div>
+                <div><strong>Raw keys:</strong> {Object.keys(questionnaireAnswers).join(', ')}</div>
+                <div><strong>Valid questions to display:</strong> {answeredQuestionnaireQuestions.length}</div>
+                <div><strong>Questions that will show:</strong> {answeredQuestionnaireQuestions.map(q => q.questionKey).join(', ')}</div>
+                <div><strong>Questions skipped:</strong> {Object.keys(questionnaireAnswers).filter(key => 
+                  !answeredQuestionnaireQuestions.some(q => q.questionKey === key)
+                ).join(', ')}</div>
+                <div><strong>Sample raw values:</strong></div>
+                {Object.entries(questionnaireAnswers).slice(0, 3).map(([key, value]) => (
+                  <div key={key} className="ml-2">• {key}: {JSON.stringify(value).slice(0, 100)}...</div>
+                ))}
+                <div><strong>Raw questionnaire object (first 500 chars):</strong></div>
+                <div className="bg-white p-2 rounded text-gray-800 font-mono text-xs whitespace-pre-wrap">
+                  {JSON.stringify(questionnaireAnswers, null, 2).slice(0, 500)}...
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -588,6 +626,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                   <div className="mt-4 text-xs text-gray-400">
                     <div>Debug: Found {Object.keys(questionnaireAnswers).length} raw keys</div>
                     <div>Keys: {Object.keys(questionnaireAnswers).join(', ')}</div>
+                    <div>After validation: {answeredQuestionnaireQuestions.length} valid questions</div>
                   </div>
                 </div>
               )}

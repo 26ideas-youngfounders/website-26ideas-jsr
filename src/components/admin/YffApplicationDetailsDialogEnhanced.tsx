@@ -6,7 +6,7 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.4.0
+ * @version 1.5.0
  * @author 26ideas Development Team
  */
 
@@ -66,19 +66,19 @@ const QUESTIONNAIRE_KEY_TO_QUESTION: Record<string, string> = {
  * Team registration questions that should always show (with placeholders for blank answers)
  */
 const TEAM_REGISTRATION_QUESTIONS: Record<string, string> = {
-  'fullName': 'Full Name',
+  'full_name': 'Full Name',
   'email': 'Email Address',
-  'phoneNumber': 'Phone Number',
-  'dateOfBirth': 'Date of Birth',
-  'currentCity': 'Current City',
+  'phone_number': 'Phone Number',
+  'date_of_birth': 'Date of Birth',
+  'current_city': 'Current City',
   'state': 'State/Province',
-  'institutionName': 'Institution Name',
-  'courseProgram': 'Course/Program',
-  'currentYearOfStudy': 'Current Year of Study',
-  'expectedGraduation': 'Expected Graduation',
-  'ventureName': 'Venture Name',
-  'industrySector': 'Industry Sector',
-  'numberOfMembers': 'Number of Team Members',
+  'institution_name': 'Institution Name',
+  'course_program': 'Course/Program',
+  'current_year_of_study': 'Current Year of Study',
+  'expected_graduation': 'Expected Graduation',
+  'venture_name': 'Venture Name',
+  'industry_sector': 'Industry Sector',
+  'number_of_team_members': 'Number of Team Members',
   'website': 'Website URL',
   'linkedin_profile': 'LinkedIn Profile',
   'social_media_handles': 'Social Media Handles',
@@ -236,11 +236,11 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   
   const teamAnswers = parsedAnswers.team || {};
   
-  // Parse questionnaire answers from team registration data
+  // Parse questionnaire answers from team registration data with null safety
   const questionnaireAnswers = useMemo(() => {
     console.log('🔧 Processing questionnaire answers from team registration data');
     
-    // First check if we have a yff_team_registrations object in the application
+    // Check if we have team registration data
     if (application.yff_team_registrations) {
       const questAnswers = parseQuestionnaireAnswers(application.yff_team_registrations);
       console.log('📝 Questionnaire answers from team registration:', questAnswers);
@@ -314,11 +314,11 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       hasAnswer: boolean;
     }> = [];
 
-    // Use team registration data from the application object
+    // Use team registration data from the application object with null safety
     const teamRegData = application.yff_team_registrations || teamAnswers;
 
     Object.entries(TEAM_REGISTRATION_QUESTIONS).forEach(([questionKey, questionText]) => {
-      const userAnswer = teamRegData[questionKey];
+      const userAnswer = teamRegData?.[questionKey as keyof typeof teamRegData];
       const hasAnswer = userAnswer !== undefined && userAnswer !== null && userAnswer !== '';
       
       console.log(`📋 Team registration question: ${questionKey}, Has answer: ${hasAnswer}`);

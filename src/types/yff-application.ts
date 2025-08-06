@@ -18,6 +18,40 @@ export type BaseYffApplication = Database['public']['Tables']['yff_applications'
 export type BaseYffApplicationInsert = Database['public']['Tables']['yff_applications']['Insert'];
 export type BaseYffApplicationUpdate = Database['public']['Tables']['yff_applications']['Update'];
 
+// Team registration data type
+export interface YffTeamRegistrationData {
+  id?: string;
+  individual_id?: string;
+  full_name?: string;
+  email?: string;
+  phone_number?: string;
+  country_code?: string;
+  date_of_birth?: string;
+  linkedin_profile?: string;
+  social_media_handles?: string;
+  gender?: string;
+  institution_name?: string;
+  course_program?: string;
+  current_year_of_study?: string;
+  expected_graduation?: string;
+  current_city?: string;
+  state?: string;
+  pin_code?: string;
+  permanent_address?: string;
+  team_name?: string;
+  venture_name?: string;
+  number_of_team_members?: number;
+  team_members?: any[];
+  industry_sector?: string;
+  website?: string;
+  referral_id?: string;
+  questionnaire_answers?: Record<string, any>;
+  application_status?: string;
+  questionnaire_completed_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // Extended types that include the missing timestamp columns and related data
 export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evaluation_completed_at'> {
   created_at: string;
@@ -31,6 +65,7 @@ export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evalua
     last_name: string;
     email?: string;
   } | null;
+  yff_team_registrations?: YffTeamRegistrationData | null;
 }
 
 export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {

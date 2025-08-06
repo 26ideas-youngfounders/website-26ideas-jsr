@@ -32,6 +32,7 @@ import {
 import { ExtendedYffApplication } from '@/types/yff-application';
 import { parseQuestionnaireAnswers, getEvaluationKey, TEAM_REGISTRATION_QUESTIONS } from '@/utils/admin-question-parser';
 import { AdminAppQuestion } from '@/components/admin/AdminAppQuestion';
+import { QuestionnaireDebugDisplay } from '@/components/admin/QuestionnaireDebugDisplay';
 
 interface YffApplicationDetailsDialogEnhancedProps {
   application: ExtendedYffApplication;
@@ -91,7 +92,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange || setInternalOpen;
 
-  // Parse questionnaire answers using the new comprehensive parser
+  // Parse questionnaire answers using the enhanced parser with debugging
   const questionnaireParsingResult = useMemo(() => {
     console.log('🔧 Processing questionnaire parsing for application:', application.application_id);
     return parseQuestionnaireAnswers(application);
@@ -228,73 +229,22 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* Parsing Errors/Warnings */}
-          {questionnaireParsingResult.parsingErrors.length > 0 && (
-            <Alert className="border-orange-200 bg-orange-50">
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-              <AlertDescription>
-                <div className="space-y-1">
-                  <p className="font-medium text-orange-800">Data Parsing Issues:</p>
-                  <ul className="text-sm text-orange-700 space-y-1">
-                    {questionnaireParsingResult.parsingErrors.map((error, index) => (
-                      <li key={index}>• {error}</li>
-                    ))}
-                  </ul>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Complete Questionnaire Answers */}
+          {/* Enhanced Questionnaire Display with Debug */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
                 Complete Questionnaire with AI Scoring
                 <Badge variant="secondary" className="ml-2 text-xs">
-                  {questionsWithScoring.length} questions
+                  Enhanced Debug Mode
                 </Badge>
-                {questionnaireParsingResult.validAnswers < questionsWithScoring.length && (
-                  <Badge variant="outline" className="text-xs text-orange-600">
-                    Some incomplete
-                  </Badge>
-                )}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                All Early Revenue Stage questionnaire questions dynamically loaded from application data
+                All Early Revenue Stage questionnaire questions with comprehensive debugging
               </p>
             </CardHeader>
             <CardContent>
-              {questionsWithScoring.length > 0 ? (
-                <div className="space-y-6">
-                  {questionsWithScoring.map((question, index) => (
-                    <AdminAppQuestion
-                      key={question.questionKey}
-                      questionKey={question.questionKey}
-                      questionText={question.questionText}
-                      userAnswer={question.userAnswer}
-                      index={index}
-                      score={question.score}
-                      strengths={question.strengths}
-                      improvements={question.improvements}
-                      rawFeedback={question.rawFeedback}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 font-medium">No Questionnaire Answers Found</p>
-                  <p className="text-sm text-gray-400 mt-2">
-                    Unable to extract valid questionnaire answers from application data
-                  </p>
-                  {questionnaireParsingResult.parsingErrors.length > 0 && (
-                    <p className="text-xs text-red-500 mt-2">
-                      Check parsing errors above for details
-                    </p>
-                  )}
-                </div>
-              )}
+              <QuestionnaireDebugDisplay application={application} />
             </CardContent>
           </Card>
 
@@ -374,36 +324,6 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                       </div>
                     </div>
                   ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Debug Information (only shown if no questions found) */}
-          {questionsWithScoring.length === 0 && (
-            <Card className="border-red-200 bg-red-50">
-              <CardHeader>
-                <CardTitle className="text-red-800 flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5" />
-                  Debug Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="font-medium">Application ID:</span>
-                    <span className="ml-2 font-mono">{application.application_id}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium">Raw Data Sources Found:</span>
-                    <span className="ml-2">{Object.keys(questionnaireParsingResult.rawDataStructure).join(', ') || 'None'}</span>
-                  </div>
-                  <details className="mt-2">
-                    <summary className="cursor-pointer font-medium text-red-700">View Raw Data Structure</summary>
-                    <pre className="mt-2 p-2 bg-white rounded border text-xs overflow-auto max-h-40">
-                      {JSON.stringify(questionnaireParsingResult.rawDataStructure, null, 2)}
-                    </pre>
-                  </details>
                 </div>
               </CardContent>
             </Card>

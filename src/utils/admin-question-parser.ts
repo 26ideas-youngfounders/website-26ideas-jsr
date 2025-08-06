@@ -1,11 +1,11 @@
 
 /**
- * @fileoverview Admin Question Parser Utility
+ * @fileoverview Admin Question Parser Utility - Enhanced Debug Version
  * 
  * Robust parsing and extraction of questionnaire answers from YFF applications
  * for admin dashboard display with comprehensive error handling and validation.
  * 
- * @version 1.0.0
+ * @version 2.0.0 - Debug Enhanced
  * @author 26ideas Development Team
  */
 
@@ -91,13 +91,23 @@ export interface QuestionParsingResult {
 }
 
 /**
+ * Helper function to get nested values safely
+ */
+const getNestedValue = (obj: any, path: string): any => {
+  try {
+    return path.split('.').reduce((current, key) => current?.[key], obj);
+  } catch {
+    return undefined;
+  }
+};
+
+/**
  * Check if answer value is valid for display
  */
 const isValidAnswerValue = (value: any): boolean => {
   if (value === null || value === undefined) return false;
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === 'object') {
-    // Handle wrapper objects
     if (value._type === 'undefined' || value.value === 'undefined' || value.value === null) {
       return false;
     }
@@ -132,25 +142,73 @@ const extractAnswerValue = (value: any): string => {
 };
 
 /**
- * Safe type checking for object properties
+ * Extract questionnaire data from application with comprehensive debugging
  */
-const hasProperty = (obj: any, prop: string): boolean => {
-  return obj && typeof obj === 'object' && prop in obj;
+const extractDataFromApplication = (application: ExtendedYffApplication): any => {
+  console.log('🔍 FULL APPLICATION OBJECT:', JSON.stringify(application, null, 2));
+  
+  // Log every top-level property
+  Object.keys(application).forEach(key => {
+    console.log(`📋 TOP-LEVEL KEY: ${key}`, typeof (application as any)[key], (application as any)[key]);
+  });
+  
+  // Specifically check for common questionnaire locations
+  const potentialPaths = [
+    'answers',
+    'questionnaire_answers', 
+    'yff_team_registrations.questionnaire_answers',
+    'yff_team_registrations.answers',
+    'application_data',
+    'form_data',
+    'submission_data',
+    'form_responses',
+    'questionnaire_data'
+  ];
+  
+  potentialPaths.forEach(path => {
+    const value = getNestedValue(application, path);
+    if (value) {
+      console.log(`🎯 FOUND DATA AT: ${path}`, JSON.stringify(value, null, 2));
+    }
+  });
+
+  // Try multiple data sources in order of preference
+  const possibleDataSources = [
+    application.answers,
+    application.yff_team_registrations?.questionnaire_answers,
+    application.yff_team_registrations?.answers,
+    (application as any).form_responses,
+    (application as any).submission_data,
+    (application as any).questionnaire_data,
+    application.yff_team_registrations, // Sometimes answers are directly in team registration
+    application // Sometimes answers are directly in application
+  ];
+  
+  for (const source of possibleDataSources) {
+    if (source && typeof source === 'object') {
+      console.log('🔍 CHECKING DATA SOURCE:', JSON.stringify(source, null, 2));
+      return source;
+    }
+    if (typeof source === 'string') {
+      try {
+        const parsed = JSON.parse(source);
+        console.log('🔍 PARSED STRING DATA SOURCE:', JSON.stringify(parsed, null, 2));
+        return parsed;
+      } catch {
+        // Continue to next source
+      }
+    }
+  }
+  
+  console.log('❌ NO VALID DATA SOURCE FOUND');
+  return null;
 };
 
 /**
- * Safely access nested properties with type checking
- */
-const safeAccessProperty = (obj: any, prop: string): any => {
-  if (!obj || typeof obj !== 'object') return undefined;
-  return obj[prop];
-};
-
-/**
- * Comprehensive questionnaire answer parser
+ * Comprehensive questionnaire answer parser with enhanced debugging
  */
 export const parseQuestionnaireAnswers = (application: ExtendedYffApplication): QuestionParsingResult => {
-  console.log('🔍 PARSING: Starting comprehensive questionnaire parsing');
+  console.log('🔍 PARSING: Starting comprehensive questionnaire parsing with enhanced debugging');
   console.log('📋 Application ID:', application.application_id);
   
   const parsingErrors: string[] = [];
@@ -158,87 +216,54 @@ export const parseQuestionnaireAnswers = (application: ExtendedYffApplication): 
   let rawDataStructure: any = {};
 
   try {
-    // Extract data from multiple potential sources
-    const dataSources = [
-      { name: 'yff_team_registrations', data: application.yff_team_registrations },
-      { name: 'answers', data: application.answers },
-      { name: 'direct_application', data: application }
-    ];
-
-    console.log('🔍 PARSING: Checking data sources...');
+    // Get the actual data structure with comprehensive debugging
+    const questionnaireData = extractDataFromApplication(application);
     
-    for (const source of dataSources) {
-      if (!source.data) continue;
-      
-      console.log(`📂 PARSING: Processing source: ${source.name}`);
-      
-      // Parse JSON strings if needed
-      let sourceData = source.data;
-      if (typeof sourceData === 'string') {
-        try {
-          sourceData = JSON.parse(sourceData);
-          console.log(`📋 PARSING: Parsed JSON from ${source.name}`);
-        } catch (error) {
-          parsingErrors.push(`Failed to parse JSON from ${source.name}`);
-          continue;
-        }
-      }
-      
-      // Store raw structure for debugging
-      if (!rawDataStructure[source.name]) {
-        rawDataStructure[source.name] = sourceData;
-      }
-      
-      // Extract questionnaire answers with safe property access
-      const questionnaireData = safeAccessProperty(sourceData, 'questionnaire_answers') || 
-                              safeAccessProperty(sourceData, 'questionnaire') || 
-                              sourceData;
-      
-      if (questionnaireData && typeof questionnaireData === 'object') {
-        console.log(`📝 PARSING: Found questionnaire data in ${source.name}`);
-        
-        // Process each potential question
-        Object.entries(EARLY_REVENUE_QUESTION_MAP).forEach(([questionKey, questionText]) => {
-          // Check if we already have this question
-          if (parsedQuestions.some(q => q.questionKey === questionKey)) {
-            return;
-          }
-          
-          // Look for the answer in various formats with safe access
-          const possibleAnswers = [
-            safeAccessProperty(questionnaireData, questionKey),
-            safeAccessProperty(questionnaireData, questionKey.toLowerCase()),
-            safeAccessProperty(questionnaireData, questionKey.toUpperCase()),
-            // Check nested structures with safe access
-            safeAccessProperty(safeAccessProperty(questionnaireData, 'answers'), questionKey),
-            safeAccessProperty(safeAccessProperty(questionnaireData, 'responses'), questionKey)
-          ].filter(val => val !== undefined);
-          
-          const answer = possibleAnswers.find(val => isValidAnswerValue(val));
-          
-          if (answer) {
-            const warnings: string[] = [];
-            const extractedAnswer = extractAnswerValue(answer);
-            
-            if (extractedAnswer === 'Not provided') {
-              warnings.push('Answer appears to be empty after extraction');
-            }
-            
-            parsedQuestions.push({
-              questionKey,
-              questionText,
-              userAnswer: extractedAnswer,
-              isValid: isValidAnswerValue(answer),
-              parseWarnings: warnings
-            });
-            
-            console.log(`✅ PARSING: Added question ${questionKey} from ${source.name}`);
-          }
-        });
-      }
+    if (!questionnaireData) {
+      parsingErrors.push('No questionnaire data found in application');
+      return { 
+        parsedQuestions: [], 
+        totalFound: 0, 
+        validAnswers: 0, 
+        parsingErrors, 
+        rawDataStructure: application 
+      };
     }
-    
-    // Sort questions by a logical order (core questions first)
+
+    rawDataStructure = questionnaireData;
+    console.log('📊 EXTRACTED QUESTIONNAIRE DATA:', JSON.stringify(questionnaireData, null, 2));
+
+    // Direct property matching - check ALL properties in the data
+    Object.entries(questionnaireData).forEach(([key, value]) => {
+      console.log(`🔍 PROCESSING KEY: ${key}`, typeof value, value);
+      
+      // Skip non-answer keys
+      const skipKeys = ['id', 'created_at', 'updated_at', 'individual_id', 'application_id', 'team_members'];
+      if (skipKeys.includes(key)) {
+        console.log(`⏭️ SKIPPING NON-ANSWER KEY: ${key}`);
+        return;
+      }
+
+      // Find matching question text
+      const questionText = EARLY_REVENUE_QUESTION_MAP[key] || 
+                          TEAM_REGISTRATION_QUESTIONS[key] || 
+                          key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').toLowerCase();
+      
+      if (isValidAnswerValue(value)) {
+        console.log(`✅ ADDING VALID QUESTION: ${key} -> ${questionText}`);
+        parsedQuestions.push({
+          questionKey: key,
+          questionText: questionText.charAt(0).toUpperCase() + questionText.slice(1),
+          userAnswer: extractAnswerValue(value),
+          isValid: true,
+          parseWarnings: []
+        });
+      } else {
+        console.log(`❌ INVALID VALUE FOR KEY: ${key}`, value);
+      }
+    });
+
+    // Sort questions by a logical order
     const questionOrder = [
       'tell_us_about_idea',
       'early_revenue_stage',
@@ -257,22 +282,17 @@ export const parseQuestionnaireAnswers = (application: ExtendedYffApplication): 
       const orderA = questionOrder.indexOf(a.questionKey);
       const orderB = questionOrder.indexOf(b.questionKey);
       
-      // If both are in the order array, sort by position
       if (orderA !== -1 && orderB !== -1) {
         return orderA - orderB;
       }
-      
-      // If only one is in the order array, prioritize it
       if (orderA !== -1) return -1;
       if (orderB !== -1) return 1;
-      
-      // Otherwise, sort alphabetically
       return a.questionKey.localeCompare(b.questionKey);
     });
 
   } catch (error) {
     console.error('❌ PARSING: Critical parsing error:', error);
-    parsingErrors.push(`Critical parsing error: ${error.message}`);
+    parsingErrors.push(`Critical parsing error: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 
   const validAnswers = parsedQuestions.filter(q => q.isValid).length;

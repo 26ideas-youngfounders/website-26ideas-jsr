@@ -45,7 +45,7 @@ interface YffApplicationDetailsDialogEnhancedProps {
 }
 
 /**
- * Map questionnaire keys to human-readable questions
+ * Map questionnaire keys to human-readable questions (FIXED: removed duplicates)
  */
 const QUESTIONNAIRE_KEY_TO_QUESTION: Record<string, string> = {
   'ideaDescription': 'Tell us about your idea',
@@ -74,7 +74,6 @@ const QUESTIONNAIRE_KEY_TO_QUESTION: Record<string, string> = {
   'how_solve_problem': 'How does your idea solve this problem?',
   'how_make_money': 'How do you plan to make money from this idea?',
   'acquire_customers': 'How do you plan to acquire first paying customers?',
-  'competitors': 'List 3 potential competitors',
   'product_development': 'How are you developing the product?',
   'team_roles': 'Who is on your team and their roles?',
   'when_proceed': 'When/Since when have you been working on the idea?'

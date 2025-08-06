@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
@@ -5,7 +6,7 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.12.0
+ * @version 1.13.0
  * @author 26ideas Development Team
  */
 
@@ -212,79 +213,121 @@ const getEvaluationKey = (questionKey: string): string => {
 };
 
 /**
- * MOST PERMISSIVE validation - accept almost everything that has content
+ * ULTRA PERMISSIVE validation - accept almost everything that has meaningful content
+ * This function is designed to handle all possible answer structures:
+ * - Strings (including empty strings that should be filtered)
+ * - Objects or nested structures
+ * - Arrays
+ * - JSON-encoded strings
+ * - Wrapper objects with value properties
  */
 const isValidAnswer = (value: any): boolean => {
-  console.log('🔍 MOST PERMISSIVE validation for:', { 
+  console.log('🔍 ULTRA PERMISSIVE validation for:', { 
     value, 
     type: typeof value,
-    isObject: typeof value === 'object',
+    isArray: Array.isArray(value),
+    isObject: typeof value === 'object' && !Array.isArray(value),
     hasValue: value?.value,
-    hasType: value?._type
+    hasType: value?._type,
+    stringified: JSON.stringify(value)
   });
   
-  // Handle undefined wrapper objects
-  if (typeof value === 'object' && value !== null) {
-    if (value._type === 'undefined' || value.value === 'undefined') {
+  // Handle null and undefined early
+  if (value === null || value === undefined) {
+    console.log('❌ Excluding null/undefined');
+    return false;
+  }
+  
+  // Handle arrays
+  if (Array.isArray(value)) {
+    const hasContent = value.length > 0 && value.some(item => isValidAnswer(item));
+    console.log(`${hasContent ? '✅' : '❌'} Array validation: length=${value.length}, hasContent=${hasContent}`);
+    return hasContent;
+  }
+  
+  // Handle objects
+  if (typeof value === 'object') {
+    // Handle wrapper objects with _type property
+    if (value._type === 'undefined' || value.value === 'undefined' || value.value === null) {
       console.log('❌ Excluding undefined wrapper object');
       return false;
     }
     
-    // If it's an object with a value property, use that
+    // If it's an object with a value property, validate the inner value
     if ('value' in value) {
       const innerValue = value.value;
       console.log('🔍 Checking inner value:', innerValue);
-      
-      if (innerValue === null || innerValue === undefined || innerValue === 'undefined') {
-        console.log('❌ Excluding null/undefined inner value');
-        return false;
-      }
-      
-      const stringValue = String(innerValue).trim();
-      if (stringValue === '' || stringValue === 'undefined') {
-        console.log('❌ Excluding empty/undefined string inner value');
-        return false;
-      }
-      
-      console.log('✅ ACCEPTING inner value:', stringValue);
-      return true;
+      return isValidAnswer(innerValue);
     }
+    
+    // For regular objects, check if they have any meaningful content
+    const hasContent = Object.keys(value).length > 0 && 
+                      Object.values(value).some(val => isValidAnswer(val));
+    console.log(`${hasContent ? '✅' : '❌'} Object validation: keys=${Object.keys(value).length}, hasContent=${hasContent}`);
+    return hasContent;
   }
   
-  // Standard checks for direct values
-  if (value === null || value === undefined || value === 'undefined') {
-    console.log('❌ Excluding null/undefined/string-undefined');
-    return false;
-  }
-  
-  // Convert to string and check if it's empty
+  // Handle primitives (strings, numbers, booleans)
   const stringValue = String(value).trim();
-  if (stringValue === '' || stringValue === 'undefined') {
-    console.log('❌ Excluding empty/undefined string');
+  
+  // Exclude specific invalid string values
+  if (stringValue === '' || stringValue === 'undefined' || stringValue === 'null') {
+    console.log('❌ Excluding empty/invalid string:', stringValue);
     return false;
   }
   
-  console.log('✅ ACCEPTING direct value:', stringValue);
+  console.log('✅ ACCEPTING primitive value:', stringValue);
   return true;
 };
 
 /**
- * Extract actual value from potentially wrapped values
+ * Extract actual display value from potentially wrapped or complex values
  */
 const extractValue = (value: any): string => {
-  console.log('🔧 Extracting value from:', value);
+  console.log('🔧 Extracting display value from:', value);
   
-  if (typeof value === 'object' && value !== null && 'value' in value) {
-    const innerValue = value.value;
-    console.log('🔧 Found inner value:', innerValue);
-    return String(innerValue).trim();
+  // Handle null/undefined
+  if (value === null || value === undefined) {
+    return 'Not provided';
   }
   
+  // Handle arrays
+  if (Array.isArray(value)) {
+    const validItems = value.filter(item => isValidAnswer(item)).map(item => extractValue(item));
+    return validItems.join(', ') || 'Empty list';
+  }
+  
+  // Handle objects
+  if (typeof value === 'object') {
+    // Handle wrapper objects with value property
+    if ('value' in value && value.value !== undefined && value.value !== null) {
+      console.log('🔧 Found inner value:', value.value);
+      return extractValue(value.value);
+    }
+    
+    // For regular objects, try to create a readable representation
+    try {
+      const entries = Object.entries(value)
+        .filter(([key, val]) => isValidAnswer(val))
+        .map(([key, val]) => `${key}: ${extractValue(val)}`);
+      
+      if (entries.length > 0) {
+        return entries.join('; ');
+      }
+    } catch (error) {
+      console.log('⚠️ Error processing object, falling back to JSON:', error);
+    }
+    
+    // Fallback to JSON representation
+    return JSON.stringify(value, null, 2);
+  }
+  
+  // Handle primitives
   return String(value).trim();
 };
 
 /**
- * Get team registration data with most permissive validation
+ * Get team registration data with ultra permissive validation
  */
 const getTeamRegistrationValue = (data: any, key: string): { value: string; hasAnswer: boolean } => {
   console.log(`🔍 Getting team registration value for ${key}:`, data?.[key]);
@@ -296,6 +339,8 @@ const getTeamRegistrationValue = (data: any, key: string): { value: string; hasA
   const rawValue = data[key];
   const hasAnswer = isValidAnswer(rawValue);
   const extractedValue = hasAnswer ? extractValue(rawValue) : 'Not provided';
+  
+  console.log(`📋 Team field ${key}: hasAnswer=${hasAnswer}, value="${extractedValue}"`);
   
   return {
     value: extractedValue,
@@ -329,7 +374,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   
   // Parse questionnaire answers from team registration data with null safety
   const questionnaireAnswers = useMemo(() => {
-    console.log('🔧 MOST PERMISSIVE Processing questionnaire answers from team registration data');
+    console.log('🔧 ULTRA PERMISSIVE Processing questionnaire answers from team registration data');
     console.log('🔧 Team registration data:', application.yff_team_registrations);
     
     // Check if we have team registration data
@@ -350,10 +395,10 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   console.log('📊 Final evaluation scores:', evaluationData.scores);
 
   /**
-   * Process questionnaire answers - MOST PERMISSIVE approach
+   * Process questionnaire answers - ULTRA PERMISSIVE approach
    */
   const answeredQuestionnaireQuestions = useMemo(() => {
-    console.log('🗂️ MOST PERMISSIVE questionnaire processing...');
+    console.log('🗂️ ULTRA PERMISSIVE questionnaire processing...');
     console.log('🔍 Raw questionnaire answers object:', questionnaireAnswers);
     console.log('🔍 Object keys found:', Object.keys(questionnaireAnswers || {}));
     
@@ -367,13 +412,15 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       rawFeedback?: string;
     }> = [];
 
-    // Process ALL entries in questionnaireAnswers
+    // Process ALL entries in questionnaireAnswers with ultra permissive validation
     Object.entries(questionnaireAnswers || {}).forEach(([questionKey, userAnswer], index) => {
-      console.log(`\n🔍 [${index + 1}] MOST PERMISSIVE processing: "${questionKey}"`);
+      console.log(`\n🔍 [${index + 1}] ULTRA PERMISSIVE processing: "${questionKey}"`);
       console.log(`🔍 [${index + 1}] Raw answer:`, userAnswer);
+      console.log(`🔍 [${index + 1}] Answer type:`, typeof userAnswer);
+      console.log(`🔍 [${index + 1}] Answer stringified:`, JSON.stringify(userAnswer));
       
       const isValid = isValidAnswer(userAnswer);
-      console.log(`🔍 [${index + 1}] Validation result:`, isValid);
+      console.log(`🔍 [${index + 1}] Ultra permissive validation result:`, isValid);
       
       if (isValid) {
         const answerString = extractValue(userAnswer);
@@ -402,22 +449,23 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
           rawFeedback: evaluationScore?.raw_feedback
         });
       } else {
-        console.log(`❌ [${index + 1}] MOST PERMISSIVE STILL SKIPPING: "${questionKey}"`);
+        console.log(`❌ [${index + 1}] ULTRA PERMISSIVE STILL SKIPPING: "${questionKey}"`);
         console.log(`❌ [${index + 1}] Raw value that failed validation:`, userAnswer);
+        console.log(`❌ [${index + 1}] Reason: likely null, undefined, empty string, or empty object/array`);
       }
     });
 
-    console.log(`\n🎉 MOST PERMISSIVE FINAL: ${answeredQuestions.length} questions will show`);
+    console.log(`\n🎉 ULTRA PERMISSIVE FINAL: ${answeredQuestions.length} questions will show`);
     console.log(`📋 Final question keys:`, answeredQuestions.map(q => q.questionKey));
     
     return answeredQuestions;
   }, [questionnaireAnswers, evaluationData.scores]);
 
   /**
-   * Process team registration data with most permissive validation
+   * Process team registration data with ultra permissive validation
    */
   const teamRegistrationData = useMemo(() => {
-    console.log('🗂️ MOST PERMISSIVE team registration processing...');
+    console.log('🗂️ ULTRA PERMISSIVE team registration processing...');
     console.log('🔍 Team registration source data:', application.yff_team_registrations);
     console.log('🔍 Fallback team answers:', teamAnswers);
     
@@ -542,39 +590,47 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* Most Permissive Debug Information Card */}
+          {/* Ultra Permissive Debug Information Card */}
           <Card className="border-green-200 bg-green-50">
             <CardHeader>
-              <CardTitle className="text-green-800 text-sm">🚀 Most Permissive Debug Information</CardTitle>
+              <CardTitle className="text-green-800 text-sm">🚀 Ultra Permissive Debug Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xs text-green-700 space-y-1">
+              <div className="text-xs text-green-700 space-y-2">
                 <div><strong>Raw questionnaire keys found:</strong> {Object.keys(questionnaireAnswers || {}).length}</div>
-                <div><strong>All keys:</strong> {Object.keys(questionnaireAnswers || {}).join(', ')}</div>
-                <div><strong>Questions that passed most permissive validation:</strong> {answeredQuestionnaireQuestions.length}</div>
+                <div><strong>All raw keys:</strong> {Object.keys(questionnaireAnswers || {}).join(', ')}</div>
+                <div><strong>Questions that passed ultra permissive validation:</strong> {answeredQuestionnaireQuestions.length}</div>
                 <div><strong>Questions displaying:</strong> {answeredQuestionnaireQuestions.map(q => q.questionKey).join(', ')}</div>
                 <div><strong>Team registration fields with answers:</strong> {teamRegistrationData.filter(t => t.hasAnswer).length}/{teamRegistrationData.length}</div>
                 
-                <div className="mt-3 p-2 bg-white rounded border">
-                  <div><strong>Sample questionnaire data (first 3 entries):</strong></div>
-                  {Object.entries(questionnaireAnswers || {}).slice(0, 3).map(([key, value]) => (
-                    <div key={key} className="ml-2 font-mono text-xs">
-                      • {key}: {JSON.stringify(value).slice(0, 150)}{JSON.stringify(value).length > 150 ? '...' : ''}
-                    </div>
-                  ))}
+                <div className="mt-3 p-3 bg-white rounded border max-h-40 overflow-auto">
+                  <div><strong>Complete questionnaire data structure:</strong></div>
+                  <pre className="text-xs bg-gray-100 p-2 rounded mt-1 whitespace-pre-wrap">
+                    {JSON.stringify(questionnaireAnswers, null, 2)}
+                  </pre>
                 </div>
                 
-                <div className="mt-2 p-2 bg-white rounded border">
-                  <div><strong>Full questionnaire structure preview:</strong></div>
-                  <pre className="text-xs bg-gray-100 p-2 rounded mt-1 whitespace-pre-wrap overflow-auto max-h-32">
-                    {JSON.stringify(questionnaireAnswers, null, 2).slice(0, 800)}...
-                  </pre>
+                <div className="mt-2 p-3 bg-white rounded border">
+                  <div><strong>Validation results for each answer:</strong></div>
+                  {Object.entries(questionnaireAnswers || {}).map(([key, value]) => {
+                    const isValid = isValidAnswer(value);
+                    const extractedValue = isValid ? extractValue(value) : 'INVALID';
+                    return (
+                      <div key={key} className="ml-2 text-xs font-mono flex items-center gap-2 py-1">
+                        <span className={`w-2 h-2 rounded-full ${isValid ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                        <strong>{key}:</strong>
+                        <span className="truncate max-w-xs">
+                          {extractedValue.slice(0, 100)}{extractedValue.length > 100 ? '...' : ''}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Questionnaire Answers (Only Answered Questions) */}
+          {/* Questionnaire Answers (Only Valid Questions) */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -585,7 +641,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Questions from the YFF questionnaire that the participant answered (Most Permissive Mode)
+                Questions from the YFF questionnaire that the participant answered (Ultra Permissive Mode)
               </p>
             </CardHeader>
             <CardContent>
@@ -686,12 +742,12 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 <div className="text-center py-8">
                   <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">No questionnaire answers found</p>
-                  <p className="text-sm text-gray-400">Even with most permissive validation, no valid answers were detected</p>
+                  <p className="text-sm text-gray-400">Even with ultra permissive validation, no valid answers were detected</p>
                   <div className="mt-4 text-xs text-gray-400 bg-gray-50 p-3 rounded">
                     <div><strong>Debug info:</strong></div>
                     <div>• Raw keys found: {Object.keys(questionnaireAnswers || {}).length}</div>
                     <div>• Keys: {Object.keys(questionnaireAnswers || {}).join(', ')}</div>
-                    <div>• After most permissive validation: {answeredQuestionnaireQuestions.length}</div>
+                    <div>• After ultra permissive validation: {answeredQuestionnaireQuestions.length}</div>
                     <div>• Data source: {application.yff_team_registrations ? 'team_registrations' : 'parsed_answers'}</div>
                   </div>
                 </div>
@@ -704,13 +760,13 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5" />
-                Team Registration Information (Most Permissive)
+                Team Registration Information (Ultra Permissive)
                 <Badge variant="outline" className="ml-2 text-xs">
                   {teamRegistrationData.filter(item => item.hasAnswer).length} of {teamRegistrationData.length} completed
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                All team registration fields with most permissive validation
+                All team registration fields with ultra permissive validation
               </p>
             </CardHeader>
             <CardContent>

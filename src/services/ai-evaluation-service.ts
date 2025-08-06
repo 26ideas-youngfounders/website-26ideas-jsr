@@ -287,3 +287,43 @@ export const reEvaluateApplication = async (applicationId: string): Promise<AIEv
   // Run fresh evaluation
   return evaluateApplication(applicationId);
 };
+
+/**
+ * Trigger AI evaluation when application is submitted
+ */
+export const triggerEvaluationOnSubmission = async (applicationId: string): Promise<void> => {
+  try {
+    console.log(`🚀 Triggering AI evaluation for submitted application: ${applicationId}`);
+    
+    // Call the main evaluation function
+    const result = await evaluateApplication(applicationId);
+    
+    // Update the application with the evaluation results
+    await supabase
+      .from('yff_applications')
+      .update({
+        evaluation_status: 'completed',
+        overall_score: result.overall_score,
+        evaluation_data: result.question_scores,
+        evaluation_completed_at: result.evaluation_completed_at,
+        updated_at: new Date().toISOString()
+      })
+      .eq('application_id', applicationId);
+    
+    console.log(`✅ AI evaluation completed for application: ${applicationId} with score: ${result.overall_score}`);
+    
+  } catch (error) {
+    console.error(`❌ Failed to trigger AI evaluation for ${applicationId}:`, error);
+    
+    // Update status to failed
+    await supabase
+      .from('yff_applications')
+      .update({ 
+        evaluation_status: 'failed',
+        updated_at: new Date().toISOString()
+      })
+      .eq('application_id', applicationId);
+    
+    throw error;
+  }
+};

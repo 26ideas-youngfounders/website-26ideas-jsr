@@ -1,7 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ExtendedYffApplication, parseApplicationAnswers, parseEvaluationData } from '@/types/yff-application';
+import { 
+  YffApplication, 
+  DialogApplication,
+  parseApplicationAnswers, 
+  parseEvaluationData,
+  convertToDialogApplication
+} from '@/types/yff-application';
 import { YffApplicationDetailsDialog } from './YffApplicationDetailsDialog';
 import ApplicationScoringDialog from './ApplicationScoringDialog';
 import YffApplicationEvaluationDialog from './YffApplicationEvaluationDialog';
@@ -27,41 +34,15 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface YffApplicationsTableEnhancedProps {
-  applications?: ExtendedYffApplication[];
+  applications?: YffApplication[];
   isLoading?: boolean;
-}
-
-// Define local interface to match dialog component expectations
-interface DialogApplication {
-  application_id: string;
-  individual_id: string; // Made required to match ExtendedYffApplication
-  status: string;
-  application_round?: string;
-  answers: any;
-  cumulative_score?: number | null;
-  reviewer_scores?: any;
-  submitted_at?: string | null;
-  created_at: string;
-  updated_at: string;
-  evaluation_status: string;
-  overall_score: number;
-  evaluation_completed_at?: string | null;
-  evaluation_data: Record<string, any>;
-  individuals?: {
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone_number?: string;
-    country_code?: string;
-    country_iso_code?: string;
-  } | null;
 }
 
 export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhancedProps> = ({ 
   applications: propApplications, 
   isLoading: propIsLoading 
 }) => {
-  const [applications, setApplications] = useState<ExtendedYffApplication[]>([]);
+  const [applications, setApplications] = useState<YffApplication[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -101,7 +82,7 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
         throw error;
       }
 
-      return data as ExtendedYffApplication[];
+      return data as YffApplication[];
     },
     enabled: !propApplications, // Only run query if no prop applications provided
   });
@@ -220,31 +201,8 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                   const answers = parseApplicationAnswers(app.answers);
                   const evaluationData = parseEvaluationData(app.evaluation_data);
                   
-                  // Convert to DialogApplication type for dialog components
-                  const applicationForDialog: DialogApplication = {
-                    application_id: app.application_id,
-                    individual_id: app.individual_id || '', // Provide fallback to ensure required field
-                    status: app.status,
-                    application_round: app.application_round,
-                    answers: app.answers,
-                    cumulative_score: app.cumulative_score,
-                    reviewer_scores: app.reviewer_scores,
-                    submitted_at: app.submitted_at,
-                    created_at: app.created_at,
-                    updated_at: app.updated_at,
-                    evaluation_status: app.evaluation_status,
-                    overall_score: app.overall_score,
-                    evaluation_completed_at: app.evaluation_completed_at,
-                    evaluation_data: app.evaluation_data,
-                    individuals: app.individuals ? {
-                      first_name: app.individuals.first_name,
-                      last_name: app.individuals.last_name,
-                      email: app.individuals.email || '', // Provide fallback
-                      phone_number: app.individuals.phone_number,
-                      country_code: app.individuals.country_code,
-                      country_iso_code: app.individuals.country_iso_code,
-                    } : null
-                  };
+                  // Use the type-safe conversion function
+                  const applicationForDialog: DialogApplication = convertToDialogApplication(app);
 
                   // Create a properly typed application for scoring dialog
                   const scoringApplication = {

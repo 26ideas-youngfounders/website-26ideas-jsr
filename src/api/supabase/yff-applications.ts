@@ -12,7 +12,7 @@ export const fetchYffApplications = async (): Promise<ExtendedYffApplication[]> 
   console.log('🔍 Fetching YFF applications...');
   
   const { data, error } = await supabase
-    .from('yff_team_registrations')
+    .from('yff_applications')
     .select(`
       *,
       individuals (
@@ -20,7 +20,7 @@ export const fetchYffApplications = async (): Promise<ExtendedYffApplication[]> 
         first_name,
         last_name,
         email,
-        phone
+        phone_number
       )
     `)
     .order('created_at', { ascending: false });

@@ -5,7 +5,7 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.11.0
+ * @version 1.12.0
  * @author 26ideas Development Team
  */
 
@@ -212,31 +212,79 @@ const getEvaluationKey = (questionKey: string): string => {
 };
 
 /**
- * ULTRA-PERMISSIVE validation - show everything except truly empty values
+ * MOST PERMISSIVE validation - accept almost everything that has content
  */
 const isValidAnswer = (value: any): boolean => {
-  console.log('🔍 Ultra-permissive validation for:', { value, type: typeof value });
+  console.log('🔍 MOST PERMISSIVE validation for:', { 
+    value, 
+    type: typeof value,
+    isObject: typeof value === 'object',
+    hasValue: value?.value,
+    hasType: value?._type
+  });
   
-  // Only exclude null, undefined, or completely empty strings
-  if (value === null || value === undefined) {
-    console.log('❌ Excluding null/undefined');
+  // Handle undefined wrapper objects
+  if (typeof value === 'object' && value !== null) {
+    if (value._type === 'undefined' || value.value === 'undefined') {
+      console.log('❌ Excluding undefined wrapper object');
+      return false;
+    }
+    
+    // If it's an object with a value property, use that
+    if ('value' in value) {
+      const innerValue = value.value;
+      console.log('🔍 Checking inner value:', innerValue);
+      
+      if (innerValue === null || innerValue === undefined || innerValue === 'undefined') {
+        console.log('❌ Excluding null/undefined inner value');
+        return false;
+      }
+      
+      const stringValue = String(innerValue).trim();
+      if (stringValue === '' || stringValue === 'undefined') {
+        console.log('❌ Excluding empty/undefined string inner value');
+        return false;
+      }
+      
+      console.log('✅ ACCEPTING inner value:', stringValue);
+      return true;
+    }
+  }
+  
+  // Standard checks for direct values
+  if (value === null || value === undefined || value === 'undefined') {
+    console.log('❌ Excluding null/undefined/string-undefined');
     return false;
   }
   
-  // Convert to string and check if it's completely empty
+  // Convert to string and check if it's empty
   const stringValue = String(value).trim();
-  if (stringValue === '') {
-    console.log('❌ Excluding empty string');
+  if (stringValue === '' || stringValue === 'undefined') {
+    console.log('❌ Excluding empty/undefined string');
     return false;
   }
   
-  // Accept everything else, including "0", "false", single characters, etc.
-  console.log('✅ ACCEPTING value:', stringValue);
+  console.log('✅ ACCEPTING direct value:', stringValue);
   return true;
 };
 
 /**
- * Get team registration data with ultra-permissive validation
+ * Extract actual value from potentially wrapped values
+ */
+const extractValue = (value: any): string => {
+  console.log('🔧 Extracting value from:', value);
+  
+  if (typeof value === 'object' && value !== null && 'value' in value) {
+    const innerValue = value.value;
+    console.log('🔧 Found inner value:', innerValue);
+    return String(innerValue).trim();
+  }
+  
+  return String(value).trim();
+};
+
+/**
+ * Get team registration data with most permissive validation
  */
 const getTeamRegistrationValue = (data: any, key: string): { value: string; hasAnswer: boolean } => {
   console.log(`🔍 Getting team registration value for ${key}:`, data?.[key]);
@@ -247,9 +295,10 @@ const getTeamRegistrationValue = (data: any, key: string): { value: string; hasA
   
   const rawValue = data[key];
   const hasAnswer = isValidAnswer(rawValue);
+  const extractedValue = hasAnswer ? extractValue(rawValue) : 'Not provided';
   
   return {
-    value: hasAnswer ? String(rawValue).trim() : 'Not provided',
+    value: extractedValue,
     hasAnswer
   };
 };
@@ -280,7 +329,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   
   // Parse questionnaire answers from team registration data with null safety
   const questionnaireAnswers = useMemo(() => {
-    console.log('🔧 ULTRA-PERMISSIVE Processing questionnaire answers from team registration data');
+    console.log('🔧 MOST PERMISSIVE Processing questionnaire answers from team registration data');
     console.log('🔧 Team registration data:', application.yff_team_registrations);
     
     // Check if we have team registration data
@@ -301,10 +350,10 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   console.log('📊 Final evaluation scores:', evaluationData.scores);
 
   /**
-   * Process questionnaire answers - ULTRA-PERMISSIVE approach
+   * Process questionnaire answers - MOST PERMISSIVE approach
    */
   const answeredQuestionnaireQuestions = useMemo(() => {
-    console.log('🗂️ ULTRA-PERMISSIVE questionnaire processing...');
+    console.log('🗂️ MOST PERMISSIVE questionnaire processing...');
     console.log('🔍 Raw questionnaire answers object:', questionnaireAnswers);
     console.log('🔍 Object keys found:', Object.keys(questionnaireAnswers || {}));
     
@@ -320,14 +369,14 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
 
     // Process ALL entries in questionnaireAnswers
     Object.entries(questionnaireAnswers || {}).forEach(([questionKey, userAnswer], index) => {
-      console.log(`\n🔍 [${index + 1}] ULTRA-PERMISSIVE processing: "${questionKey}"`);
+      console.log(`\n🔍 [${index + 1}] MOST PERMISSIVE processing: "${questionKey}"`);
       console.log(`🔍 [${index + 1}] Raw answer:`, userAnswer);
       
       const isValid = isValidAnswer(userAnswer);
       console.log(`🔍 [${index + 1}] Validation result:`, isValid);
       
       if (isValid) {
-        const answerString = String(userAnswer).trim();
+        const answerString = extractValue(userAnswer);
         
         // Get human-readable question text
         const questionText = QUESTIONNAIRE_KEY_TO_QUESTION[questionKey] || 
@@ -353,21 +402,22 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
           rawFeedback: evaluationScore?.raw_feedback
         });
       } else {
-        console.log(`❌ [${index + 1}] ULTRA-PERMISSIVE STILL SKIPPING: "${questionKey}"`);
+        console.log(`❌ [${index + 1}] MOST PERMISSIVE STILL SKIPPING: "${questionKey}"`);
+        console.log(`❌ [${index + 1}] Raw value that failed validation:`, userAnswer);
       }
     });
 
-    console.log(`\n🎉 ULTRA-PERMISSIVE FINAL: ${answeredQuestions.length} questions will show`);
+    console.log(`\n🎉 MOST PERMISSIVE FINAL: ${answeredQuestions.length} questions will show`);
     console.log(`📋 Final question keys:`, answeredQuestions.map(q => q.questionKey));
     
     return answeredQuestions;
   }, [questionnaireAnswers, evaluationData.scores]);
 
   /**
-   * Process team registration data with ultra-permissive validation
+   * Process team registration data with most permissive validation
    */
   const teamRegistrationData = useMemo(() => {
-    console.log('🗂️ ULTRA-PERMISSIVE team registration processing...');
+    console.log('🗂️ MOST PERMISSIVE team registration processing...');
     console.log('🔍 Team registration source data:', application.yff_team_registrations);
     console.log('🔍 Fallback team answers:', teamAnswers);
     
@@ -492,16 +542,16 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* Ultra-Permissive Debug Information Card */}
+          {/* Most Permissive Debug Information Card */}
           <Card className="border-green-200 bg-green-50">
             <CardHeader>
-              <CardTitle className="text-green-800 text-sm">🚀 Ultra-Permissive Debug Information</CardTitle>
+              <CardTitle className="text-green-800 text-sm">🚀 Most Permissive Debug Information</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-xs text-green-700 space-y-1">
                 <div><strong>Raw questionnaire keys found:</strong> {Object.keys(questionnaireAnswers || {}).length}</div>
                 <div><strong>All keys:</strong> {Object.keys(questionnaireAnswers || {}).join(', ')}</div>
-                <div><strong>Questions that passed ultra-permissive validation:</strong> {answeredQuestionnaireQuestions.length}</div>
+                <div><strong>Questions that passed most permissive validation:</strong> {answeredQuestionnaireQuestions.length}</div>
                 <div><strong>Questions displaying:</strong> {answeredQuestionnaireQuestions.map(q => q.questionKey).join(', ')}</div>
                 <div><strong>Team registration fields with answers:</strong> {teamRegistrationData.filter(t => t.hasAnswer).length}/{teamRegistrationData.length}</div>
                 
@@ -535,7 +585,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Questions from the YFF questionnaire that the participant answered (Ultra-Permissive Mode)
+                Questions from the YFF questionnaire that the participant answered (Most Permissive Mode)
               </p>
             </CardHeader>
             <CardContent>
@@ -636,12 +686,12 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 <div className="text-center py-8">
                   <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">No questionnaire answers found</p>
-                  <p className="text-sm text-gray-400">Even with ultra-permissive validation, no valid answers were detected</p>
+                  <p className="text-sm text-gray-400">Even with most permissive validation, no valid answers were detected</p>
                   <div className="mt-4 text-xs text-gray-400 bg-gray-50 p-3 rounded">
                     <div><strong>Debug info:</strong></div>
                     <div>• Raw keys found: {Object.keys(questionnaireAnswers || {}).length}</div>
                     <div>• Keys: {Object.keys(questionnaireAnswers || {}).join(', ')}</div>
-                    <div>• After ultra-permissive validation: {answeredQuestionnaireQuestions.length}</div>
+                    <div>• After most permissive validation: {answeredQuestionnaireQuestions.length}</div>
                     <div>• Data source: {application.yff_team_registrations ? 'team_registrations' : 'parsed_answers'}</div>
                   </div>
                 </div>
@@ -654,13 +704,13 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5" />
-                Team Registration Information (Ultra-Permissive)
+                Team Registration Information (Most Permissive)
                 <Badge variant="outline" className="ml-2 text-xs">
                   {teamRegistrationData.filter(item => item.hasAnswer).length} of {teamRegistrationData.length} completed
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                All team registration fields with ultra-permissive validation
+                All team registration fields with most permissive validation
               </p>
             </CardHeader>
             <CardContent>

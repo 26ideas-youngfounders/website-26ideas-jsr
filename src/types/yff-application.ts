@@ -54,6 +54,7 @@ export interface YffTeamRegistrationData {
   selected_stage?: string;
   application_stage?: string;
   user_stage?: string;
+  productStage?: string; // Add the productStage field
 }
 
 // Extended types that include the missing timestamp columns and related data

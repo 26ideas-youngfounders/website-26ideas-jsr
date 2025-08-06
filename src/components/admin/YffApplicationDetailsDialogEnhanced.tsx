@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
@@ -154,8 +155,8 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   );
 
   const dialogContent = (
-    <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden" aria-describedby="dialog-description">
-      <DialogHeader className="pb-4">
+    <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col" aria-describedby="dialog-description">
+      <DialogHeader className="pb-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FileText className="h-6 w-6 text-blue-600" />
@@ -179,8 +180,8 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
         </div>
       </DialogHeader>
 
-      <ScrollArea className="flex-1 pr-6">
-        <div className="space-y-6">
+      <ScrollArea className="flex-1 max-h-[calc(95vh-8rem)] overflow-y-auto">
+        <div className="space-y-6 pr-6">
           {/* Overall Score Summary */}
           <Card className="border-2 border-primary/20">
             <CardHeader className="pb-3">
@@ -243,8 +244,10 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 All Early Revenue Stage questionnaire questions with comprehensive debugging
               </p>
             </CardHeader>
-            <CardContent>
-              <QuestionnaireDebugDisplay application={application} />
+            <CardContent className="max-h-none">
+              <div className="max-h-[60vh] overflow-y-auto">
+                <QuestionnaireDebugDisplay application={application} />
+              </div>
             </CardContent>
           </Card>
 

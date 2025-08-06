@@ -56,8 +56,8 @@ export const QuestionnaireDebugDisplay: React.FC<QuestionnaireDebugDisplayProps>
               <summary className="cursor-pointer font-medium text-red-700 hover:text-red-800">
                 View Raw Data Structure (Click to expand)
               </summary>
-              <div className="mt-2 p-3 bg-white rounded border">
-                <pre className="text-xs text-gray-800 overflow-auto max-h-96 whitespace-pre-wrap">
+              <div className="mt-2 p-3 bg-white rounded border max-h-96 overflow-y-auto">
+                <pre className="text-xs text-gray-800 whitespace-pre-wrap">
                   {JSON.stringify(parsingResult.rawDataStructure, null, 2)}
                 </pre>
               </div>
@@ -92,8 +92,8 @@ export const QuestionnaireDebugDisplay: React.FC<QuestionnaireDebugDisplayProps>
               <summary className="cursor-pointer font-medium text-amber-700 hover:text-amber-800">
                 View Application Object (Click to expand)
               </summary>
-              <div className="mt-2 p-3 bg-white rounded border">
-                <pre className="text-xs text-gray-800 overflow-auto max-h-96 whitespace-pre-wrap">
+              <div className="mt-2 p-3 bg-white rounded border max-h-96 overflow-y-auto">
+                <pre className="text-xs text-gray-800 whitespace-pre-wrap">
                   {JSON.stringify(application, null, 2)}
                 </pre>
               </div>
@@ -105,63 +105,64 @@ export const QuestionnaireDebugDisplay: React.FC<QuestionnaireDebugDisplayProps>
   }
   
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CheckCircle className="h-5 w-5 text-green-600" />
-          Questionnaire Answers Found
-          <Badge variant="secondary" className="ml-2">
-            {parsingResult.parsedQuestions.length} questions
-          </Badge>
-          <Badge variant="default" className="text-xs">
-            {parsingResult.validAnswers} valid answers
-          </Badge>
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Successfully parsed questionnaire data from application
-        </p>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          {parsingResult.parsedQuestions.map((question, index) => (
-            <AdminAppQuestion
-              key={question.questionKey}
-              questionKey={question.questionKey}
-              questionText={question.questionText}
-              userAnswer={question.userAnswer}
-              index={index}
-            />
-          ))}
-          
-          {/* Debug info for developers */}
-          <details className="mt-6 pt-4 border-t">
-            <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800">
-              Debug Information (Developer View)
-            </summary>
-            <div className="mt-2 p-3 bg-gray-50 rounded text-xs">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <strong>Parsing Stats:</strong>
-                  <ul className="mt-1 space-y-1">
-                    <li>Total Found: {parsingResult.totalFound}</li>
-                    <li>Valid Answers: {parsingResult.validAnswers}</li>
-                    <li>Parse Errors: {parsingResult.parsingErrors.length}</li>
-                  </ul>
-                </div>
-                <div>
-                  <strong>Application Info:</strong>
-                  <ul className="mt-1 space-y-1">
-                    <li>ID: {application.application_id.slice(0, 12)}...</li>
-                    <li>Status: {application.evaluation_status || 'N/A'}</li>
-                    <li>Score: {application.overall_score || 'N/A'}</li>
-                  </ul>
-                </div>
-              </div>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            Questionnaire Answers Found
+            <Badge variant="secondary" className="ml-2">
+              {parsingResult.parsedQuestions.length} questions
+            </Badge>
+            <Badge variant="default" className="text-xs">
+              {parsingResult.validAnswers} valid answers
+            </Badge>
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Successfully parsed questionnaire data from application
+          </p>
+        </CardHeader>
+      </Card>
+      
+      <div className="space-y-4">
+        {parsingResult.parsedQuestions.map((question, index) => (
+          <AdminAppQuestion
+            key={question.questionKey}
+            questionKey={question.questionKey}
+            questionText={question.questionText}
+            userAnswer={question.userAnswer}
+            index={index}
+          />
+        ))}
+      </div>
+      
+      {/* Debug info for developers */}
+      <details className="mt-6 pt-4 border-t">
+        <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800">
+          Debug Information (Developer View)
+        </summary>
+        <div className="mt-2 p-3 bg-gray-50 rounded text-xs">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <strong>Parsing Stats:</strong>
+              <ul className="mt-1 space-y-1">
+                <li>Total Found: {parsingResult.totalFound}</li>
+                <li>Valid Answers: {parsingResult.validAnswers}</li>
+                <li>Parse Errors: {parsingResult.parsingErrors.length}</li>
+              </ul>
             </div>
-          </details>
+            <div>
+              <strong>Application Info:</strong>
+              <ul className="mt-1 space-y-1">
+                <li>ID: {application.application_id.slice(0, 12)}...</li>
+                <li>Status: {application.evaluation_status || 'N/A'}</li>
+                <li>Score: {application.overall_score || 'N/A'}</li>
+              </ul>
+            </div>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </details>
+    </div>
   );
 };
 

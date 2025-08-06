@@ -15,7 +15,7 @@ import { YffApplicationsTable } from '@/components/admin/YffApplicationsTable';
 import type { YffApplicationWithIndividual } from '@/types/yff-application';
 
 const YffApplicationsPage: React.FC = () => {
-  // Fetch applications with individual data
+  // Fetch applications with individual data and team registration data
   const { data: applications = [], isLoading, error } = useQuery({
     queryKey: ['yff-applications'],
     queryFn: async (): Promise<YffApplicationWithIndividual[]> => {
@@ -27,6 +27,36 @@ const YffApplicationsPage: React.FC = () => {
             first_name,
             last_name,
             email
+          ),
+          yff_team_registrations!inner(
+            id,
+            full_name,
+            email,
+            phone_number,
+            country_code,
+            date_of_birth,
+            linkedin_profile,
+            social_media_handles,
+            gender,
+            institution_name,
+            course_program,
+            current_year_of_study,
+            expected_graduation,
+            current_city,
+            state,
+            pin_code,
+            permanent_address,
+            team_name,
+            venture_name,
+            number_of_team_members,
+            team_members,
+            industry_sector,
+            website,
+            referral_id,
+            application_status,
+            questionnaire_completed_at,
+            created_at,
+            updated_at
           )
         `)
         .order('created_at', { ascending: false });

@@ -1,9 +1,10 @@
+
 /**
- * @fileoverview Unified YFF Application Types - Single Source of Truth
+ * @fileoverview Extended YFF Application Types
  * 
- * This file establishes a canonical type hierarchy for YFF applications,
- * preventing type mismatches by deriving all application types from the
- * base Supabase type definition.
+ * Extends the auto-generated Supabase types to include columns that exist
+ * in the database but may not be reflected in the generated types.
+ * This resolves TypeScript errors when working with timestamp columns.
  */
 
 import { Database } from '@/integrations/supabase/types';
@@ -12,74 +13,36 @@ import type { YffFormData } from './yff-form';
 // Define Json type to match Supabase's Json type structure
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
-/**
- * SINGLE SOURCE OF TRUTH: Base YFF Application from Supabase
- * All other application types MUST derive from this canonical definition
- */
+// Base type from Supabase
 export type BaseYffApplication = Database['public']['Tables']['yff_applications']['Row'];
 export type BaseYffApplicationInsert = Database['public']['Tables']['yff_applications']['Insert'];
 export type BaseYffApplicationUpdate = Database['public']['Tables']['yff_applications']['Update'];
 
-/**
- * Standardized individuals interface - consistent across all application types
- */
-export interface YffApplicationIndividuals {
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone_number?: string;
-  country_code?: string;
-  country_iso_code?: string;
-}
-
-/**
- * CANONICAL APPLICATION TYPE: Extended from Supabase base with additional fields
- * This is the primary type all components should use
- */
-export interface YffApplication extends BaseYffApplication {
+// Extended types that include the missing timestamp columns and related data
+export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evaluation_completed_at'> {
   created_at: string;
   updated_at: string;
-  evaluation_status: string;
-  overall_score: number;
+  evaluation_status: string; // Required field, not optional
+  overall_score: number; // Made required to match base type
   evaluation_completed_at?: string | null;
-  evaluation_data: Record<string, any>;
-  individuals?: YffApplicationIndividuals | null;
+  evaluation_data: Record<string, any>; // Make required to match base type
+  individuals?: {
+    first_name: string;
+    last_name: string;
+    email?: string;
+  } | null;
 }
 
-/**
- * DERIVED TYPE: For applications with guaranteed individual data
- */
-export interface YffApplicationWithIndividual extends YffApplication {
-  individuals: YffApplicationIndividuals;
+export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {
+  created_at?: string;
+  updated_at?: string;
+  evaluation_status?: string;
+  overall_score?: number;
+  evaluation_completed_at?: string | null;
+  evaluation_data?: Record<string, any>;
 }
 
-/**
- * DERIVED TYPE: For dialog components - uses Pick to select only needed fields
- * This ensures type safety while only including required properties
- */
-export interface DialogApplication extends Pick<YffApplication, 
-  | 'application_id'
-  | 'individual_id'
-  | 'status'
-  | 'application_round'
-  | 'answers'
-  | 'cumulative_score'
-  | 'reviewer_scores'
-  | 'submitted_at'
-  | 'created_at'
-  | 'updated_at'
-  | 'evaluation_status'
-  | 'overall_score'
-  | 'evaluation_completed_at'
-  | 'evaluation_data'
-> {
-  individuals?: YffApplicationIndividuals | null;
-}
-
-/**
- * DERIVED TYPE: For insert operations
- */
-export interface YffApplicationInsert extends BaseYffApplicationInsert {
+export interface ExtendedYffApplicationUpdate extends BaseYffApplicationUpdate {
   created_at?: string;
   updated_at?: string;
   evaluation_status?: string;
@@ -89,15 +52,14 @@ export interface YffApplicationInsert extends BaseYffApplicationInsert {
 }
 
 /**
- * DERIVED TYPE: For update operations
+ * Type for applications with joined individual data (used in queries with joins)
  */
-export interface YffApplicationUpdate extends BaseYffApplicationUpdate {
-  created_at?: string;
-  updated_at?: string;
-  evaluation_status?: string;
-  overall_score?: number;
-  evaluation_completed_at?: string | null;
-  evaluation_data?: Record<string, any>;
+export interface YffApplicationWithIndividual extends ExtendedYffApplication {
+  individuals: {
+    first_name: string;
+    last_name: string;
+    email?: string;
+  } | null;
 }
 
 /**
@@ -145,29 +107,6 @@ export const parseEvaluationData = (data: any): Record<string, any> => {
   }
   
   return {};
-};
-
-/**
- * Type-safe conversion from YffApplication to DialogApplication
- */
-export const convertToDialogApplication = (app: YffApplication): DialogApplication => {
-  return {
-    application_id: app.application_id,
-    individual_id: app.individual_id,
-    status: app.status,
-    application_round: app.application_round,
-    answers: app.answers,
-    cumulative_score: app.cumulative_score,
-    reviewer_scores: app.reviewer_scores,
-    submitted_at: app.submitted_at,
-    created_at: app.created_at,
-    updated_at: app.updated_at,
-    evaluation_status: app.evaluation_status,
-    overall_score: app.overall_score,
-    evaluation_completed_at: app.evaluation_completed_at,
-    evaluation_data: app.evaluation_data,
-    individuals: app.individuals
-  };
 };
 
 /**

@@ -1,11 +1,11 @@
-
 /**
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
- * Displays comprehensive application details with question-wise answers
- * and corresponding AI scores in a structured, user-friendly format.
+ * Displays comprehensive application details with separate sections for:
+ * - Questionnaire answers (only answered questions from /yff/questionnaire)
+ * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.2.0
+ * @version 1.3.0
  * @author 26ideas Development Team
  */
 
@@ -33,9 +33,10 @@ import {
   Mail,
   Globe,
   Award,
-  TrendingUp
+  TrendingUp,
+  ClipboardList
 } from 'lucide-react';
-import { ExtendedYffApplication, parseApplicationAnswers, parseEvaluationData, getOrderedQuestions } from '@/types/yff-application';
+import { ExtendedYffApplication } from '@/types/yff-application';
 
 interface YffApplicationDetailsDialogEnhancedProps {
   application: ExtendedYffApplication;
@@ -44,55 +45,40 @@ interface YffApplicationDetailsDialogEnhancedProps {
 }
 
 /**
- * Complete question definitions for idea stage applications
- * This ensures we show ALL questions, even if unanswered
+ * Questionnaire questions that should only show if answered
  */
-const IDEA_STAGE_COMPLETE_QUESTIONS: Record<string, string> = {
+const QUESTIONNAIRE_QUESTIONS: Record<string, string> = {
   'tell_us_about_idea': 'Tell us about your idea',
-  'ideaDescription': 'Tell us about your idea',
   'problem_statement': 'What problem does your idea solve?',
-  'problemSolved': 'What problem does your idea solve?',
   'whose_problem': 'Whose problem does your idea solve for?',
-  'targetAudience': 'Whose problem does your idea solve for?',
   'how_solve_problem': 'How does your idea solve this problem?',
-  'solutionApproach': 'How does your idea solve this problem?',
   'how_make_money': 'How do you plan to make money from this idea?',
-  'monetizationStrategy': 'How do you plan to make money from this idea?',
   'acquire_customers': 'How do you plan to acquire customers?',
-  'customerAcquisition': 'How do you plan to acquire customers?',
   'competitors': 'List 3 potential competitors for your idea',
   'product_development': 'What is your approach to product development?',
-  'developmentApproach': 'What is your approach to product development?',
   'team_roles': 'Who is on your team, and what are their roles?',
-  'teamInfo': 'Who is on your team, and what are their roles?',
-  'when_proceed': 'When do you plan to proceed with the idea?',
-  'timeline': 'When do you plan to proceed with the idea?'
+  'when_proceed': 'When do you plan to proceed with the idea?'
 };
 
 /**
- * Standard question order for display consistency
+ * Team registration questions that should always show (with placeholders for blank answers)
  */
-const QUESTION_DISPLAY_ORDER = [
-  'tell_us_about_idea',
-  'ideaDescription',
-  'problem_statement', 
-  'problemSolved',
-  'whose_problem',
-  'targetAudience',
-  'how_solve_problem',
-  'solutionApproach',
-  'how_make_money',
-  'monetizationStrategy',
-  'acquire_customers',
-  'customerAcquisition',
-  'competitors',
-  'product_development',
-  'developmentApproach',
-  'team_roles',
-  'teamInfo',
-  'when_proceed',
-  'timeline'
-];
+const TEAM_REGISTRATION_QUESTIONS: Record<string, string> = {
+  'fullName': 'Full Name',
+  'email': 'Email Address',
+  'phoneNumber': 'Phone Number',
+  'dateOfBirth': 'Date of Birth',
+  'currentCity': 'Current City',
+  'state': 'State/Province',
+  'institutionName': 'Institution Name',
+  'courseProgram': 'Course/Program',
+  'currentYearOfStudy': 'Current Year of Study',
+  'expectedGraduation': 'Expected Graduation',
+  'ventureName': 'Venture Name',
+  'industrySector': 'Industry Sector',
+  'numberOfMembers': 'Number of Team Members',
+  'website': 'Website URL'
+};
 
 /**
  * Get score color based on value
@@ -170,7 +156,6 @@ const safeParseEvaluationData = (evaluationData: any) => {
 
 /**
  * Map question keys to evaluation keys for scoring lookup
- * MOVED BEFORE useMemo to fix initialization error
  */
 const getEvaluationKey = (questionKey: string): string => {
   const keyMapping: Record<string, string> = {
@@ -218,13 +203,12 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   console.log('📊 Evaluation scores:', evaluationData.scores);
 
   /**
-   * Create comprehensive question list including all questions (answered and unanswered)
+   * Process questionnaire answers (only answered questions)
    */
-  const completeQuestionSet = useMemo(() => {
-    console.log('🗺️ Creating complete question set with all questions...');
+  const answeredQuestionnaireQuestions = useMemo(() => {
+    console.log('🗂️ Processing questionnaire questions (only answered)...');
     
-    const questionSet = new Set<string>();
-    const questionMap: Record<string, {
+    const answeredQuestions: Array<{
       questionKey: string;
       questionText: string;
       userAnswer: string;
@@ -232,74 +216,67 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       strengths?: string[];
       improvements?: string[];
       rawFeedback?: string;
-      hasAnswer: boolean;
-    }> = {};
+    }> = [];
 
-    // First, add all possible questions from our complete definition
-    Object.keys(IDEA_STAGE_COMPLETE_QUESTIONS).forEach(questionKey => {
-      questionSet.add(questionKey);
-    });
-
-    // Add any additional questions found in the actual data
-    if (questionnaireAnswers && typeof questionnaireAnswers === 'object') {
-      Object.keys(questionnaireAnswers).forEach(key => {
-        questionSet.add(key);
-      });
-    }
-
-    // Add questions found in evaluation data
-    if (evaluationData.scores && typeof evaluationData.scores === 'object') {
-      Object.keys(evaluationData.scores).forEach(key => {
-        questionSet.add(key);
-      });
-    }
-
-    console.log('📋 Complete question set:', Array.from(questionSet));
-
-    // Build the final question map
-    Array.from(questionSet).forEach(questionKey => {
-      const questionText = IDEA_STAGE_COMPLETE_QUESTIONS[questionKey] || 
-                          questionKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-      
-      // Get user answer
+    Object.entries(QUESTIONNAIRE_QUESTIONS).forEach(([questionKey, questionText]) => {
       const userAnswer = questionnaireAnswers[questionKey];
       const hasAnswer = userAnswer !== undefined && userAnswer !== null && userAnswer !== '';
       
-      // Map evaluation key for scoring lookup
-      const evalKey = getEvaluationKey(questionKey);
-      const evaluationScore = evaluationData.scores?.[evalKey] || evaluationData.scores?.[questionKey];
-      
-      console.log(`📊 Question: ${questionKey}, Answer: ${hasAnswer ? 'Yes' : 'No'}, Score: ${evaluationScore?.score || 'N/A'}`);
+      // Only include questions that have answers
+      if (hasAnswer) {
+        const evalKey = getEvaluationKey(questionKey);
+        const evaluationScore = evaluationData.scores?.[evalKey] || evaluationData.scores?.[questionKey];
+        
+        console.log(`📝 Including answered question: ${questionKey} with answer length: ${String(userAnswer).length}`);
+        
+        answeredQuestions.push({
+          questionKey,
+          questionText,
+          userAnswer: String(userAnswer),
+          score: evaluationScore?.score,
+          strengths: evaluationScore?.strengths,
+          improvements: evaluationScore?.areas_for_improvement,
+          rawFeedback: evaluationScore?.raw_feedback
+        });
+      } else {
+        console.log(`❌ Skipping unanswered questionnaire question: ${questionKey}`);
+      }
+    });
 
-      questionMap[questionKey] = {
+    console.log('✅ Final answered questionnaire questions:', answeredQuestions.length);
+    return answeredQuestions;
+  }, [questionnaireAnswers, evaluationData.scores]);
+
+  /**
+   * Process team registration data (all questions, including blank)
+   */
+  const teamRegistrationData = useMemo(() => {
+    console.log('🗂️ Processing team registration data (all questions)...');
+    
+    const teamData: Array<{
+      questionKey: string;
+      questionText: string;
+      userAnswer: string;
+      hasAnswer: boolean;
+    }> = [];
+
+    Object.entries(TEAM_REGISTRATION_QUESTIONS).forEach(([questionKey, questionText]) => {
+      const userAnswer = teamAnswers[questionKey];
+      const hasAnswer = userAnswer !== undefined && userAnswer !== null && userAnswer !== '';
+      
+      console.log(`📋 Team registration question: ${questionKey}, Has answer: ${hasAnswer}`);
+      
+      teamData.push({
         questionKey,
         questionText,
         userAnswer: hasAnswer ? String(userAnswer) : 'No answer provided',
-        score: evaluationScore?.score,
-        strengths: evaluationScore?.strengths,
-        improvements: evaluationScore?.areas_for_improvement,
-        rawFeedback: evaluationScore?.raw_feedback,
         hasAnswer
-      };
+      });
     });
 
-    // Sort questions by display order, then alphabetically
-    const sortedQuestions = Object.values(questionMap).sort((a, b) => {
-      const aIndex = QUESTION_DISPLAY_ORDER.indexOf(a.questionKey);
-      const bIndex = QUESTION_DISPLAY_ORDER.indexOf(b.questionKey);
-      
-      if (aIndex !== -1 && bIndex !== -1) {
-        return aIndex - bIndex;
-      }
-      if (aIndex !== -1) return -1;
-      if (bIndex !== -1) return 1;
-      
-      return a.questionText.localeCompare(b.questionText);
-    });
-
-    console.log('✅ Final complete question map:', sortedQuestions);
-    return sortedQuestions;
-  }, [questionnaireAnswers, evaluationData.scores]);
+    console.log('✅ Final team registration data entries:', teamData.length);
+    return teamData;
+  }, [teamAnswers]);
 
   /**
    * Handle dialog trigger click
@@ -370,8 +347,8 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                       </Badge>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Questions Evaluated:</span>
-                      <span className="ml-2 font-medium">{completeQuestionSet.length}</span>
+                      <span className="text-muted-foreground">Answered Questions:</span>
+                      <span className="ml-2 font-medium">{answeredQuestionnaireQuestions.length}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Submitted:</span>
@@ -392,204 +369,154 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* Applicant Information */}
+          {/* Questionnaire Answers (Only Answered Questions) */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Applicant Information
+                <MessageSquare className="h-5 w-5" />
+                Questionnaire Answers with AI Scoring
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {answeredQuestionnaireQuestions.length} answered
+                </Badge>
               </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Questions from /yff/questionnaire that the participant answered
+              </p>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="space-y-2">
-                  <div>
-                    <span className="font-medium text-muted-foreground">Full Name:</span>
-                    <span className="ml-2">{teamAnswers.fullName || `${application.individuals?.first_name} ${application.individuals?.last_name}` || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Email:</span>
-                    <span className="ml-2">{application.individuals?.email || teamAnswers.email || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Phone:</span>
-                    <span className="ml-2">{teamAnswers.countryCode} {teamAnswers.phoneNumber || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Location:</span>
-                    <span className="ml-2">{teamAnswers.currentCity}, {teamAnswers.state || 'N/A'}</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div>
-                    <span className="font-medium text-muted-foreground">Institution:</span>
-                    <span className="ml-2">{teamAnswers.institutionName || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Course:</span>
-                    <span className="ml-2">{teamAnswers.courseProgram || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Year:</span>
-                    <span className="ml-2">{teamAnswers.currentYearOfStudy || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Graduation:</span>
-                    <span className="ml-2">{teamAnswers.expectedGraduation || 'N/A'}</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              {answeredQuestionnaireQuestions.length > 0 ? (
+                <div className="space-y-6">
+                  {answeredQuestionnaireQuestions.map((item, index) => (
+                    <div key={item.questionKey} className="border rounded-lg p-4 bg-blue-50/30">
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline" className="text-xs">
+                              Q{index + 1}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                              Answered
+                            </Badge>
+                            {item.score !== undefined && (
+                              <Badge variant={getScoreBadgeColor(item.score)} className="text-xs">
+                                <Star className="h-3 w-3 mr-1" />
+                                {item.score}/10
+                              </Badge>
+                            )}
+                          </div>
+                          <h4 className="font-medium text-gray-900 mb-2">
+                            {item.questionText}
+                          </h4>
+                        </div>
+                      </div>
 
-          {/* Venture Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Venture Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-muted-foreground">Venture Name:</span>
-                  <span className="ml-2 font-medium">{teamAnswers.ventureName || 'N/A'}</span>
+                      {/* User's Answer */}
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <User className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-gray-700">Applicant's Answer</span>
+                        </div>
+                        <div className="p-3 rounded border bg-white border-blue-200">
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed text-gray-800">
+                            {item.userAnswer}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* AI Feedback */}
+                      {(item.strengths || item.improvements || item.rawFeedback) && (
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {/* Strengths */}
+                          {item.strengths && item.strengths.length > 0 && (
+                            <div>
+                              <h5 className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
+                                <CheckCircle className="h-4 w-4" />
+                                Strengths
+                              </h5>
+                              <div className="bg-green-50 p-3 rounded border border-green-200">
+                                <ul className="space-y-1">
+                                  {item.strengths.map((strength: string, i: number) => (
+                                    <li key={i} className="text-sm text-green-800">
+                                      • {strength}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Areas for Improvement */}
+                          {item.improvements && item.improvements.length > 0 && (
+                            <div>
+                              <h5 className="text-sm font-medium text-orange-700 mb-2 flex items-center gap-1">
+                                <AlertCircle className="h-4 w-4" />
+                                Areas for Improvement
+                              </h5>
+                              <div className="bg-orange-50 p-3 rounded border border-orange-200">
+                                <ul className="space-y-1">
+                                  {item.improvements.map((improvement: string, i: number) => (
+                                    <li key={i} className="text-sm text-orange-800">
+                                      • {improvement}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {item.score === undefined && (
+                        <div className="text-center py-2">
+                          <p className="text-sm text-gray-500">AI evaluation pending for this answer</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Industry:</span>
-                  <span className="ml-2">{teamAnswers.industrySector || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Team Size:</span>
-                  <span className="ml-2">{teamAnswers.numberOfMembers || 1} member(s)</span>
-                </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Product Stage:</span>
-                  <Badge variant="outline" className="ml-2">
-                    {questionnaireAnswers.productStage || 'Not specified'}
-                  </Badge>
-                </div>
-              </div>
-              {teamAnswers.website && (
-                <div className="mt-4">
-                  <span className="font-medium text-muted-foreground">Website:</span>
-                  <span className="ml-2 text-blue-600">{teamAnswers.website}</span>
+              ) : (
+                <div className="text-center py-8">
+                  <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No questionnaire answers available</p>
+                  <p className="text-sm text-gray-400">The participant has not answered any questionnaire questions yet</p>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Complete Question Analysis with AI Scoring */}
+          {/* Team Registration Information (All Questions) */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Complete Questionnaire Analysis with AI Scoring
+                <ClipboardList className="h-5 w-5" />
+                Team Registration Information
+                <Badge variant="outline" className="ml-2 text-xs">
+                  {teamRegistrationData.filter(item => item.hasAnswer).length} of {teamRegistrationData.length} completed
+                </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                All questions from the application stage, including answered and unanswered questions with AI feedback
+                All team registration fields, including those not filled out
               </p>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                {completeQuestionSet.map((item, index) => (
-                  <div key={item.questionKey} className={`border rounded-lg p-4 ${item.hasAnswer ? 'bg-blue-50/30' : 'bg-gray-50/50'}`}>
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline" className="text-xs">
-                            Q{index + 1}
-                          </Badge>
-                          {item.hasAnswer ? (
-                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
-                              Answered
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs text-gray-500">
-                              Unanswered
-                            </Badge>
-                          )}
-                          {item.score !== undefined && (
-                            <Badge variant={getScoreBadgeColor(item.score)} className="text-xs">
-                              <Star className="h-3 w-3 mr-1" />
-                              {item.score}/10
-                            </Badge>
-                          )}
-                        </div>
-                        <h4 className="font-medium text-gray-900 mb-2">
-                          {item.questionText}
-                        </h4>
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {teamRegistrationData.map((item) => (
+                  <div key={item.questionKey} className={`p-3 rounded border ${item.hasAnswer ? 'bg-green-50/50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium text-gray-700">{item.questionText}:</span>
+                      {item.hasAnswer ? (
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                          Provided
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs text-gray-500">
+                          Not Provided
+                        </Badge>
+                      )}
                     </div>
-
-                    {/* User's Answer */}
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <User className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm font-medium text-gray-700">Applicant's Answer</span>
-                      </div>
-                      <div className={`p-3 rounded border ${item.hasAnswer ? 'bg-white border-blue-200' : 'bg-gray-100 border-gray-200'}`}>
-                        <p className={`text-sm whitespace-pre-wrap leading-relaxed ${item.hasAnswer ? 'text-gray-800' : 'text-gray-500 italic'}`}>
-                          {item.userAnswer}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* AI Feedback */}
-                    {(item.strengths || item.improvements || item.rawFeedback) && (
-                      <div className="grid md:grid-cols-2 gap-4">
-                        {/* Strengths */}
-                        {item.strengths && item.strengths.length > 0 && (
-                          <div>
-                            <h5 className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
-                              <CheckCircle className="h-4 w-4" />
-                              Strengths
-                            </h5>
-                            <div className="bg-green-50 p-3 rounded border border-green-200">
-                              <ul className="space-y-1">
-                                {item.strengths.map((strength: string, i: number) => (
-                                  <li key={i} className="text-sm text-green-800">
-                                    • {strength}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Areas for Improvement */}
-                        {item.improvements && item.improvements.length > 0 && (
-                          <div>
-                            <h5 className="text-sm font-medium text-orange-700 mb-2 flex items-center gap-1">
-                              <AlertCircle className="h-4 w-4" />
-                              Areas for Improvement
-                            </h5>
-                            <div className="bg-orange-50 p-3 rounded border border-orange-200">
-                              <ul className="space-y-1">
-                                {item.improvements.map((improvement: string, i: number) => (
-                                  <li key={i} className="text-sm text-orange-800">
-                                    • {improvement}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {!item.hasAnswer && !item.score && (
-                      <div className="text-center py-2">
-                        <p className="text-sm text-gray-500">No answer provided - No AI evaluation available</p>
-                      </div>
-                    )}
-
-                    {item.hasAnswer && !item.score && (
-                      <div className="text-center py-2">
-                        <p className="text-sm text-gray-500">Answer provided - AI evaluation pending</p>
-                      </div>
-                    )}
+                    <p className={`text-sm ${item.hasAnswer ? 'text-gray-800' : 'text-gray-500 italic'}`}>
+                      {item.userAnswer}
+                    </p>
                   </div>
                 ))}
               </div>

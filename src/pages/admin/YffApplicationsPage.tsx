@@ -35,10 +35,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from "@/components/ui/checkbox"
-import { CalendarDateRangePicker } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
-import { CalendarIcon } from "@radix-ui/react-icons"
+import { CalendarIcon } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Command,
@@ -59,8 +58,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { StageAwareQuestionnaireDisplay } from '@/components/admin/StageAwareQuestionnaireDisplay';
-import { QuestionnaireDebugDisplay } from '@/components/admin/QuestionnaireDebugDisplay';
 import { CanonicalQuestionnaireDisplay } from '@/components/admin/CanonicalQuestionnaireDisplay';
 
 const YffApplicationsPage: React.FC = () => {

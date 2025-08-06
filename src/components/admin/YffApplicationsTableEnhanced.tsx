@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ExtendedYffApplication, YffApplication, parseApplicationAnswers, parseEvaluationData } from '@/types/yff-application';
+import { ExtendedYffApplication, parseApplicationAnswers, parseEvaluationData } from '@/types/yff-application';
 import { YffApplicationDetailsDialog } from './YffApplicationDetailsDialog';
 import ApplicationScoringDialog from './ApplicationScoringDialog';
 import YffApplicationEvaluationDialog from './YffApplicationEvaluationDialog';
@@ -29,6 +29,32 @@ import { Loader2, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 interface YffApplicationsTableEnhancedProps {
   applications?: ExtendedYffApplication[];
   isLoading?: boolean;
+}
+
+// Define local interface to match dialog component expectations
+interface DialogApplication {
+  application_id: string;
+  individual_id?: string;
+  status: string;
+  application_round?: string;
+  answers: any;
+  cumulative_score?: number | null;
+  reviewer_scores?: any;
+  submitted_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  evaluation_status: string;
+  overall_score: number;
+  evaluation_completed_at?: string | null;
+  evaluation_data: Record<string, any>;
+  individuals?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone_number?: string;
+    country_code?: string;
+    country_iso_code?: string;
+  } | null;
 }
 
 export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhancedProps> = ({ 
@@ -194,10 +220,30 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                   const answers = parseApplicationAnswers(app.answers);
                   const evaluationData = parseEvaluationData(app.evaluation_data);
                   
-                  // Convert to YffApplication type for dialog components with consistent typing
-                  const applicationForDialog: YffApplication = {
-                    ...app,
-                    individuals: app.individuals || null // Keep consistent optional typing
+                  // Convert to DialogApplication type for dialog components
+                  const applicationForDialog: DialogApplication = {
+                    application_id: app.application_id,
+                    individual_id: app.individual_id,
+                    status: app.status,
+                    application_round: app.application_round,
+                    answers: app.answers,
+                    cumulative_score: app.cumulative_score,
+                    reviewer_scores: app.reviewer_scores,
+                    submitted_at: app.submitted_at,
+                    created_at: app.created_at,
+                    updated_at: app.updated_at,
+                    evaluation_status: app.evaluation_status,
+                    overall_score: app.overall_score,
+                    evaluation_completed_at: app.evaluation_completed_at,
+                    evaluation_data: app.evaluation_data,
+                    individuals: app.individuals ? {
+                      first_name: app.individuals.first_name,
+                      last_name: app.individuals.last_name,
+                      email: app.individuals.email || '', // Provide fallback
+                      phone_number: app.individuals.phone_number,
+                      country_code: app.individuals.country_code,
+                      country_iso_code: app.individuals.country_iso_code,
+                    } : null
                   };
 
                   // Create a properly typed application for scoring dialog
@@ -280,7 +326,6 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
         </CardContent>
       </Card>
 
-      {/* Custom Pagination */}
       <div className="flex items-center justify-center space-x-2">
         <Button
           variant="outline"

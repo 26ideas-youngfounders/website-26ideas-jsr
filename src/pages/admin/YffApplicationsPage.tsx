@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useState, useEffect } from 'react';
 import {
@@ -13,7 +14,7 @@ import { fetchYffApplications } from '@/api/supabase/yff-applications';
 import { ExtendedYffApplication } from '@/types/yff-application';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from '@/components/ui/badge';
-import { MoreVertical, Edit, FileText, User, Mail, Phone, Calendar } from 'lucide-react';
+import { MoreVertical, Edit, FileText, CalendarIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,7 +38,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Command,
@@ -58,7 +58,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { CanonicalQuestionnaireDisplay } from '@/components/admin/CanonicalQuestionnaireDisplay';
+import { UnifiedQuestionnaireDisplay } from '@/components/admin/UnifiedQuestionnaireDisplay';
 
 const YffApplicationsPage: React.FC = () => {
   const [selectedApplication, setSelectedApplication] = useState<ExtendedYffApplication | null>(null);
@@ -181,7 +181,7 @@ const YffApplicationsPage: React.FC = () => {
           
           <div className="space-y-6 mt-4">
             {selectedApplication && (
-              <CanonicalQuestionnaireDisplay application={selectedApplication} />
+              <UnifiedQuestionnaireDisplay application={selectedApplication} />
             )}
           </div>
         </DialogContent>

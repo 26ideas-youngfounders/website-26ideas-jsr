@@ -4,12 +4,13 @@
  * 
  * Single source of truth for stage detection across all components.
  * Handles both "Early Revenue" and "Idea Stage / MLP / Working Prototype" formats.
+ * Fixed to properly access nested data structures with safe property access.
  * 
- * @version 1.0.0
+ * @version 1.1.0
  * @author 26ideas Development Team
  */
 
-import { ExtendedYffApplication } from '@/types/yff-application';
+import { ExtendedYffApplication, parseApplicationAnswers } from '@/types/yff-application';
 
 export type UnifiedStage = 'idea_stage' | 'early_revenue' | 'mvp_stage';
 
@@ -104,7 +105,158 @@ export const extractUnifiedStage = (stageValue: string | undefined): UnifiedStag
 };
 
 /**
- * Unified stage detection function - single source of truth
+ * Safely parse nested data structure with detailed logging
+ */
+const safelyAccessProductStage = (application: ExtendedYffApplication): {
+  productStage: string | undefined;
+  source: string;
+  debugInfo: any;
+} => {
+  console.log('🔍 DEBUGGING APPLICATION STRUCTURE:');
+  console.log('🔍 APPLICATION KEYS:', Object.keys(application));
+  console.log('🔍 APPLICATION.ANSWERS TYPE:', typeof application.answers);
+  console.log('🔍 APPLICATION.ANSWERS:', application.answers);
+  
+  // Method 1: Direct access to answers.questionnaire_answers.productStage
+  try {
+    if (application.answers && typeof application.answers === 'object') {
+      const answers = application.answers;
+      console.log('🔍 ANSWERS OBJECT KEYS:', Object.keys(answers));
+      
+      if (answers.questionnaire_answers && typeof answers.questionnaire_answers === 'object') {
+        const questionnaireAnswers = answers.questionnaire_answers;
+        console.log('🔍 QUESTIONNAIRE_ANSWERS KEYS:', Object.keys(questionnaireAnswers));
+        
+        const productStage = questionnaireAnswers.productStage;
+        console.log('🎯 FOUND PRODUCTSTAGE VIA DIRECT ACCESS:', productStage);
+        
+        if (productStage && typeof productStage === 'string') {
+          return {
+            productStage,
+            source: 'answers.questionnaire_answers.productStage',
+            debugInfo: { method: 'direct_access', keys: Object.keys(questionnaireAnswers) }
+          };
+        }
+      }
+    }
+  } catch (error) {
+    console.log('❌ ERROR IN DIRECT ACCESS:', error);
+  }
+  
+  // Method 2: Parse answers as JSON string if needed
+  try {
+    if (typeof application.answers === 'string') {
+      console.log('🔍 ANSWERS IS STRING, PARSING...');
+      const parsedAnswers = JSON.parse(application.answers);
+      console.log('🔍 PARSED ANSWERS:', parsedAnswers);
+      
+      const productStage = parsedAnswers?.questionnaire_answers?.productStage;
+      console.log('🎯 FOUND PRODUCTSTAGE VIA JSON PARSING:', productStage);
+      
+      if (productStage && typeof productStage === 'string') {
+        return {
+          productStage,
+          source: 'parsed answers.questionnaire_answers.productStage',
+          debugInfo: { method: 'json_parse', parsedKeys: Object.keys(parsedAnswers) }
+        };
+      }
+    }
+  } catch (error) {
+    console.log('❌ ERROR IN JSON PARSING:', error);
+  }
+  
+  // Method 3: Check yff_team_registrations
+  try {
+    if (application.yff_team_registrations) {
+      console.log('🔍 YFF_TEAM_REGISTRATIONS:', application.yff_team_registrations);
+      
+      // Direct productStage field
+      const directProductStage = application.yff_team_registrations.productStage;
+      console.log('🎯 YFF_TEAM_REGISTRATIONS.PRODUCTSTAGE:', directProductStage);
+      
+      if (directProductStage && typeof directProductStage === 'string') {
+        return {
+          productStage: directProductStage,
+          source: 'yff_team_registrations.productStage',
+          debugInfo: { method: 'team_registration_direct' }
+        };
+      }
+      
+      // Check questionnaire_answers within yff_team_registrations
+      let questionnaireAnswers = application.yff_team_registrations.questionnaire_answers;
+      
+      if (typeof questionnaireAnswers === 'string') {
+        questionnaireAnswers = JSON.parse(questionnaireAnswers);
+      }
+      
+      if (questionnaireAnswers && typeof questionnaireAnswers === 'object') {
+        const productStage = (questionnaireAnswers as any).productStage;
+        console.log('🎯 YFF_TEAM_REGISTRATIONS.QUESTIONNAIRE_ANSWERS.PRODUCTSTAGE:', productStage);
+        
+        if (productStage && typeof productStage === 'string') {
+          return {
+            productStage,
+            source: 'yff_team_registrations.questionnaire_answers.productStage',
+            debugInfo: { method: 'team_registration_nested' }
+          };
+        }
+      }
+    }
+  } catch (error) {
+    console.log('❌ ERROR IN YFF_TEAM_REGISTRATIONS ACCESS:', error);
+  }
+  
+  // Method 4: Alternative paths
+  const alternativePaths = [
+    { 
+      getter: () => (application as any)?.questionnaire_answers?.productStage, 
+      name: 'application.questionnaire_answers.productStage' 
+    },
+    { 
+      getter: () => application?.productStage, 
+      name: 'application.productStage' 
+    },
+    { 
+      getter: () => application?.stage, 
+      name: 'application.stage' 
+    },
+    { 
+      getter: () => application?.selected_stage, 
+      name: 'application.selected_stage' 
+    }
+  ];
+  
+  for (const path of alternativePaths) {
+    try {
+      const value = path.getter();
+      console.log(`🎯 ALTERNATIVE PATH ${path.name}:`, value);
+      
+      if (value && typeof value === 'string') {
+        return {
+          productStage: value,
+          source: path.name,
+          debugInfo: { method: 'alternative_path' }
+        };
+      }
+    } catch (error) {
+      console.log(`❌ ERROR IN ALTERNATIVE PATH ${path.name}:`, error);
+    }
+  }
+  
+  console.log('❌ NO PRODUCTSTAGE FOUND IN ANY LOCATION');
+  return {
+    productStage: undefined,
+    source: 'none',
+    debugInfo: { 
+      applicationKeys: Object.keys(application),
+      answersType: typeof application.answers,
+      teamRegistrationsExists: !!application.yff_team_registrations
+    }
+  };
+};
+
+/**
+ * Unified stage detection function - single source of truth with enhanced data access
  */
 export const detectUnifiedStage = (application: ExtendedYffApplication): {
   stage: UnifiedStage | null;
@@ -116,87 +268,36 @@ export const detectUnifiedStage = (application: ExtendedYffApplication): {
   
   const warnings: string[] = [];
   
-  // Priority 1: answers.questionnaire_answers.productStage
-  const answersProductStage = (application.answers as any)?.questionnaire_answers?.productStage;
-  if (answersProductStage) {
-    const stage = extractUnifiedStage(answersProductStage);
+  // Use the safe access function
+  const accessResult = safelyAccessProductStage(application);
+  const { productStage, source, debugInfo } = accessResult;
+  
+  console.log('🎯 PRODUCT STAGE ACCESS RESULT:', accessResult);
+  
+  if (productStage) {
+    const stage = extractUnifiedStage(productStage);
     if (stage) {
-      console.log('✅ STAGE FOUND in answers.questionnaire_answers.productStage:', stage);
+      console.log('✅ UNIFIED STAGE SUCCESSFULLY DETECTED:', stage);
       return {
         stage,
-        rawStageValue: answersProductStage,
-        detectionSource: 'answers.questionnaire_answers.productStage',
+        rawStageValue: productStage,
+        detectionSource: source,
         warnings
       };
     } else {
-      warnings.push(`Could not parse stage from answers.questionnaire_answers.productStage: "${answersProductStage}"`);
+      warnings.push(`Could not extract unified stage from productStage: "${productStage}"`);
     }
+  } else {
+    warnings.push('No productStage value found in any expected location');
+    warnings.push(`Debug info: ${JSON.stringify(debugInfo)}`);
   }
   
-  // Priority 2: yff_team_registrations.productStage
-  const registrationProductStage = application.yff_team_registrations?.productStage;
-  if (registrationProductStage) {
-    const stage = extractUnifiedStage(registrationProductStage);
-    if (stage) {
-      console.log('✅ STAGE FOUND in yff_team_registrations.productStage:', stage);
-      return {
-        stage,
-        rawStageValue: registrationProductStage,
-        detectionSource: 'yff_team_registrations.productStage',
-        warnings
-      };
-    } else {
-      warnings.push(`Could not parse stage from yff_team_registrations.productStage: "${registrationProductStage}"`);
-    }
-  }
-  
-  // Priority 3: Direct questionnaire_answers.productStage
-  const directQuestionnaireStage = (application as any)?.questionnaire_answers?.productStage;
-  if (directQuestionnaireStage) {
-    const stage = extractUnifiedStage(directQuestionnaireStage);
-    if (stage) {
-      console.log('✅ STAGE FOUND in questionnaire_answers.productStage:', stage);
-      return {
-        stage,
-        rawStageValue: directQuestionnaireStage,
-        detectionSource: 'questionnaire_answers.productStage',
-        warnings
-      };
-    } else {
-      warnings.push(`Could not parse stage from questionnaire_answers.productStage: "${directQuestionnaireStage}"`);
-    }
-  }
-  
-  // Priority 4: Other stage fields
-  const fallbackStageFields = [
-    { value: application.stage, source: 'application.stage' },
-    { value: application.selected_stage, source: 'application.selected_stage' },
-    { value: (application as any)?.productStage, source: 'application.productStage' }
-  ];
-  
-  for (const field of fallbackStageFields) {
-    if (field.value && typeof field.value === 'string') {
-      const stage = extractUnifiedStage(field.value);
-      if (stage) {
-        warnings.push(`Stage detected from fallback field: ${field.source}`);
-        console.log('⚠️ FALLBACK STAGE DETECTION:', stage, 'from', field.source);
-        return {
-          stage,
-          rawStageValue: field.value,
-          detectionSource: field.source,
-          warnings
-        };
-      }
-    }
-  }
-  
-  warnings.push('No valid stage could be detected from any source');
   console.log('❌ NO UNIFIED STAGE DETECTED');
   
   return {
     stage: null,
-    rawStageValue: undefined,
-    detectionSource: 'none',
+    rawStageValue: productStage,
+    detectionSource: source,
     warnings
   };
 };

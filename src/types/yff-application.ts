@@ -44,7 +44,7 @@ export interface YffTeamRegistrationData {
   industry_sector?: string;
   website?: string;
   referral_id?: string;
-  questionnaire_answers?: Record<string, any>;
+  questionnaire_answers?: Record<string, any> | string;
   application_status?: string;
   questionnaire_completed_at?: string;
   created_at?: string;
@@ -57,6 +57,47 @@ export interface YffTeamRegistrationData {
   productStage?: string; // Add the productStage field
 }
 
+// Enhanced answers interface for proper typing
+export interface ApplicationAnswers {
+  questionnaire_answers?: {
+    productStage?: string;
+    // Idea Stage questions
+    ideaDescription?: string;
+    problemSolved?: string;
+    targetAudience?: string;
+    solutionApproach?: string;
+    monetizationStrategy?: string;
+    customerAcquisition?: string;
+    competitors?: string;
+    developmentApproach?: string;
+    teamInfo?: string;
+    timeline?: string;
+    // Early Revenue questions
+    tell_us_about_idea?: string;
+    early_revenue_problem?: string;
+    early_revenue_target?: string;
+    early_revenue_how_solve?: string;
+    early_revenue_monetization?: string;
+    early_revenue_customers?: string;
+    early_revenue_competitors?: string;
+    early_revenue_development?: string;
+    early_revenue_team?: string;
+    early_revenue_timeline?: string;
+    // MVP questions
+    mvp_description?: string;
+    user_feedback?: string;
+    traction_metrics?: string;
+    revenue_model?: string;
+    growth_strategy?: string;
+    competitive_advantage?: string;
+    team_expansion?: string;
+    funding_requirements?: string;
+    milestones?: string;
+    [key: string]: any;
+  };
+  [key: string]: any;
+}
+
 // Extended types that include the missing timestamp columns and related data
 export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evaluation_completed_at'> {
   created_at: string;
@@ -65,6 +106,8 @@ export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evalua
   overall_score: number; // Made required to match base type
   evaluation_completed_at?: string | null;
   evaluation_data: Record<string, any>; // Make required to match base type
+  // Enhanced answers typing
+  answers?: ApplicationAnswers | string | any; // Allow for JSON string or parsed object
   individuals?: {
     first_name: string;
     last_name: string;
@@ -76,6 +119,9 @@ export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evalua
   selected_stage?: string;
   application_stage?: string;
   user_stage?: string;
+  // Direct access properties that might exist
+  productStage?: string;
+  questionnaire_answers?: Record<string, any> | string;
 }
 
 export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {

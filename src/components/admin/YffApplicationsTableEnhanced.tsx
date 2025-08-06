@@ -194,17 +194,10 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                   const answers = parseApplicationAnswers(app.answers);
                   const evaluationData = parseEvaluationData(app.evaluation_data);
                   
-                  // Convert to YffApplication type for dialog components with safe email fallback
+                  // Convert to YffApplication type for dialog components with consistent typing
                   const applicationForDialog: YffApplication = {
                     ...app,
-                    individuals: app.individuals ? {
-                      first_name: app.individuals.first_name,
-                      last_name: app.individuals.last_name,
-                      email: app.individuals.email || '', // Provide fallback empty string
-                      phone_number: app.individuals.phone_number,
-                      country_code: app.individuals.country_code,
-                      country_iso_code: app.individuals.country_iso_code,
-                    } : null
+                    individuals: app.individuals || null // Keep consistent optional typing
                   };
 
                   // Create a properly typed application for scoring dialog
@@ -223,7 +216,7 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                       <TableCell>
                         <div>
                           <div className="font-medium">
-                            {app.individuals?.first_name} {app.individuals?.last_name}
+                            {app.individuals?.first_name || 'Unknown'} {app.individuals?.last_name || 'User'}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {answers.team?.email || app.individuals?.email || 'No email'}

@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Extended YFF Application Types
  * 
@@ -20,12 +19,12 @@ export type BaseYffApplicationUpdate = Database['public']['Tables']['yff_applica
 
 /**
  * Standardized individuals interface - consistent across all application types
- * Making email required to match component expectations
+ * Made optional to handle cases where individuals data might not be loaded
  */
 export interface YffApplicationIndividuals {
   first_name: string;
   last_name: string;
-  email: string; // Made required to match component expectations
+  email: string; // Required when individuals object exists
   phone_number?: string;
   country_code?: string;
   country_iso_code?: string;
@@ -39,7 +38,7 @@ export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evalua
   overall_score: number; // Made required to match base type
   evaluation_completed_at?: string | null;
   evaluation_data: Record<string, any>; // Make required to match base type
-  individuals?: YffApplicationIndividuals | null;
+  individuals?: YffApplicationIndividuals | null; // Made optional to match query results
 }
 
 export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {
@@ -70,10 +69,10 @@ export interface YffApplicationWithIndividual extends ExtendedYffApplication {
 
 /**
  * Main YffApplication type that matches the component expectations
- * Uses the same standardized individuals interface
+ * Uses the same standardized individuals interface with consistent optionality
  */
 export interface YffApplication extends ExtendedYffApplication {
-  individuals?: YffApplicationIndividuals | null;
+  individuals?: YffApplicationIndividuals | null; // Consistent optional typing
 }
 
 /**

@@ -34,8 +34,33 @@ export const evaluateApplication = async (applicationId: string): Promise<Evalua
   console.log(`🚀 Starting AI evaluation for application: ${applicationId}`);
   
   try {
+    // Set status to processing at start
+    await supabase
+      .from('yff_applications')
+      .update({ 
+        evaluation_status: 'processing',
+        updated_at: new Date().toISOString()
+      })
+      .eq('application_id', applicationId);
+
     // Use the comprehensive scoring service
     const result = await AIComprehensiveScoringService.evaluateApplication(applicationId);
+    
+    // Update status to completed after successful evaluation
+    const { error: updateError } = await supabase
+      .from('yff_applications')
+      .update({
+        evaluation_status: 'completed',
+        evaluation_completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('application_id', applicationId);
+
+    if (updateError) {
+      console.error(`❌ Failed to update evaluation status to completed:`, updateError);
+    } else {
+      console.log(`✅ Evaluation status updated to completed for ${applicationId}`);
+    }
     
     console.log(`✅ AI evaluation completed for ${applicationId} with score: ${result.overall_score}`);
     
@@ -43,12 +68,22 @@ export const evaluateApplication = async (applicationId: string): Promise<Evalua
       overall_score: result.overall_score,
       question_scores: result.question_scores,
       evaluation_completed_at: result.evaluation_completed_at,
-      evaluation_status: result.evaluation_status,
+      evaluation_status: 'completed', // Ensure we return completed status
       idea_summary: result.idea_summary
     };
     
   } catch (error) {
     console.error(`❌ AI evaluation failed for ${applicationId}:`, error);
+    
+    // Update status to failed on error
+    await supabase
+      .from('yff_applications')
+      .update({
+        evaluation_status: 'failed',
+        updated_at: new Date().toISOString()
+      })
+      .eq('application_id', applicationId);
+    
     throw new Error(`AI evaluation failed: ${error.message}`);
   }
 };

@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Background Job Service for YFF Application Scoring
  * 
@@ -174,6 +173,9 @@ export class BackgroundJobService {
       clearTimeout(timeoutId);
       this.processingJobs.delete(job.id);
       
+      // Update application status to completed (this is the key fix)
+      await this.updateApplicationEvaluationStatus(job.applicationId, 'completed');
+      
       // Mark job as completed
       job.status = 'completed';
       job.completedAt = new Date().toISOString();
@@ -318,16 +320,25 @@ export class BackgroundJobService {
     applicationId: string,
     status: 'pending' | 'processing' | 'completed' | 'failed'
   ): Promise<void> {
+    const updateData: any = {
+      evaluation_status: status,
+      updated_at: new Date().toISOString()
+    };
+
+    // Add completion timestamp when marking as completed
+    if (status === 'completed') {
+      updateData.evaluation_completed_at = new Date().toISOString();
+    }
+
     const { error } = await supabase
       .from('yff_applications')
-      .update({
-        evaluation_status: status,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('application_id', applicationId);
     
     if (error) {
-      console.error(`Failed to update application status to ${status}:`, error);
+      console.error(`❌ Failed to update application status to ${status}:`, error);
+    } else {
+      console.log(`✅ Application ${applicationId} status updated to ${status}`);
     }
   }
   

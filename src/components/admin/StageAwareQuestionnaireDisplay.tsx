@@ -2,10 +2,11 @@
 /**
  * @fileoverview Stage-Aware Questionnaire Display Component
  * 
- * Dynamically displays questionnaire answers based on the user's selected stage
- * with proper question mapping and AI scoring integration.
+ * Displays questionnaire answers using strict stage detection and zero
+ * cross-stage contamination to ensure only the correct stage's questions
+ * and answers are shown.
  * 
- * @version 1.2.0
+ * @version 2.0.0 - Strict Implementation
  * @author 26ideas Development Team
  */
 
@@ -15,62 +16,56 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AdminAppQuestion } from './AdminAppQuestion';
 import { ExtendedYffApplication } from '@/types/yff-application';
-import { parseStageAwareQuestions, ApplicationStage } from '@/utils/stage-aware-question-parser';
+import { parseStrictQuestionnaire } from '@/utils/strict-questionnaire-parser';
+import { getStageDisplayName, getStageColor } from '@/utils/stage-detection-service';
 import { 
   AlertTriangle, 
   CheckCircle, 
   Info, 
-  Zap,
+  Shield,
   FileText,
   Eye,
   Target,
   Bug,
-  Settings
+  Settings,
+  ShieldAlert
 } from 'lucide-react';
 
 interface StageAwareQuestionnaireDisplayProps {
   application: ExtendedYffApplication;
 }
 
-/**
- * Get stage display name
- */
-const getStageDisplayName = (stage: ApplicationStage): string => {
-  const displayNames = {
-    idea_stage: 'Idea Stage',
-    early_revenue: 'Early Revenue',
-    mvp_stage: 'MVP Stage'
-  };
-  
-  return displayNames[stage] || stage.replace(/_/g, ' ').toUpperCase();
-};
-
-/**
- * Get stage color
- */
-const getStageColor = (stage: ApplicationStage): string => {
-  const colors = {
-    idea_stage: 'bg-purple-100 text-purple-700 border-purple-200',
-    early_revenue: 'bg-blue-100 text-blue-700 border-blue-200',
-    mvp_stage: 'bg-green-100 text-green-700 border-green-200'
-  };
-  
-  return colors[stage] || 'bg-gray-100 text-gray-700 border-gray-200';
-};
-
 export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDisplayProps> = ({ 
   application 
 }) => {
-  // Parse questions based on detected stage
+  // Parse questions using strict stage-aware parser
   const parsingResult = useMemo(() => {
-    console.log('🎨 RENDERING StageAwareQuestionnaireDisplay for:', application.application_id);
-    console.log('🎨 RAW productStage value:', application.yff_team_registrations?.productStage);
-    return parseStageAwareQuestions(application);
+    console.log('🎨 RENDERING STRICT STAGE-AWARE QUESTIONNAIRE for:', application.application_id);
+    return parseStrictQuestionnaire(application);
   }, [application]);
 
-  // Render warnings if any
-  const renderWarnings = () => {
-    if (parsingResult.warnings.length === 0) return null;
+  // Render stage validation warnings
+  const renderValidationWarnings = () => {
+    if (parsingResult.stageValidation.isValid) return null;
+
+    return (
+      <Alert className="mb-4 border-red-200 bg-red-50">
+        <ShieldAlert className="h-4 w-4 text-red-600" />
+        <AlertDescription className="text-red-800">
+          <div className="space-y-2">
+            <p><strong>⚠️ Cross-Stage Contamination Detected:</strong></p>
+            {parsingResult.stageValidation.violations.map((violation, i) => (
+              <p key={i} className="text-sm">• {violation}</p>
+            ))}
+          </div>
+        </AlertDescription>
+      </Alert>
+    );
+  };
+
+  // Render detection warnings
+  const renderDetectionWarnings = () => {
+    if (parsingResult.detectionInfo.warnings.length === 0) return null;
 
     return (
       <Alert className="mb-4 border-amber-200 bg-amber-50">
@@ -78,7 +73,7 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
         <AlertDescription className="text-amber-800">
           <div className="space-y-2">
             <p><strong>Stage Detection Warnings:</strong></p>
-            {parsingResult.warnings.map((warning, i) => (
+            {parsingResult.detectionInfo.warnings.map((warning, i) => (
               <p key={i} className="text-sm">• {warning}</p>
             ))}
           </div>
@@ -87,16 +82,17 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
     );
   };
 
-  // Render stage detection info
+  // Render strict stage detection info
   const renderStageDetectionInfo = () => {
-    const productStage = application.yff_team_registrations?.productStage;
-    
     return (
       <Card className="mb-4 border-indigo-200 bg-indigo-50/30">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-indigo-800">
-            <Settings className="h-5 w-5" />
-            Stage Detection Information
+            <Shield className="h-5 w-5" />
+            Strict Stage Detection
+            <Badge variant="secondary" className="ml-2 text-xs bg-green-100 text-green-700">
+              Zero Cross-Contamination
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -104,7 +100,7 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
             <div>
               <span className="font-medium text-indigo-700">Raw productStage:</span>
               <p className="mt-1 p-2 bg-white rounded border text-gray-800 font-mono text-xs">
-                {productStage || 'Not found'}
+                {parsingResult.detectionInfo.rawProductStage || 'Not found'}
               </p>
             </div>
             <div>
@@ -118,10 +114,35 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
                 </Badge>
               </div>
             </div>
+            <div>
+              <span className="font-medium text-indigo-700">Detection Method:</span>
+              <p className="mt-1 text-xs text-indigo-600">
+                {parsingResult.detectionInfo.detectionMethod}
+              </p>
+            </div>
+            <div>
+              <span className="font-medium text-indigo-700">Validation Status:</span>
+              <Badge 
+                variant={parsingResult.stageValidation.isValid ? "default" : "destructive"}
+                className="mt-1 text-xs"
+              >
+                {parsingResult.stageValidation.isValid ? (
+                  <>
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Clean
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    Violations
+                  </>
+                )}
+              </Badge>
+            </div>
           </div>
           
           <div className="mt-4 p-2 bg-indigo-100 rounded text-xs text-indigo-800">
-            <strong>Detection Logic:</strong> productStage → explicit stage fields → answer key analysis → fallback
+            <strong>Strict Policy:</strong> Only questions and answers for the detected stage are shown. Zero cross-stage contamination allowed.
           </div>
         </CardContent>
       </Card>
@@ -134,7 +155,7 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-blue-800">
           <FileText className="h-5 w-5" />
-          Stage-Aware Questionnaire Analysis
+          Strict Stage-Aware Analysis
           <Badge 
             variant="secondary" 
             className={`ml-2 ${parsingResult.detectedStage ? getStageColor(parsingResult.detectedStage) : 'bg-gray-100 text-gray-700'}`}
@@ -150,7 +171,7 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
             <div className="text-2xl font-bold text-blue-600">
               {parsingResult.totalQuestions}
             </div>
-            <div className="text-blue-700">Total Questions</div>
+            <div className="text-blue-700">Stage Questions</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600">
@@ -175,8 +196,8 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
     </Card>
   );
 
-  // Handle no questions case
-  if (parsingResult.questions.length === 0) {
+  // Handle no stage detected
+  if (!parsingResult.detectedStage) {
     return (
       <div className="space-y-4">
         {renderStageDetectionInfo()}
@@ -184,30 +205,56 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
           <CardHeader>
             <CardTitle className="text-red-800 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
-              No Questions Found
+              No Stage Detected - Cannot Display Questionnaire
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-red-700 mb-3">
-              No questionnaire data could be extracted from this application for any stage.
+              Could not determine the user's application stage. No questions can be displayed without a valid stage.
             </p>
             <div className="text-sm text-red-600 space-y-1">
               <p><strong>Application ID:</strong> {application.application_id}</p>
-              <p><strong>Detected Stage:</strong> {parsingResult.detectedStage || 'None'}</p>
-              <p><strong>Raw productStage:</strong> {application.yff_team_registrations?.productStage || 'Not found'}</p>
-              <p><strong>Warnings:</strong> {parsingResult.warnings.length}</p>
+              <p><strong>Raw productStage:</strong> {parsingResult.detectionInfo.rawProductStage || 'Not found'}</p>
+              <p><strong>Detection Method:</strong> {parsingResult.detectionInfo.detectionMethod}</p>
+              <p><strong>Warnings:</strong> {parsingResult.detectionInfo.warnings.length}</p>
             </div>
             <details className="mt-4">
               <summary className="cursor-pointer font-medium text-red-700 hover:text-red-800 flex items-center gap-2">
                 <Bug className="h-4 w-4" />
-                View Raw Application Data for Debugging
+                View Application Data for Debugging
               </summary>
               <div className="mt-2 p-3 bg-white rounded border max-h-96 overflow-y-auto">
                 <pre className="text-xs text-gray-800 whitespace-pre-wrap">
-                  {JSON.stringify(parsingResult.rawData, null, 2)}
+                  {JSON.stringify(application, null, 2)}
                 </pre>
               </div>
             </details>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Handle no questions case (should be rare with valid stage)
+  if (parsingResult.questions.length === 0) {
+    return (
+      <div className="space-y-4">
+        {renderStageDetectionInfo()}
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="text-amber-800 flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              No Questions Found for Stage
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-amber-700 mb-3">
+              Stage was detected but no questions are defined for this stage.
+            </p>
+            <div className="text-sm text-amber-600 space-y-1">
+              <p><strong>Detected Stage:</strong> {getStageDisplayName(parsingResult.detectedStage)}</p>
+              <p><strong>Application ID:</strong> {application.application_id}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -218,7 +265,8 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
     <div className="space-y-6">
       {renderStageDetectionInfo()}
       {renderSummary()}
-      {renderWarnings()}
+      {renderValidationWarnings()}
+      {renderDetectionWarnings()}
       
       <div className="space-y-4">
         {parsingResult.questions.map((question, index) => (
@@ -234,18 +282,18 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
               rawFeedback={question.aiRawFeedback}
             />
             
-            {/* Add stage and answer status indicators */}
+            {/* Stage and answer status indicators */}
             <div className="mt-2 flex items-center gap-2">
               <Badge 
                 variant="outline" 
                 className={`text-xs ${getStageColor(question.stage)}`}
               >
-                {getStageDisplayName(question.stage)}
+                {getStageDisplayName(question.stage)} Q{question.orderIndex + 1}
               </Badge>
               
               {!question.hasAnswer && (
                 <Badge variant="outline" className="text-xs border-gray-300 text-gray-600">
-                  Not Asked in This Stage
+                  Not Provided
                 </Badge>
               )}
               
@@ -258,7 +306,7 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
               {question.hasAnswer && question.aiScore && (
                 <Badge variant="outline" className="text-xs border-green-300 text-green-700">
                   <CheckCircle className="h-3 w-3 mr-1" />
-                  Complete
+                  Evaluated
                 </Badge>
               )}
             </div>
@@ -270,42 +318,47 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
       <details className="mt-8 pt-4 border-t border-gray-200">
         <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800 flex items-center gap-2">
           <Eye className="h-4 w-4" />
-          Developer Debug Information
+          Strict Parser Debug Information
         </summary>
-        <div className="mt-3 p-3 bg-gray-50 rounded text-xs space-y-2">
-          <div>
-            <strong>Application ID:</strong> {application.application_id}
+        <div className="mt-3 p-3 bg-gray-50 rounded text-xs space-y-3">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <strong>Application Info:</strong>
+              <ul className="mt-1 space-y-1">
+                <li>ID: {application.application_id.slice(0, 12)}...</li>
+                <li>Raw productStage: {parsingResult.detectionInfo.rawProductStage || 'None'}</li>
+                <li>Detected Stage: {parsingResult.detectedStage}</li>
+                <li>Detection Method: {parsingResult.detectionInfo.detectionMethod}</li>
+              </ul>
+            </div>
+            <div>
+              <strong>Parsing Results:</strong>
+              <ul className="mt-1 space-y-1">
+                <li>Questions Found: {parsingResult.questions.length}</li>
+                <li>Answered: {parsingResult.answeredQuestions}</li>
+                <li>AI Evaluated: {parsingResult.questions.filter(q => q.aiScore).length}</li>
+                <li>Validation Clean: {parsingResult.stageValidation.isValid ? 'Yes' : 'No'}</li>
+              </ul>
+            </div>
           </div>
-          <div>
-            <strong>Raw productStage:</strong> {application.yff_team_registrations?.productStage || 'Not found'}
-          </div>
-          <div>
-            <strong>Detected Stage:</strong> {parsingResult.detectedStage || 'Not detected'}
-          </div>
-          <div>
-            <strong>Questions Found:</strong> {parsingResult.questions.length}
-          </div>
-          <div>
-            <strong>Answered:</strong> {parsingResult.answeredQuestions}/{parsingResult.totalQuestions}
-          </div>
-          <div>
-            <strong>AI Evaluated:</strong> {parsingResult.questions.filter(q => q.aiScore !== undefined).length}
-          </div>
-          <div>
-            <strong>Warnings:</strong> {parsingResult.warnings.length}
-          </div>
+          
           <div className="pt-2 border-t border-gray-300">
-            <strong>Available Answer Keys in questionnaire_answers:</strong>
+            <strong>Available Answer Keys:</strong>
             <div className="mt-1 text-xs text-gray-600 font-mono">
-              {Object.keys(parsingResult.rawData).join(', ') || 'None'}
+              {Object.keys(parsingResult.rawAnswerData).join(', ') || 'None'}
             </div>
           </div>
-          <div className="pt-2 border-t border-gray-300">
-            <strong>Stage Detection Fields Checked:</strong>
-            <div className="mt-1 text-xs text-gray-600">
-              productStage, application.stage, yff_team_registrations.*, answer key analysis
+          
+          {parsingResult.stageValidation.violations.length > 0 && (
+            <div className="pt-2 border-t border-red-200">
+              <strong className="text-red-600">Validation Violations:</strong>
+              <ul className="mt-1 text-xs text-red-600">
+                {parsingResult.stageValidation.violations.map((violation, i) => (
+                  <li key={i}>• {violation}</li>
+                ))}
+              </ul>
             </div>
-          </div>
+          )}
         </div>
       </details>
     </div>

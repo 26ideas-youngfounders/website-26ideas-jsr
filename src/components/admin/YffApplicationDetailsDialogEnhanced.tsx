@@ -5,7 +5,7 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.14.0
+ * @version 1.15.0
  * @author 26ideas Development Team
  */
 
@@ -172,7 +172,7 @@ const safeParseEvaluationData = (evaluationData: any) => {
 };
 
 /**
- * FIXED: Ultra permissive validation that properly handles all data types
+ * ENHANCED: Ultra permissive validation that properly handles all data types
  */
 const isValidAnswer = (value: any): boolean => {
   // Handle null and undefined
@@ -214,7 +214,7 @@ const isValidAnswer = (value: any): boolean => {
 };
 
 /**
- * FIXED: Extract display value with better handling for complex objects
+ * ENHANCED: Extract display value with better handling for complex objects
  */
 const extractValue = (value: any): string => {
   if (value === null || value === undefined) {
@@ -259,52 +259,84 @@ const extractValue = (value: any): string => {
 };
 
 /**
- * FIXED: Parse questionnaire answers to handle nested structures properly
+ * COMPLETELY REWRITTEN: Deep questionnaire parsing that handles nested JSON structures
  */
 const parseQuestionnaireAnswers = (teamRegistrationData: any): Record<string, any> => {
   try {
-    console.log('🔍 Parsing questionnaire answers from team registration:', teamRegistrationData);
+    console.log('🔍 DEEP PARSING questionnaire answers from team registration:', teamRegistrationData);
     
     if (!teamRegistrationData) {
+      console.log('❌ No team registration data provided');
       return {};
     }
     
-    // First, check for questionnaire_answers field
-    if (teamRegistrationData.questionnaire_answers) {
-      let questionnaireAnswers = teamRegistrationData.questionnaire_answers;
+    // Function to recursively search for questionnaire answers
+    const findQuestionnaireData = (obj: any, depth = 0): Record<string, any> => {
+      if (depth > 5) return {}; // Prevent infinite recursion
       
-      // Parse if it's a string
-      if (typeof questionnaireAnswers === 'string') {
-        try {
-          questionnaireAnswers = JSON.parse(questionnaireAnswers);
-        } catch (e) {
-          console.error('Failed to parse questionnaire_answers JSON:', e);
-          return {};
+      const results: Record<string, any> = {};
+      
+      if (!obj || typeof obj !== 'object') {
+        return results;
+      }
+      
+      // Direct questionnaire_answers field
+      if (obj.questionnaire_answers) {
+        console.log(`📝 Found questionnaire_answers at depth ${depth}:`, obj.questionnaire_answers);
+        
+        let questionnaireData = obj.questionnaire_answers;
+        
+        // Parse if it's a string
+        if (typeof questionnaireData === 'string') {
+          try {
+            questionnaireData = JSON.parse(questionnaireData);
+            console.log(`📝 Parsed questionnaire JSON at depth ${depth}:`, questionnaireData);
+          } catch (e) {
+            console.error(`❌ Failed to parse questionnaire JSON at depth ${depth}:`, e);
+            return results;
+          }
+        }
+        
+        // If the parsed data is an object, extract individual questions
+        if (typeof questionnaireData === 'object' && questionnaireData !== null) {
+          // Check if it's a nested structure with individual questions
+          Object.entries(questionnaireData).forEach(([key, value]) => {
+            if (isValidAnswer(value)) {
+              results[key] = value;
+              console.log(`✅ Added question "${key}" with value:`, String(extractValue(value)).substring(0, 50) + '...');
+            }
+          });
         }
       }
       
-      console.log('📝 Found questionnaire answers:', questionnaireAnswers);
-      return questionnaireAnswers || {};
-    }
+      // Look for individual question fields directly in the object
+      const knownQuestionKeys = Object.keys(QUESTIONNAIRE_KEY_TO_QUESTION);
+      knownQuestionKeys.forEach(key => {
+        if (obj[key] && isValidAnswer(obj[key]) && !results[key]) {
+          results[key] = obj[key];
+          console.log(`✅ Found direct question "${key}" at depth ${depth}`);
+        }
+      });
+      
+      // Recursively search nested objects
+      Object.entries(obj).forEach(([key, value]) => {
+        if (typeof value === 'object' && value !== null && key !== 'questionnaire_answers') {
+          const nestedResults = findQuestionnaireData(value, depth + 1);
+          Object.assign(results, nestedResults);
+        }
+      });
+      
+      return results;
+    };
     
-    // Fallback: look for individual question fields directly in the data
-    const directAnswers: Record<string, any> = {};
-    const knownQuestionKeys = Object.keys(QUESTIONNAIRE_KEY_TO_QUESTION);
+    const foundAnswers = findQuestionnaireData(teamRegistrationData);
     
-    knownQuestionKeys.forEach(key => {
-      if (teamRegistrationData[key] && isValidAnswer(teamRegistrationData[key])) {
-        directAnswers[key] = teamRegistrationData[key];
-      }
-    });
+    console.log(`🎉 FINAL QUESTIONNAIRE PARSING: Found ${Object.keys(foundAnswers).length} questions`);
+    console.log(`📋 Question keys found:`, Object.keys(foundAnswers));
     
-    if (Object.keys(directAnswers).length > 0) {
-      console.log('📝 Found direct question answers:', directAnswers);
-      return directAnswers;
-    }
-    
-    return {};
+    return foundAnswers;
   } catch (error) {
-    console.error('❌ Error parsing questionnaire answers:', error);
+    console.error('❌ Error in deep questionnaire parsing:', error);
     return {};
   }
 };
@@ -376,9 +408,9 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   
   const teamAnswers = parsedAnswers.team || {};
   
-  // FIXED: Parse questionnaire answers with better handling
+  // ENHANCED: Parse questionnaire answers with deep parsing
   const questionnaireAnswers = useMemo(() => {
-    console.log('🔧 Processing questionnaire answers from team registration data');
+    console.log('🔧 ENHANCED questionnaire parsing for application:', application.application_id);
     console.log('🔧 Team registration data:', application.yff_team_registrations);
     
     if (application.yff_team_registrations) {
@@ -387,13 +419,13 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     
     // Fallback to parsed answers structure
     return parsedAnswers.questionnaire_answers || {};
-  }, [application.yff_team_registrations, parsedAnswers.questionnaire_answers]);
+  }, [application.yff_team_registrations, parsedAnswers.questionnaire_answers, application.application_id]);
   
-  console.log('📝 Final questionnaire answers:', questionnaireAnswers);
+  console.log('📝 FINAL questionnaire answers:', questionnaireAnswers);
   console.log('📊 Final evaluation scores:', evaluationData.scores);
 
   /**
-   * FIXED: Process questionnaire answers with improved validation and display
+   * ENHANCED: Process questionnaire answers with improved validation and display
    */
   const answeredQuestionnaireQuestions = useMemo(() => {
     console.log('🗂️ Processing questionnaire questions...');
@@ -585,7 +617,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* FIXED: Questionnaire Answers - Now properly parsed and displayed */}
+          {/* ENHANCED: Questionnaire Answers - Now properly parsed and displayed */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -700,12 +732,6 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                   <p className="text-sm text-gray-400 mt-2">
                     No valid questionnaire answers were found in the application data
                   </p>
-                  <div className="mt-4 p-3 bg-gray-50 rounded text-xs text-left">
-                    <div className="font-medium mb-2">Debug info:</div>
-                    <div>• Raw data keys: {Object.keys(questionnaireAnswers || {}).length}</div>
-                    <div>• Keys found: {Object.keys(questionnaireAnswers || {}).join(', ')}</div>
-                    <div>• Data source: {application.yff_team_registrations ? 'team_registrations' : 'parsed_answers'}</div>
-                  </div>
                 </div>
               )}
             </CardContent>

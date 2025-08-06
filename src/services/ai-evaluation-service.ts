@@ -1,3 +1,4 @@
+
 /**
  * Enhanced AI Evaluation Service with bulletproof early revenue support
  */
@@ -298,13 +299,28 @@ export const triggerEvaluationOnSubmission = async (applicationId: string): Prom
     // Call the main evaluation function
     const result = await evaluateApplication(applicationId);
     
+    // Convert question_scores to JSON-compatible format
+    const evaluationDataForDb = Object.fromEntries(
+      Object.entries(result.question_scores).map(([key, evaluation]) => [
+        key,
+        {
+          score: evaluation.score,
+          strengths: evaluation.strengths,
+          improvements: evaluation.improvements,
+          questionText: evaluation.questionText,
+          userAnswer: evaluation.userAnswer,
+          raw_feedback: evaluation.raw_feedback
+        }
+      ])
+    );
+    
     // Update the application with the evaluation results
     await supabase
       .from('yff_applications')
       .update({
         evaluation_status: 'completed',
         overall_score: result.overall_score,
-        evaluation_data: result.question_scores,
+        evaluation_data: evaluationDataForDb,
         evaluation_completed_at: result.evaluation_completed_at,
         updated_at: new Date().toISOString()
       })

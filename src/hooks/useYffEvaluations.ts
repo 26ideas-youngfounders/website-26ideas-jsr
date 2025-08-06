@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Custom hook for managing YFF application evaluations
  * 
@@ -77,7 +78,7 @@ export const useYffEvaluations = () => {
         scoreDistribution
       };
     },
-    refetchInterval: 5000, // Refresh every 5 seconds to catch status changes
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   /**
@@ -101,7 +102,6 @@ export const useYffEvaluations = () => {
       if (error) throw error;
       return data || [];
     },
-    refetchInterval: 5000, // Refresh every 5 seconds
   });
 
   /**
@@ -115,16 +115,9 @@ export const useYffEvaluations = () => {
         title: "Evaluation Completed",
         description: `Application evaluated with score: ${result.overall_score}/10`,
       });
-      
-      // Invalidate all related queries to refresh UI
       queryClient.invalidateQueries({ queryKey: ['yff-evaluation-stats'] });
       queryClient.invalidateQueries({ queryKey: ['pending-evaluations'] });
       queryClient.invalidateQueries({ queryKey: ['yff-applications'] });
-      queryClient.invalidateQueries({ queryKey: ['yff-applications-enhanced'] });
-      
-      // Force refetch of specific application data
-      queryClient.refetchQueries({ queryKey: ['yff-evaluation-stats'] });
-      queryClient.refetchQueries({ queryKey: ['yff-applications'] });
     },
     onError: (error: any) => {
       toast({
@@ -132,10 +125,6 @@ export const useYffEvaluations = () => {
         description: error.message || "Failed to evaluate application",
         variant: "destructive",
       });
-      
-      // Still invalidate queries to refresh status
-      queryClient.invalidateQueries({ queryKey: ['yff-evaluation-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['yff-applications'] });
     },
   });
 
@@ -150,15 +139,8 @@ export const useYffEvaluations = () => {
         title: "Re-evaluation Completed",
         description: `Application re-evaluated with score: ${result.overall_score}/10`,
       });
-      
-      // Invalidate all related queries to refresh UI
       queryClient.invalidateQueries({ queryKey: ['yff-evaluation-stats'] });
       queryClient.invalidateQueries({ queryKey: ['yff-applications'] });
-      queryClient.invalidateQueries({ queryKey: ['yff-applications-enhanced'] });
-      
-      // Force refetch
-      queryClient.refetchQueries({ queryKey: ['yff-evaluation-stats'] });
-      queryClient.refetchQueries({ queryKey: ['yff-applications'] });
     },
     onError: (error: any) => {
       toast({
@@ -166,10 +148,6 @@ export const useYffEvaluations = () => {
         description: error.message || "Failed to re-evaluate application",
         variant: "destructive",
       });
-      
-      // Still invalidate queries to refresh status
-      queryClient.invalidateQueries({ queryKey: ['yff-evaluation-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['yff-applications'] });
     },
   });
 

@@ -10,7 +10,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { AIComprehensiveScoringService, type QuestionScore } from './ai-comprehensive-scoring-service';
+import { AIComprehensiveScoringService } from './ai-comprehensive-scoring-service';
 
 export interface QuestionEvaluation {
   score: number;
@@ -26,16 +26,6 @@ export interface EvaluationResult {
   evaluation_status: string;
   idea_summary?: string;
 }
-
-/**
- * Convert QuestionScore to QuestionEvaluation format
- */
-const convertQuestionScore = (questionScore: QuestionScore): QuestionEvaluation => ({
-  score: questionScore.score,
-  strengths: questionScore.strengths,
-  improvements: questionScore.areas_for_improvement, // Map areas_for_improvement to improvements
-  raw_feedback: questionScore.raw_feedback
-});
 
 /**
  * Evaluate application using comprehensive AI scoring
@@ -56,12 +46,6 @@ export const evaluateApplication = async (applicationId: string): Promise<Evalua
     // Use the comprehensive scoring service
     const result = await AIComprehensiveScoringService.evaluateApplication(applicationId);
     
-    // Convert question scores to match our interface
-    const questionScores: Record<string, QuestionEvaluation> = {};
-    Object.entries(result.question_scores).forEach(([key, score]) => {
-      questionScores[key] = convertQuestionScore(score);
-    });
-
     // Update status to completed after successful evaluation
     const { error: updateError } = await supabase
       .from('yff_applications')
@@ -82,7 +66,7 @@ export const evaluateApplication = async (applicationId: string): Promise<Evalua
     
     return {
       overall_score: result.overall_score,
-      question_scores: questionScores,
+      question_scores: result.question_scores,
       evaluation_completed_at: result.evaluation_completed_at,
       evaluation_status: 'completed', // Ensure we return completed status
       idea_summary: result.idea_summary

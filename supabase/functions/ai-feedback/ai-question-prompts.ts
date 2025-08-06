@@ -43,12 +43,14 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     "monetization_strategy": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     "revenue_model": stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money",
     
-    // Customer acquisition - stage-aware
+    // Customer acquisition - stage-aware with specific early revenue mappings
     "acquire_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "acquiring_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "customerAcquisition": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
     "customer_acquisition": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
-    "first_paying_customers": stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers",
+    "first_paying_customers": "early_revenue_acquiring_customers",
+    "paying_customers": "early_revenue_acquiring_customers",
+    "payingCustomers": "early_revenue_acquiring_customers",
     
     // Team - stage-aware
     "team_roles": stage === "early_revenue" ? "early_revenue_team" : "team_roles",
@@ -58,6 +60,7 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
 
     // Working duration (Early Revenue specific)
     "working_duration": "early_revenue_working_duration",
+    "workingDuration": "early_revenue_working_duration",
     "since_when": "early_revenue_working_duration",
     
     // Product development - stage-aware
@@ -92,7 +95,7 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     else if (lowerText.includes("whose problem")) fallbackId = stage === "early_revenue" ? "early_revenue_whose_problem" : "whose_problem";
     else if (lowerText.includes("how does your idea solve")) fallbackId = stage === "early_revenue" ? "early_revenue_how_solve" : "how_solve_problem";
     else if (lowerText.includes("making money") || lowerText.includes("revenue")) fallbackId = stage === "early_revenue" ? "early_revenue_making_money" : "how_make_money";
-    else if (lowerText.includes("acquiring") && lowerText.includes("customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
+    else if (lowerText.includes("paying customers") || lowerText.includes("acquiring") && lowerText.includes("customers")) fallbackId = stage === "early_revenue" ? "early_revenue_acquiring_customers" : "acquire_customers";
     else if (lowerText.includes("team") && lowerText.includes("roles")) fallbackId = stage === "early_revenue" ? "early_revenue_team" : "team_roles";
     else if (lowerText.includes("since when") || lowerText.includes("working duration")) fallbackId = "early_revenue_working_duration";
     else if (lowerText.includes("competitors")) fallbackId = stage === "early_revenue" ? "early_revenue_competitors" : "competitors";

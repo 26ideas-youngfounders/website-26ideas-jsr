@@ -63,6 +63,7 @@ export const UNIFIED_STAGE_QUESTIONS: Record<UnifiedStage, StageQuestion[]> = {
 
 /**
  * Extract canonical stage from any stage string value
+ * Fixed to properly handle "Idea Stage / MLP / Working Prototype"
  */
 export const extractUnifiedStage = (stageValue: string | undefined): UnifiedStage | null => {
   console.log('🎯 UNIFIED STAGE EXTRACTION from:', stageValue);
@@ -81,11 +82,13 @@ export const extractUnifiedStage = (stageValue: string | undefined): UnifiedStag
     return 'early_revenue';
   }
   
-  // Handle "Idea Stage / MLP / Working Prototype" and variations
+  // Handle "Idea Stage / MLP / Working Prototype" and ALL variations
   if (trimmed === "Idea Stage / MLP / Working Prototype" || 
-      trimmed.startsWith("Idea Stage") || 
-      trimmed === "Idea Stage") {
-    console.log('✅ DETECTED: Idea Stage');
+      trimmed.includes("Idea Stage") || 
+      trimmed === "Idea Stage" ||
+      trimmed.includes("MLP") ||
+      trimmed.includes("Working Prototype")) {
+    console.log('✅ DETECTED: Idea Stage (includes MLP/Working Prototype)');
     return 'idea_stage';
   }
   

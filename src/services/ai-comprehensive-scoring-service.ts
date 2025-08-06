@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Comprehensive AI Scoring Service
  * 
@@ -17,14 +16,58 @@ import {
 } from '@/types/yff-application';
 
 /**
- * Complete system prompts mapping for Idea Stage applications - one-to-one question to prompt mapping
- * These prompts correspond to the questionnaire questions in the YFF application form
+ * Idea Stage Question ID to AI Prompt Mapping
+ * This mapping is critical for proper evaluation - DO NOT MODIFY without updating documentation
+ */
+const IDEA_STAGE_QUESTION_MAPPING: Record<string, string> = {
+  // Original question ID -> AI scoring prompt key
+  'ideaDescription': 'tell_us_about_idea',
+  'problemSolved': 'problem_statement', 
+  'targetAudience': 'whose_problem',
+  'solutionApproach': 'how_solve_problem',
+  'monetizationStrategy': 'how_make_money',
+  'customerAcquisition': 'acquire_customers',
+  'competitors': 'competitors',
+  'developmentApproach': 'product_development',
+  'teamInfo': 'team_roles',
+  'timeline': 'when_proceed',
+  
+  // Alternative question IDs that may appear in data
+  'idea_description': 'tell_us_about_idea',
+  'problem_statement': 'problem_statement',
+  'whose_problem': 'whose_problem',
+  'how_solve_problem': 'how_solve_problem',
+  'how_make_money': 'how_make_money',
+  'acquire_customers': 'acquire_customers',
+  'product_development': 'product_development',
+  'team_roles': 'team_roles',
+  'when_proceed': 'when_proceed'
+};
+
+/**
+ * Question text mapping for display purposes
+ */
+const QUESTION_TEXTS: Record<string, string> = {
+  'tell_us_about_idea': 'Tell us about your idea',
+  'problem_statement': 'What problem does your idea solve?',
+  'whose_problem': 'Whose problem does your idea solve for?',
+  'how_solve_problem': 'How does your idea solve this problem?',
+  'how_make_money': 'How does your idea plan to make money by solving this problem?',
+  'acquire_customers': 'How do you plan to acquire first paying customers?',
+  'competitors': 'List 3 potential competitors in the similar space',
+  'product_development': 'How are you developing the product: in-house, with contractors, etc?',
+  'team_roles': 'Who is on your team, and what are their roles?',
+  'when_proceed': 'When do you plan to proceed with the idea?'
+};
+
+/**
+ * Complete system prompts mapping for Idea Stage applications
  */
 const SYSTEM_PROMPTS: Record<string, string> = {
   tell_us_about_idea: `ROLE: You are an expert startup evaluator for Young Founders Floor, reviewing participant responses.
 OBJECTIVE: Assess the participant's business-idea articulation for maximum clarity, originality, and feasibility so evaluators can distinguish truly innovative, actionable ventures from generic or vague submissions.
 INSTRUCTIONS:
-Base every judgment solely on the applicant's text; never add outside facts or assumptions.The response is limited to 300 words; ignore length overruns when scoring content quality.
+Base every judgment solely on the applicant's text; never add outside facts or assumptions. The response is limited to 300 words; ignore length overruns when scoring content quality.
 EVALUATION CRITERIA:
 Problem–Solution Fit – Precise statement of a meaningful problem and a logical solution.
 Innovation – Novelty or differentiated approach versus existing alternatives.
@@ -138,19 +181,10 @@ Relationship Depth: Shows commitment to ongoing relationship-building (not one-o
 Lifecycle Management: Explains how the customer relationship evolves with maturity—touchpoints for nurturing, upselling, gathering feedback, and resolving churn risks.
 Practicality & Realism: Uses strategies and touchpoints suited to the venture's resources, customer profile, and early-stage constraints.
 SCORING GUIDELINES (1–10):
-9–10:
-Multi-touchpoint acquisition plan plus retention strategy;
-Deep relationship mapping across lifecycle;
-Clear, actionable retention/satisfaction tactics;
-Strategies fit resources/industry;
-Demonstrates customer-centric thinking.
-7–8:
-Good multi-stage plan with specific acquisition and relationship touchpoints;
-Good focus on retention but lacks maximum depth or some stages.
-5–6:
-Basic or generic strategy; some touchpoints or retention methods present but not comprehensive.
-2–4:
-Weak or unclear strategy; missing multi-touchpoint planning or depth on retention/satisfaction.
+9–10: Multi-touchpoint acquisition plan plus retention strategy; Deep relationship mapping across lifecycle; Clear, actionable retention/satisfaction tactics; Strategies fit resources/industry; Demonstrates customer-centric thinking.
+7–8: Good multi-stage plan with specific acquisition and relationship touchpoints; Good focus on retention but lacks maximum depth or some stages.
+5–6: Basic or generic strategy; some touchpoints or retention methods present but not comprehensive.
+2–4: Weak or unclear strategy; missing multi-touchpoint planning or depth on retention/satisfaction.
 RESPONSE FORMAT (strict):
 SCORE: [X/10]
 FEEDBACK:
@@ -253,7 +287,7 @@ FEEDBACK:
  * Comprehensive AI Scoring Service Class
  */
 export class AIComprehensiveScoringService {
-  private static readonly EVALUATION_VERSION = '2.1';
+  private static readonly EVALUATION_VERSION = '2.2';
   private static readonly MODEL_NAME = 'gpt-4o-mini';
   
   /**
@@ -281,16 +315,19 @@ export class AIComprehensiveScoringService {
       
       // Parse answers with error handling
       const answers = parseApplicationAnswers(application.answers);
-      const answerCount = Object.keys(answers).length;
+      
+      // Extract questionnaire answers from the nested structure
+      const questionnaireAnswers = answers.questionnaire_answers || answers;
+      const answerCount = Object.keys(questionnaireAnswers).length;
       
       if (answerCount === 0) {
-        throw new Error(`Application ${applicationId} has no parseable answers`);
+        throw new Error(`Application ${applicationId} has no parseable questionnaire answers`);
       }
       
-      console.log(`📝 Parsed ${answerCount} answers for evaluation`);
+      console.log(`📝 Parsed ${answerCount} questionnaire answers for evaluation`);
       
       // Score each question with progress tracking
-      const scoringResults = await this.scoreAllQuestions(answers, applicationId);
+      const scoringResults = await this.scoreAllQuestions(questionnaireAnswers, applicationId);
       
       if (scoringResults.length === 0) {
         throw new Error(`No questions were successfully scored for application ${applicationId}`);
@@ -327,6 +364,44 @@ export class AIComprehensiveScoringService {
   }
   
   /**
+   * Map question ID to AI prompt key using the defined mapping
+   */
+  private static mapQuestionToPrompt(questionId: string): string {
+    console.log(`🔍 Mapping question ID: ${questionId}`);
+    
+    const mappedPrompt = IDEA_STAGE_QUESTION_MAPPING[questionId];
+    
+    if (mappedPrompt) {
+      console.log(`✅ Mapped ${questionId} -> ${mappedPrompt}`);
+      return mappedPrompt;
+    }
+    
+    // Fallback mapping for common variations
+    const fallbackMappings: Record<string, string> = {
+      'idea': 'tell_us_about_idea',
+      'problem': 'problem_statement',
+      'audience': 'whose_problem',
+      'solution': 'how_solve_problem',
+      'monetization': 'how_make_money',
+      'acquisition': 'acquire_customers',
+      'competition': 'competitors',
+      'development': 'product_development',
+      'team': 'team_roles',
+      'when': 'when_proceed'
+    };
+    
+    for (const [keyword, promptKey] of Object.entries(fallbackMappings)) {
+      if (questionId.toLowerCase().includes(keyword)) {
+        console.log(`📋 Fallback mapping ${questionId} -> ${promptKey} (via keyword: ${keyword})`);
+        return promptKey;
+      }
+    }
+    
+    console.warn(`⚠️ No mapping found for question ID: ${questionId}, defaulting to tell_us_about_idea`);
+    return 'tell_us_about_idea';
+  }
+  
+  /**
    * Score all questions with enhanced error handling and progress tracking
    */
   private static async scoreAllQuestions(
@@ -334,18 +409,20 @@ export class AIComprehensiveScoringService {
     applicationId: string
   ): Promise<QuestionScoringResult[]> {
     const scoringPromises: Promise<QuestionScoringResult>[] = [];
-    const questionsToScore: string[] = [];
+    const questionsToScore: Array<{questionId: string, promptKey: string}> = [];
     
-    // Build list of questions to score
+    // Build list of questions to score with proper mapping
     for (const [questionId, answer] of Object.entries(answers)) {
       if (typeof answer === 'string' && answer.trim().length >= 10) {
-        const systemPrompt = SYSTEM_PROMPTS[questionId];
+        const promptKey = this.mapQuestionToPrompt(questionId);
+        const systemPrompt = SYSTEM_PROMPTS[promptKey];
+        
         if (systemPrompt) {
-          console.log(`📋 Queuing question for scoring: ${questionId}`);
-          questionsToScore.push(questionId);
-          scoringPromises.push(this.scoreIndividualQuestion(questionId, answer, systemPrompt));
+          console.log(`📋 Queuing question for scoring: ${questionId} -> ${promptKey}`);
+          questionsToScore.push({questionId, promptKey});
+          scoringPromises.push(this.scoreIndividualQuestion(questionId, answer, systemPrompt, promptKey));
         } else {
-          console.warn(`⚠️ No system prompt found for question: ${questionId}`);
+          console.warn(`⚠️ No system prompt found for prompt key: ${promptKey}`);
         }
       } else {
         console.warn(`⚠️ Skipping question ${questionId}: invalid or too short answer`);
@@ -364,14 +441,14 @@ export class AIComprehensiveScoringService {
     const failedResults: string[] = [];
     
     results.forEach((result, index) => {
-      const questionId = questionsToScore[index];
+      const {questionId, promptKey} = questionsToScore[index];
       
       if (result.status === 'fulfilled') {
         successfulResults.push(result.value);
-        console.log(`✅ Successfully scored question: ${questionId} (score: ${result.value.score})`);
+        console.log(`✅ Successfully scored question: ${questionId} -> ${promptKey} (score: ${result.value.score})`);
       } else {
         failedResults.push(questionId);
-        console.error(`❌ Failed to score question ${questionId}:`, result.reason);
+        console.error(`❌ Failed to score question ${questionId} -> ${promptKey}:`, result.reason);
       }
     });
     
@@ -394,18 +471,19 @@ export class AIComprehensiveScoringService {
     questionId: string, 
     answer: string, 
     systemPrompt: string,
+    promptKey: string,
     retryCount: number = 0
   ): Promise<QuestionScoringResult> {
     const maxRetries = 2;
     
     try {
-      console.log(`🔍 Scoring question: ${questionId} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+      console.log(`🔍 Scoring question: ${questionId} -> ${promptKey} (attempt ${retryCount + 1}/${maxRetries + 1})`);
       
       const { data, error } = await supabase.functions.invoke('ai-evaluation', {
         body: {
           systemPrompt: systemPrompt,
           userAnswer: answer,
-          questionId: questionId
+          questionId: promptKey // Use the mapped prompt key
         }
       });
       
@@ -426,33 +504,39 @@ export class AIComprehensiveScoringService {
       }
       
       return {
-        questionId,
+        questionId: promptKey, // Store the prompt key as the question ID for consistency
+        originalQuestionId: questionId, // Keep original for reference
+        questionText: QUESTION_TEXTS[promptKey] || questionId,
         score: parsedResult.score,
         strengths: parsedResult.strengths,
         areas_for_improvement: parsedResult.areas_for_improvement,
-        raw_feedback: data.evaluation
+        raw_feedback: data.evaluation,
+        userAnswer: answer
       };
       
     } catch (error) {
       if (retryCount < maxRetries) {
-        console.warn(`⚠️ Retrying question ${questionId} due to error: ${error.message}`);
+        console.warn(`⚠️ Retrying question ${questionId} -> ${promptKey} due to error: ${error.message}`);
         
         // Wait before retry (exponential backoff)
         const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
         await new Promise(resolve => setTimeout(resolve, delay));
         
-        return this.scoreIndividualQuestion(questionId, answer, systemPrompt, retryCount + 1);
+        return this.scoreIndividualQuestion(questionId, answer, systemPrompt, promptKey, retryCount + 1);
       }
       
-      console.error(`❌ Final failure scoring question ${questionId} after ${retryCount + 1} attempts:`, error);
+      console.error(`❌ Final failure scoring question ${questionId} -> ${promptKey} after ${retryCount + 1} attempts:`, error);
       
       // Return fallback result with error details
       return {
-        questionId,
+        questionId: promptKey,
+        originalQuestionId: questionId,
+        questionText: QUESTION_TEXTS[promptKey] || questionId,
         score: 0,
         strengths: [],
         areas_for_improvement: [`Evaluation failed: ${error.message}`],
-        raw_feedback: `Error after ${retryCount + 1} attempts: ${error.message}`
+        raw_feedback: `Error after ${retryCount + 1} attempts: ${error.message}`,
+        userAnswer: answer
       };
     }
   }
@@ -535,7 +619,10 @@ export class AIComprehensiveScoringService {
         score: result.score,
         strengths: result.strengths,
         areas_for_improvement: result.areas_for_improvement,
-        raw_feedback: result.raw_feedback
+        raw_feedback: result.raw_feedback,
+        question_text: result.questionText,
+        user_answer: result.userAnswer,
+        original_question_id: result.originalQuestionId
       };
     });
     
@@ -640,14 +727,16 @@ export class AIComprehensiveScoringService {
    */
   private static convertToQuestionEvaluations(
     results: QuestionScoringResult[]
-  ): Record<string, { score: number; strengths: string[]; improvements: string[] }> {
+  ): Record<string, { score: number; strengths: string[]; improvements: string[]; questionText?: string; userAnswer?: string }> {
     const questionEvaluations: Record<string, any> = {};
     
     results.forEach(result => {
       questionEvaluations[result.questionId] = {
         score: result.score,
         strengths: result.strengths,
-        improvements: result.areas_for_improvement
+        improvements: result.areas_for_improvement,
+        questionText: result.questionText,
+        userAnswer: result.userAnswer
       };
     });
     
@@ -667,4 +756,22 @@ export const getAvailablePrompts = (): string[] => {
  */
 export const getSystemPromptById = (questionId: string): string | null => {
   return SYSTEM_PROMPTS[questionId] || null;
+};
+
+/**
+ * Helper function to get question text by prompt key
+ */
+export const getQuestionTextByPromptKey = (promptKey: string): string => {
+  return QUESTION_TEXTS[promptKey] || promptKey;
+};
+
+/**
+ * Helper function to get all question mappings
+ */
+export const getQuestionMappings = () => {
+  return {
+    mappings: IDEA_STAGE_QUESTION_MAPPING,
+    prompts: SYSTEM_PROMPTS,
+    questionTexts: QUESTION_TEXTS
+  };
 };

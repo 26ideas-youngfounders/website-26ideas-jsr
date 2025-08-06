@@ -121,12 +121,15 @@ export const convertFormDataToJson = (formData: YffFormData): Record<string, any
 };
 
 /**
- * Question evaluation interface for AI scoring
+ * Question evaluation interface for AI scoring - Enhanced version
  */
 export interface QuestionEvaluation {
   score: number;
   strengths: string[];
   improvements: string[];
+  questionText?: string;
+  userAnswer?: string;
+  raw_feedback?: string;
 }
 
 /**
@@ -141,10 +144,13 @@ export interface AIEvaluationResult {
 }
 
 /**
- * Individual question scoring result from AI
+ * Individual question scoring result from AI - Enhanced version
  */
 export interface QuestionScoringResult {
   questionId: string;
+  originalQuestionId?: string;
+  questionText?: string;
+  userAnswer?: string;
   score: number;
   strengths: string[];
   areas_for_improvement: string[];
@@ -162,6 +168,9 @@ export interface EvaluationData {
     strengths: string[];
     areas_for_improvement: string[];
     raw_feedback: string;
+    question_text?: string;
+    user_answer?: string;
+    original_question_id?: string;
   }>;
   average_score: number;
   evaluation_summary?: string;
@@ -206,4 +215,52 @@ export const ensureEvaluationDataIsObject = (data: Json): Record<string, any> =>
   
   // Fallback to empty object if data is not a proper object
   return {};
+};
+
+/**
+ * Question display order for Idea Stage applications
+ */
+export const IDEA_STAGE_QUESTION_ORDER = [
+  'tell_us_about_idea',
+  'problem_statement',
+  'whose_problem',
+  'how_solve_problem',
+  'how_make_money',
+  'acquire_customers',
+  'competitors',
+  'product_development',
+  'team_roles',
+  'when_proceed'
+];
+
+/**
+ * Helper function to get ordered questions for display
+ */
+export const getOrderedQuestions = (evaluationData: Record<string, any>): Array<{
+  key: string;
+  data: any;
+}> => {
+  const orderedQuestions: Array<{ key: string; data: any }> = [];
+  
+  // First, add questions in the defined order
+  IDEA_STAGE_QUESTION_ORDER.forEach(questionKey => {
+    if (evaluationData[questionKey]) {
+      orderedQuestions.push({
+        key: questionKey,
+        data: evaluationData[questionKey]
+      });
+    }
+  });
+  
+  // Then add any remaining questions not in the defined order
+  Object.entries(evaluationData).forEach(([key, data]) => {
+    if (!IDEA_STAGE_QUESTION_ORDER.includes(key)) {
+      orderedQuestions.push({
+        key,
+        data
+      });
+    }
+  });
+  
+  return orderedQuestions;
 };

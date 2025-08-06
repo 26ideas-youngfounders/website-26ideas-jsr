@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Admin Question Parser Utility
  * 
@@ -131,6 +132,21 @@ const extractAnswerValue = (value: any): string => {
 };
 
 /**
+ * Safe type checking for object properties
+ */
+const hasProperty = (obj: any, prop: string): boolean => {
+  return obj && typeof obj === 'object' && prop in obj;
+};
+
+/**
+ * Safely access nested properties with type checking
+ */
+const safeAccessProperty = (obj: any, prop: string): any => {
+  if (!obj || typeof obj !== 'object') return undefined;
+  return obj[prop];
+};
+
+/**
  * Comprehensive questionnaire answer parser
  */
 export const parseQuestionnaireAnswers = (application: ExtendedYffApplication): QuestionParsingResult => {
@@ -173,9 +189,9 @@ export const parseQuestionnaireAnswers = (application: ExtendedYffApplication): 
         rawDataStructure[source.name] = sourceData;
       }
       
-      // Extract questionnaire answers
-      const questionnaireData = sourceData.questionnaire_answers || 
-                              sourceData.questionnaire || 
+      // Extract questionnaire answers with safe property access
+      const questionnaireData = safeAccessProperty(sourceData, 'questionnaire_answers') || 
+                              safeAccessProperty(sourceData, 'questionnaire') || 
                               sourceData;
       
       if (questionnaireData && typeof questionnaireData === 'object') {
@@ -188,14 +204,14 @@ export const parseQuestionnaireAnswers = (application: ExtendedYffApplication): 
             return;
           }
           
-          // Look for the answer in various formats
+          // Look for the answer in various formats with safe access
           const possibleAnswers = [
-            questionnaireData[questionKey],
-            questionnaireData[questionKey.toLowerCase()],
-            questionnaireData[questionKey.toUpperCase()],
-            // Check nested structures
-            questionnaireData.answers?.[questionKey],
-            questionnaireData.responses?.[questionKey]
+            safeAccessProperty(questionnaireData, questionKey),
+            safeAccessProperty(questionnaireData, questionKey.toLowerCase()),
+            safeAccessProperty(questionnaireData, questionKey.toUpperCase()),
+            // Check nested structures with safe access
+            safeAccessProperty(safeAccessProperty(questionnaireData, 'answers'), questionKey),
+            safeAccessProperty(safeAccessProperty(questionnaireData, 'responses'), questionKey)
           ].filter(val => val !== undefined);
           
           const answer = possibleAnswers.find(val => isValidAnswerValue(val));

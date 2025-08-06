@@ -22,6 +22,239 @@ export interface YffApplication {
 }
 
 /**
+ * Extended YFF Application with additional fields for evaluation
+ */
+export interface ExtendedYffApplication extends YffApplication {
+  overall_score?: number;
+  evaluation_data?: EvaluationData | Record<string, any>;
+  evaluation_completed_at?: string;
+  individuals?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
+  yff_team_registrations?: any[];
+}
+
+/**
+ * YFF Application with individual data for admin views
+ */
+export interface YffApplicationWithIndividual extends YffApplication {
+  overall_score?: number;
+  evaluation_data?: EvaluationData | Record<string, any>;
+  evaluation_completed_at?: string;
+  individuals?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
+}
+
+/**
+ * Question evaluation result interface
+ */
+export interface QuestionEvaluation {
+  score: number;
+  strengths: string[];
+  improvements: string[];
+  questionText?: string;
+  userAnswer?: string;
+  raw_feedback?: string;
+}
+
+/**
+ * Question scoring result for AI evaluation
+ */
+export interface QuestionScoringResult {
+  questionId: string;
+  originalQuestionId?: string;
+  questionText: string;
+  score: number;
+  strengths: string[];
+  areas_for_improvement: string[];
+  raw_feedback: string;
+  userAnswer: string;
+}
+
+/**
+ * AI Evaluation result interface
+ */
+export interface AIEvaluationResult {
+  overall_score: number;
+  question_scores: Record<string, QuestionEvaluation>;
+  idea_summary?: string;
+  evaluation_completed_at: string;
+  evaluation_status: 'completed' | 'failed';
+}
+
+/**
+ * Evaluation data structure for database storage
+ */
+export interface EvaluationData {
+  scores: Record<string, {
+    score: number;
+    strengths: string[];
+    areas_for_improvement: string[];
+    raw_feedback: string;
+    question_text: string;
+    user_answer: string;
+    original_question_id?: string;
+  }>;
+  average_score: number;
+  evaluation_completed_at: string;
+  evaluation_status: string;
+  evaluation_metadata?: {
+    total_questions: number;
+    questions_scored: number;
+    model_used: string;
+    evaluation_version: string;
+  };
+}
+
+/**
+ * Parse application answers from various formats
+ */
+export const parseApplicationAnswers = (answers: any): Record<string, any> => {
+  console.log('🔍 Parsing application answers:', {
+    type: typeof answers,
+    isString: typeof answers === 'string',
+    hasData: Boolean(answers)
+  });
+
+  if (!answers) {
+    console.warn('⚠️ No answers provided to parseApplicationAnswers');
+    return {};
+  }
+
+  if (typeof answers === 'string') {
+    try {
+      const parsed = JSON.parse(answers);
+      console.log('✅ Successfully parsed JSON answers');
+      return parsed || {};
+    } catch (error) {
+      console.error('❌ Failed to parse JSON answers:', error);
+      return {};
+    }
+  }
+
+  if (typeof answers === 'object' && answers !== null) {
+    console.log('✅ Answers already in object format');
+    return answers;
+  }
+
+  console.warn('⚠️ Unexpected answers format:', typeof answers);
+  return {};
+};
+
+/**
+ * Parse evaluation data ensuring it's in proper format
+ */
+export const parseEvaluationData = (evaluationData: any): EvaluationData => {
+  console.log('🔍 Parsing evaluation data:', {
+    type: typeof evaluationData,
+    hasData: Boolean(evaluationData)
+  });
+
+  if (!evaluationData) {
+    return {
+      scores: {},
+      average_score: 0,
+      evaluation_completed_at: '',
+      evaluation_status: 'pending'
+    };
+  }
+
+  if (typeof evaluationData === 'string') {
+    try {
+      const parsed = JSON.parse(evaluationData);
+      return parsed as EvaluationData;
+    } catch (error) {
+      console.error('❌ Failed to parse evaluation data JSON:', error);
+      return {
+        scores: {},
+        average_score: 0,
+        evaluation_completed_at: '',
+        evaluation_status: 'failed'
+      };
+    }
+  }
+
+  if (typeof evaluationData === 'object' && evaluationData !== null) {
+    return evaluationData as EvaluationData;
+  }
+
+  return {
+    scores: {},
+    average_score: 0,
+    evaluation_completed_at: '',
+    evaluation_status: 'pending'
+  };
+};
+
+/**
+ * Get ordered questions from evaluation scores
+ */
+export const getOrderedQuestions = (scores: Record<string, any>): Array<{ key: string; data: any }> => {
+  const questionOrder = [
+    'tell_us_about_idea',
+    'problem_statement',
+    'whose_problem',
+    'how_solve_problem',
+    'how_make_money',
+    'acquire_customers',
+    'early_revenue_acquiring_customers',
+    'competitors',
+    'product_development',
+    'team_roles',
+    'when_proceed'
+  ];
+
+  const orderedQuestions: Array<{ key: string; data: any }> = [];
+  const remainingKeys = new Set(Object.keys(scores));
+
+  // Add questions in defined order
+  for (const questionId of questionOrder) {
+    if (scores[questionId]) {
+      orderedQuestions.push({
+        key: questionId,
+        data: scores[questionId]
+      });
+      remainingKeys.delete(questionId);
+    }
+  }
+
+  // Add any remaining questions
+  for (const key of remainingKeys) {
+    orderedQuestions.push({
+      key,
+      data: scores[key]
+    });
+  }
+
+  return orderedQuestions;
+};
+
+/**
+ * Ensure evaluation data is an object format
+ */
+export const ensureEvaluationDataIsObject = (evaluationData: any): EvaluationData | Record<string, any> => {
+  if (!evaluationData) {
+    return {};
+  }
+
+  if (typeof evaluationData === 'string') {
+    try {
+      return JSON.parse(evaluationData);
+    } catch (error) {
+      console.error('❌ Failed to parse evaluation data as JSON:', error);
+      return {};
+    }
+  }
+
+  return evaluationData;
+};
+
+/**
  * Convert YffFormData to JSON format for database storage
  */
 export const convertFormDataToJson = (formData: YffFormData): Record<string, any> => {

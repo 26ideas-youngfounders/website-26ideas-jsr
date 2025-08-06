@@ -6,12 +6,12 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.5.0
+ * @version 1.6.0
  * @author 26ideas Development Team
  */
 
 import React, { useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -256,10 +256,11 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   console.log('📊 Evaluation scores:', evaluationData.scores);
 
   /**
-   * Process questionnaire answers (all answered questions)
+   * Process questionnaire answers (all answered questions) - FIXED VERSION
    */
   const answeredQuestionnaireQuestions = useMemo(() => {
     console.log('🗂️ Processing questionnaire questions...');
+    console.log('🔍 Questionnaire answers keys:', Object.keys(questionnaireAnswers));
     
     const answeredQuestions: Array<{
       questionKey: string;
@@ -271,33 +272,37 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       rawFeedback?: string;
     }> = [];
 
-    // Process all keys in questionnaireAnswers
+    // Process all keys in questionnaireAnswers - FIXED: Remove restrictive filtering
     Object.entries(questionnaireAnswers).forEach(([questionKey, userAnswer]) => {
-      const hasAnswer = userAnswer !== undefined && userAnswer !== null && userAnswer !== '';
+      console.log(`🔍 Processing question: ${questionKey}, Answer type: ${typeof userAnswer}, Answer length: ${String(userAnswer).length}`);
       
-      // Only include questions that have answers
+      // Only check if the answer exists and is not empty string
+      const answerString = String(userAnswer || '').trim();
+      const hasAnswer = answerString.length > 0;
+      
       if (hasAnswer) {
-        const questionText = QUESTIONNAIRE_KEY_TO_QUESTION[questionKey] || questionKey;
+        const questionText = QUESTIONNAIRE_KEY_TO_QUESTION[questionKey] || questionKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
         const evalKey = getEvaluationKey(questionKey);
         const evaluationScore = evaluationData.scores?.[evalKey] || evaluationData.scores?.[questionKey];
         
-        console.log(`📝 Including answered question: ${questionKey} (${questionText}) with answer length: ${String(userAnswer).length}`);
+        console.log(`✅ Including question: ${questionKey} (${questionText}) with answer length: ${answerString.length}`);
         
         answeredQuestions.push({
           questionKey,
           questionText,
-          userAnswer: String(userAnswer),
+          userAnswer: answerString,
           score: evaluationScore?.score,
           strengths: evaluationScore?.strengths,
           improvements: evaluationScore?.areas_for_improvement,
           rawFeedback: evaluationScore?.raw_feedback
         });
       } else {
-        console.log(`❌ Skipping unanswered questionnaire question: ${questionKey}`);
+        console.log(`❌ Skipping empty question: ${questionKey}`);
       }
     });
 
-    console.log('✅ Final answered questionnaire questions:', answeredQuestions.length);
+    console.log(`✅ Final answered questionnaire questions count: ${answeredQuestions.length}`);
+    console.log(`📋 Question keys included:`, answeredQuestions.map(q => q.questionKey));
     return answeredQuestions;
   }, [questionnaireAnswers, evaluationData.scores]);
 
@@ -351,7 +356,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   );
 
   const dialogContent = (
-    <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden">
+    <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden" aria-describedby="dialog-description">
       <DialogHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -360,9 +365,9 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
               <DialogTitle className="text-xl font-semibold">
                 Application Details with AI Scoring
               </DialogTitle>
-              <p className="text-sm text-muted-foreground mt-1">
+              <DialogDescription id="dialog-description" className="text-sm text-muted-foreground mt-1">
                 {application.yff_team_registrations?.venture_name || teamAnswers.ventureName || 'Unnamed Venture'} • {application.yff_team_registrations?.full_name || teamAnswers.fullName || application.individuals?.first_name + ' ' + application.individuals?.last_name || 'Unknown Applicant'}
-              </p>
+              </DialogDescription>
             </div>
           </div>
           <div className="flex items-center gap-2">

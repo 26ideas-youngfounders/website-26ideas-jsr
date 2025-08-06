@@ -5,7 +5,7 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.8.0
+ * @version 1.9.0
  * @author 26ideas Development Team
  */
 
@@ -212,23 +212,17 @@ const getEvaluationKey = (questionKey: string): string => {
 };
 
 /**
- * Check if an answer is valid and should be displayed
+ * Check if an answer has meaningful content - simplified validation
  */
 const isValidAnswer = (value: any): boolean => {
   if (value === null || value === undefined) return false;
   
   const stringValue = String(value).trim();
   
-  // Check for obviously invalid values
-  if (stringValue === '' || 
-      stringValue === 'undefined' || 
-      stringValue === 'null' || 
-      stringValue.length === 0) {
-    return false;
-  }
-  
-  // Consider answers with at least 5 characters as valid
-  return stringValue.length >= 5;
+  // Much more lenient validation - just check it's not empty
+  return stringValue.length > 0 && 
+         stringValue !== 'undefined' && 
+         stringValue !== 'null';
 };
 
 export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetailsDialogEnhancedProps> = ({
@@ -275,10 +269,10 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   console.log('📊 Evaluation scores:', evaluationData.scores);
 
   /**
-   * Process questionnaire answers with simplified, robust logic
+   * Process questionnaire answers - show ALL valid answers
    */
   const answeredQuestionnaireQuestions = useMemo(() => {
-    console.log('🗂️ Processing questionnaire questions - SIMPLIFIED APPROACH...');
+    console.log('🗂️ Processing questionnaire questions - SHOWING ALL ANSWERS...');
     console.log('🔍 Raw questionnaire answers object:', questionnaireAnswers);
     
     const answeredQuestions: Array<{
@@ -291,13 +285,14 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       rawFeedback?: string;
     }> = [];
 
-    // Process each entry in questionnaireAnswers with minimal filtering
+    // Process ALL entries in questionnaireAnswers
     Object.entries(questionnaireAnswers || {}).forEach(([questionKey, userAnswer]) => {
       console.log(`🔍 Processing question: "${questionKey}"`);
       console.log(`🔍 Answer value:`, userAnswer);
       console.log(`🔍 Answer type: ${typeof userAnswer}`);
+      console.log(`🔍 Answer valid check:`, isValidAnswer(userAnswer));
       
-      // Only check if the answer exists and is not completely empty
+      // Use the simplified validation
       if (isValidAnswer(userAnswer)) {
         const answerString = String(userAnswer).trim();
         
@@ -326,7 +321,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
           rawFeedback: evaluationScore?.raw_feedback
         });
       } else {
-        console.log(`❌ SKIPPING invalid question: "${questionKey}"`);
+        console.log(`❌ SKIPPING invalid question: "${questionKey}" - Answer:`, userAnswer);
       }
     });
 
@@ -472,6 +467,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 <div>Keys: {Object.keys(questionnaireAnswers).join(', ')}</div>
                 <div>Valid questions to display: {answeredQuestionnaireQuestions.length}</div>
                 <div>Questions: {answeredQuestionnaireQuestions.map(q => q.questionKey).join(', ')}</div>
+                <div>Raw questionnaire object: {JSON.stringify(questionnaireAnswers, null, 2).slice(0, 200)}...</div>
               </div>
             </CardContent>
           </Card>

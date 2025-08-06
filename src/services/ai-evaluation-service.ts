@@ -1,40 +1,185 @@
-
 /**
- * @fileoverview AI Evaluation Service
- * 
- * Provides comprehensive AI evaluation functionality for YFF applications
- * with automatic scoring on submission and detailed question-by-question analysis.
- * 
- * @version 2.0.0
- * @author 26ideas Development Team
+ * Enhanced AI Evaluation Service with bulletproof early revenue support
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { AIComprehensiveScoringService } from './ai-comprehensive-scoring-service';
-
-export interface QuestionEvaluation {
-  score: number;
-  strengths: string[];
-  improvements: string[];
-  raw_feedback?: string;
-}
-
-export interface EvaluationResult {
-  overall_score: number;
-  question_scores: Record<string, QuestionEvaluation>;
-  evaluation_completed_at: string;
-  evaluation_status: string;
-  idea_summary?: string;
-}
+import type { ExtendedYffApplication, QuestionScoringResult, AIEvaluationResult } from '@/types/yff-application';
+import { normalizeQuestionId, getAIFeedbackStage } from '@/utils/ai-question-prompts';
 
 /**
- * Evaluate application using comprehensive AI scoring
+ * Comprehensive question extraction for both idea and early revenue stages
  */
-export const evaluateApplication = async (applicationId: string): Promise<EvaluationResult> => {
-  console.log(`🚀 Starting AI evaluation for application: ${applicationId}`);
-  
+const extractQuestionAnswers = (application: ExtendedYffApplication): Array<{
+  questionId: string;
+  questionText: string;
+  userAnswer: string;
+  stage: 'idea' | 'early_revenue';
+}> => {
+  const questions: Array<{
+    questionId: string;
+    questionText: string;
+    userAnswer: string;
+    stage: 'idea' | 'early_revenue';
+  }> = [];
+
   try {
-    // Set status to processing at start
+    const answers = typeof application.answers === 'string' 
+      ? JSON.parse(application.answers)
+      : application.answers;
+
+    console.log('📋 Extracting questions from application:', application.application_id);
+    console.log('📋 Raw answers data:', answers);
+
+    // Determine stage from application data
+    const stage = getAIFeedbackStage(answers);
+    console.log('🔍 Determined application stage:', stage);
+
+    // Extract questionnaire answers
+    const questionnaireAnswers = answers.questionnaire_answers || {};
+    console.log('📋 Questionnaire answers found:', Object.keys(questionnaireAnswers));
+
+    // Enhanced question mapping for both stages
+    const questionMappings = [
+      // Universal questions
+      { id: 'tell_us_about_idea', text: 'Tell us about your idea' },
+      
+      // Stage-specific problem questions
+      { 
+        id: stage === 'early_revenue' ? 'early_revenue_problem' : 'problem_statement',
+        text: 'What problem does your idea solve?'
+      },
+      
+      // Stage-specific target audience questions
+      { 
+        id: stage === 'early_revenue' ? 'early_revenue_whose_problem' : 'whose_problem',
+        text: stage === 'early_revenue' ? 'Who are your target customers?' : 'Whose problem are you solving?'
+      },
+      
+      // Stage-specific solution questions
+      { 
+        id: stage === 'early_revenue' ? 'early_revenue_how_solve' : 'how_solve_problem',
+        text: stage === 'early_revenue' ? 'How does your solution address the problem?' : 'How does your idea solve this problem?'
+      },
+      
+      // Stage-specific monetization questions
+      { 
+        id: stage === 'early_revenue' ? 'early_revenue_making_money' : 'how_make_money',
+        text: stage === 'early_revenue' ? 'How are you making money?' : 'How will you make money?'
+      },
+      
+      // Stage-specific customer acquisition questions
+      { 
+        id: stage === 'early_revenue' ? 'early_revenue_acquiring_customers' : 'acquire_customers',
+        text: stage === 'early_revenue' ? 'How are you acquiring paying customers?' : 'How will you acquire your first customers?'
+      },
+      
+      // Early revenue specific questions
+      ...(stage === 'early_revenue' ? [
+        { id: 'early_revenue_working_duration', text: 'Since when have you been working on this?' },
+      ] : []),
+      
+      // Stage-specific team questions
+      { 
+        id: stage === 'early_revenue' ? 'early_revenue_team' : 'team_roles',
+        text: stage === 'early_revenue' ? 'Tell us about your team composition' : 'Tell us about your team'
+      },
+      
+      // Stage-specific competitor questions
+      { 
+        id: stage === 'early_revenue' ? 'early_revenue_competitors' : 'competitors',
+        text: stage === 'early_revenue' ? 'Who are your main competitors?' : 'Who are your competitors?'
+      },
+      
+      // Stage-specific product development questions
+      { 
+        id: stage === 'early_revenue' ? 'early_revenue_product_development' : 'product_development',
+        text: stage === 'early_revenue' ? 'How are you developing your product?' : 'How will you develop your product?'
+      },
+      
+      // Idea stage specific questions
+      ...(stage === 'idea' ? [
+        { id: 'when_proceed', text: 'When do you want to proceed?' }
+      ] : [])
+    ];
+
+    // Extract answers for each mapped question
+    for (const mapping of questionMappings) {
+      const possibleKeys = [
+        mapping.id,
+        mapping.id.replace('early_revenue_', ''),
+        mapping.text.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
+      ];
+
+      let answer = '';
+      let foundKey = '';
+
+      // Try to find the answer with various key formats
+      for (const key of possibleKeys) {
+        if (questionnaireAnswers[key] && typeof questionnaireAnswers[key] === 'string' && questionnaireAnswers[key].trim()) {
+          answer = questionnaireAnswers[key].trim();
+          foundKey = key;
+          break;
+        }
+      }
+
+      // Special handling for specific question patterns
+      if (!answer) {
+        // Handle paying customers / customer acquisition
+        if (mapping.id.includes('acquiring_customers')) {
+          const payingCustomersKeys = ['payingCustomers', 'paying_customers', 'first_paying_customers', 'customerAcquisition'];
+          for (const key of payingCustomersKeys) {
+            if (questionnaireAnswers[key] && typeof questionnaireAnswers[key] === 'string' && questionnaireAnswers[key].trim()) {
+              answer = questionnaireAnswers[key].trim();
+              foundKey = key;
+              break;
+            }
+          }
+        }
+
+        // Handle working duration
+        if (mapping.id === 'early_revenue_working_duration') {
+          const durationKeys = ['workingDuration', 'working_duration', 'since_when', 'duration_working'];
+          for (const key of durationKeys) {
+            if (questionnaireAnswers[key] && typeof questionnaireAnswers[key] === 'string' && questionnaireAnswers[key].trim()) {
+              answer = questionnaireAnswers[key].trim();
+              foundKey = key;
+              break;
+            }
+          }
+        }
+      }
+
+      if (answer && answer.length >= 10) { // Minimum answer length
+        questions.push({
+          questionId: mapping.id,
+          questionText: mapping.text,
+          userAnswer: answer,
+          stage
+        });
+        
+        console.log(`✅ Found answer for ${mapping.id} (key: ${foundKey}):`, answer.substring(0, 100));
+      } else {
+        console.log(`⚠️ No valid answer found for ${mapping.id}, tried keys:`, possibleKeys);
+      }
+    }
+
+    console.log(`📋 Total questions extracted: ${questions.length}`);
+    return questions;
+
+  } catch (error) {
+    console.error('❌ Error extracting questions:', error);
+    return [];
+  }
+};
+
+/**
+ * Evaluate a single application using AI
+ */
+export const evaluateApplication = async (applicationId: string): Promise<AIEvaluationResult> => {
+  try {
+    console.log(`🤖 Starting AI evaluation for application: ${applicationId}`);
+
+    // Update status to processing
     await supabase
       .from('yff_applications')
       .update({ 
@@ -43,148 +188,102 @@ export const evaluateApplication = async (applicationId: string): Promise<Evalua
       })
       .eq('application_id', applicationId);
 
-    // Use the comprehensive scoring service
-    const result = await AIComprehensiveScoringService.evaluateApplication(applicationId);
-    
-    // Update status to completed after successful evaluation
-    const { error: updateError } = await supabase
+    // Fetch application with related data
+    const { data: application, error: fetchError } = await supabase
       .from('yff_applications')
-      .update({
-        evaluation_status: 'completed',
-        evaluation_completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('application_id', applicationId);
+      .select(`
+        *,
+        individuals(first_name, last_name, email),
+        yff_team_registrations(*)
+      `)
+      .eq('application_id', applicationId)
+      .single();
 
-    if (updateError) {
-      console.error(`❌ Failed to update evaluation status to completed:`, updateError);
-    } else {
-      console.log(`✅ Evaluation status updated to completed for ${applicationId}`);
+    if (fetchError || !application) {
+      throw new Error(`Failed to fetch application: ${fetchError?.message || 'Application not found'}`);
     }
-    
-    console.log(`✅ AI evaluation completed for ${applicationId} with score: ${result.overall_score}`);
-    
+
+    console.log('📋 Application data loaded:', {
+      id: application.application_id,
+      hasTeamData: !!application.yff_team_registrations,
+      answersType: typeof application.answers
+    });
+
+    // Extract questions for evaluation
+    const questions = extractQuestionAnswers(application as ExtendedYffApplication);
+
+    if (questions.length === 0) {
+      throw new Error('No valid questions found for evaluation');
+    }
+
+    console.log(`📋 Found ${questions.length} questions to evaluate`);
+
+    // Call comprehensive evaluation edge function
+    const { data: evaluationResult, error: evalError } = await supabase.functions.invoke('comprehensive-evaluation', {
+      body: {
+        applicationId,
+        questions: questions.map(q => ({
+          questionId: q.questionId,
+          questionText: q.questionText,
+          userAnswer: q.userAnswer,
+          stage: q.stage
+        }))
+      }
+    });
+
+    if (evalError) {
+      throw new Error(`Evaluation failed: ${evalError.message}`);
+    }
+
+    if (!evaluationResult || !evaluationResult.success) {
+      throw new Error(`Evaluation failed: ${evaluationResult?.error || 'Unknown error'}`);
+    }
+
+    const result = evaluationResult.data;
+    console.log(`✅ AI evaluation completed with score: ${result.overall_score}`);
+
     return {
       overall_score: result.overall_score,
-      question_scores: result.question_scores,
-      evaluation_completed_at: result.evaluation_completed_at,
-      evaluation_status: 'completed', // Ensure we return completed status
-      idea_summary: result.idea_summary
+      question_scores: result.question_scores || {},
+      idea_summary: result.idea_summary || '',
+      evaluation_completed_at: new Date().toISOString(),
+      evaluation_status: 'completed'
     };
-    
+
   } catch (error) {
     console.error(`❌ AI evaluation failed for ${applicationId}:`, error);
-    
-    // Update status to failed on error
+
+    // Update status to failed
     await supabase
       .from('yff_applications')
-      .update({
+      .update({ 
         evaluation_status: 'failed',
         updated_at: new Date().toISOString()
       })
       .eq('application_id', applicationId);
-    
-    throw new Error(`AI evaluation failed: ${error.message}`);
+
+    throw error;
   }
 };
 
 /**
- * Re-evaluate application (same as evaluate but with different messaging)
+ * Re-evaluate an existing application
  */
-export const reEvaluateApplication = async (applicationId: string): Promise<EvaluationResult> => {
-  console.log(`🔄 Starting AI re-evaluation for application: ${applicationId}`);
+export const reEvaluateApplication = async (applicationId: string): Promise<AIEvaluationResult> => {
+  console.log(`🔄 Re-evaluating application: ${applicationId}`);
+  
+  // Clear existing evaluation data
+  await supabase
+    .from('yff_applications')
+    .update({
+      evaluation_status: 'pending',
+      overall_score: 0,
+      evaluation_data: {},
+      evaluation_completed_at: null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('application_id', applicationId);
+
+  // Run fresh evaluation
   return evaluateApplication(applicationId);
-};
-
-/**
- * Get existing evaluation data for an application
- */
-export const getApplicationEvaluation = async (applicationId: string): Promise<EvaluationResult | null> => {
-  try {
-    console.log(`🔍 Fetching evaluation for application: ${applicationId}`);
-    
-    const { data, error } = await supabase
-      .from('yff_applications')
-      .select('evaluation_data, overall_score, evaluation_completed_at, evaluation_status')
-      .eq('application_id', applicationId)
-      .single();
-
-    if (error) {
-      console.error('❌ Failed to fetch evaluation:', error);
-      throw error;
-    }
-
-    if (!data || !data.evaluation_data) {
-      console.log(`⚠️ No evaluation data found for application: ${applicationId}`);
-      return null;
-    }
-
-    // Parse evaluation data safely
-    let evaluationData;
-    if (typeof data.evaluation_data === 'string') {
-      try {
-        evaluationData = JSON.parse(data.evaluation_data);
-      } catch (parseError) {
-        console.error('❌ Failed to parse evaluation data:', parseError);
-        return null;
-      }
-    } else {
-      evaluationData = data.evaluation_data;
-    }
-
-    // Transform the data to match our interface
-    const questionScores: Record<string, QuestionEvaluation> = {};
-    
-    if (evaluationData.scores && typeof evaluationData.scores === 'object') {
-      Object.entries(evaluationData.scores).forEach(([questionId, scoreData]: [string, any]) => {
-        if (scoreData && typeof scoreData === 'object') {
-          questionScores[questionId] = {
-            score: scoreData.score || 0,
-            strengths: Array.isArray(scoreData.strengths) ? scoreData.strengths : [],
-            improvements: Array.isArray(scoreData.areas_for_improvement) ? scoreData.areas_for_improvement : [],
-            raw_feedback: scoreData.raw_feedback
-          };
-        }
-      });
-    }
-
-    const result: EvaluationResult = {
-      overall_score: data.overall_score || evaluationData.average_score || 0,
-      question_scores: questionScores,
-      evaluation_completed_at: data.evaluation_completed_at || evaluationData.evaluation_completed_at,
-      evaluation_status: data.evaluation_status || evaluationData.evaluation_status || 'completed',
-      idea_summary: evaluationData.idea_summary
-    };
-
-    console.log(`✅ Retrieved evaluation for ${applicationId}:`, {
-      score: result.overall_score,
-      questionsCount: Object.keys(result.question_scores).length
-    });
-
-    return result;
-
-  } catch (error) {
-    console.error(`❌ Error fetching evaluation for ${applicationId}:`, error);
-    return null;
-  }
-};
-
-/**
- * Trigger automatic evaluation on application submission
- */
-export const triggerEvaluationOnSubmission = async (applicationId: string): Promise<void> => {
-  try {
-    console.log(`🎯 Triggering automatic evaluation for new submission: ${applicationId}`);
-    
-    // Start evaluation in background (don't await to avoid blocking submission)
-    evaluateApplication(applicationId).catch(error => {
-      console.error(`❌ Background evaluation failed for ${applicationId}:`, error);
-    });
-    
-    console.log(`✅ Background evaluation triggered for: ${applicationId}`);
-    
-  } catch (error) {
-    console.error(`❌ Failed to trigger evaluation for ${applicationId}:`, error);
-    // Don't throw here - we don't want to block the submission process
-  }
 };

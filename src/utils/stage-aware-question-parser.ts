@@ -1,31 +1,31 @@
+
 /**
  * @fileoverview Stage-Aware Question Parser
  * 
  * Dynamically fetches and displays questionnaire answers based on the user's selected stage
  * (Idea Stage, Early Revenue, etc.) with proper question mapping and AI scoring integration.
  * 
- * @version 1.0.0
+ * @version 1.1.0
  * @author 26ideas Development Team
  */
 
 import { ExtendedYffApplication } from '@/types/yff-application';
 
 /**
- * Question mappings for different stages
+ * Question mappings for different stages with their actual data keys
  */
 export const STAGE_QUESTION_MAPPINGS = {
   idea_stage: {
     'tell_us_about_idea': 'Tell us about your idea',
-    'idea_description': 'Tell us about your idea',
     'problem_statement': 'What problem does your idea solve?',
-    'target_audience': 'Who is your target audience?',
-    'solution_approach': 'How does your idea solve this problem?',
-    'unique_value': 'What makes your idea unique?',
-    'market_size': 'What is the size of your target market?',
-    'business_model': 'What is your business model?',
-    'team_background': 'Tell us about your team',
-    'development_plan': 'What is your development plan?',
-    'funding_needs': 'What are your funding needs?'
+    'whose_problem': 'Whose problem does your idea solve for?',
+    'how_solve_problem': 'How does your idea solve this problem?',
+    'how_make_money': 'How do you plan to make money from this idea?',
+    'acquire_customers': 'How do you plan to acquire first paying customers?',
+    'competitors': 'List 3 potential competitors for your idea',
+    'product_development': 'What is your approach to product development?',
+    'team_roles': 'Who is on your team, and what are their roles?',
+    'when_proceed': 'When do you plan to proceed with the idea?'
   },
   early_revenue: {
     'tell_us_about_idea': 'Tell us about your idea',
@@ -78,12 +78,37 @@ export interface StageAwareParsingResult {
 }
 
 /**
- * Detect the user's selected stage from application data
+ * Extract answer data from various possible locations
+ */
+const extractAnswerData = (application: ExtendedYffApplication): any => {
+  console.log('📊 EXTRACTING ANSWER DATA from application:', application.application_id);
+  
+  const possibleSources = [
+    application.answers,
+    application.yff_team_registrations,
+    (application as any).questionnaire_answers,
+    (application as any).form_responses,
+    (application as any).submission_data
+  ];
+  
+  for (const source of possibleSources) {
+    if (source && typeof source === 'object' && Object.keys(source).length > 0) {
+      console.log('✅ USING ANSWER DATA SOURCE with keys:', Object.keys(source));
+      return source;
+    }
+  }
+  
+  console.log('❌ NO ANSWER DATA FOUND');
+  return null;
+};
+
+/**
+ * Smart stage detection based on available answer keys
  */
 const detectUserStage = (application: ExtendedYffApplication): ApplicationStage | null => {
   console.log('🔍 DETECTING USER STAGE for application:', application.application_id);
   
-  // Check common stage fields - using safe optional access
+  // First, check explicit stage fields
   const possibleStageFields = [
     application.stage,
     application.selected_stage,
@@ -98,24 +123,24 @@ const detectUserStage = (application: ExtendedYffApplication): ApplicationStage 
   for (const stageField of possibleStageFields) {
     if (stageField && typeof stageField === 'string') {
       const normalizedStage = stageField.toLowerCase().replace(/\s+/g, '_');
-      console.log('📋 FOUND STAGE FIELD:', stageField, '-> normalized:', normalizedStage);
+      console.log('📋 FOUND EXPLICIT STAGE FIELD:', stageField, '-> normalized:', normalizedStage);
       
       if (normalizedStage.includes('idea')) {
-        console.log('✅ DETECTED STAGE: idea_stage');
+        console.log('✅ DETECTED EXPLICIT STAGE: idea_stage');
         return 'idea_stage';
       }
       if (normalizedStage.includes('early') && normalizedStage.includes('revenue')) {
-        console.log('✅ DETECTED STAGE: early_revenue');
+        console.log('✅ DETECTED EXPLICIT STAGE: early_revenue');
         return 'early_revenue';
       }
       if (normalizedStage.includes('mvp')) {
-        console.log('✅ DETECTED STAGE: mvp_stage');
+        console.log('✅ DETECTED EXPLICIT STAGE: mvp_stage');
         return 'mvp_stage';
       }
     }
   }
   
-  // Fallback: Try to detect from question keys present in data
+  // Fallback: Detect stage from available answer keys
   const answerData = extractAnswerData(application);
   if (!answerData) {
     console.log('❌ NO STAGE DETECTED: No answer data available');
@@ -132,44 +157,44 @@ const detectUserStage = (application: ExtendedYffApplication): ApplicationStage 
     mvp_stage: 0
   };
   
+  // Check for stage-specific question keys
   for (const [stage, questionMap] of Object.entries(STAGE_QUESTION_MAPPINGS)) {
     const stageKeys = Object.keys(questionMap);
     const matches = stageKeys.filter(key => answerKeys.includes(key)).length;
     stageMatches[stage as ApplicationStage] = matches;
-    console.log(`📊 STAGE ${stage} matches:`, matches, 'out of', stageKeys.length);
+    console.log(`📊 STAGE ${stage} matches:`, matches, 'out of', stageKeys.length, 'questions');
+  }
+  
+  // Also check for early_revenue prefixed keys as indicators
+  const earlyRevenueKeys = answerKeys.filter(key => key.startsWith('early_revenue_')).length;
+  if (earlyRevenueKeys > 0) {
+    stageMatches.early_revenue += earlyRevenueKeys;
+    console.log(`📊 Found ${earlyRevenueKeys} early_revenue prefixed keys`);
   }
   
   // Return stage with highest match count
-  const detectedStage = Object.entries(stageMatches).reduce((max, [stage, count]) => 
+  const bestMatch = Object.entries(stageMatches).reduce((max, [stage, count]) => 
     count > max.count ? { stage: stage as ApplicationStage, count } : max,
     { stage: null as ApplicationStage | null, count: 0 }
-  ).stage;
+  );
   
-  console.log('🎯 DETECTED STAGE FROM KEYS:', detectedStage);
-  return detectedStage || 'early_revenue'; // Default fallback
-};
-
-/**
- * Extract answer data from various possible locations
- */
-const extractAnswerData = (application: ExtendedYffApplication): any => {
-  const possibleSources = [
-    application.answers,
-    application.yff_team_registrations,
-    (application as any).questionnaire_answers,
-    (application as any).form_responses,
-    (application as any).submission_data
-  ];
+  console.log('🎯 STAGE MATCH RESULTS:', stageMatches);
+  console.log('🎯 BEST MATCH:', bestMatch);
   
-  for (const source of possibleSources) {
-    if (source && typeof source === 'object' && Object.keys(source).length > 0) {
-      console.log('✅ USING ANSWER DATA SOURCE:', Object.keys(source));
-      return source;
-    }
+  if (bestMatch.stage && bestMatch.count > 0) {
+    console.log('✅ DETECTED STAGE FROM KEYS:', bestMatch.stage);
+    return bestMatch.stage;
   }
   
-  console.log('❌ NO ANSWER DATA FOUND');
-  return null;
+  // Final fallback - if we have any answers but can't detect stage, assume idea_stage
+  // since "tell_us_about_idea" is a common key that might exist
+  if (answerKeys.includes('tell_us_about_idea')) {
+    console.log('🔄 FALLBACK: Using idea_stage due to tell_us_about_idea key');
+    return 'idea_stage';
+  }
+  
+  console.log('❌ NO STAGE DETECTED: Using early_revenue as final fallback');
+  return 'early_revenue';
 };
 
 /**
@@ -223,17 +248,17 @@ const parseEvaluationData = (evaluationData: any): Record<string, any> => {
  * Get evaluation key mapping for AI scores
  */
 const getEvaluationKey = (questionKey: string): string => {
+  // Try the original key first, then common mappings
   const keyMapping: Record<string, string> = {
-    'idea_description': 'tell_us_about_idea',
     'problem_statement': 'early_revenue_problem',
-    'target_audience': 'early_revenue_target',
-    'solution_approach': 'early_revenue_how_solve',
-    'business_model': 'early_revenue_monetization',
-    'unique_value': 'early_revenue_competitors',
-    'market_size': 'early_revenue_development',
-    'team_background': 'early_revenue_team',
-    'development_plan': 'early_revenue_timeline',
-    'funding_needs': 'early_revenue_stage'
+    'whose_problem': 'early_revenue_target',
+    'how_solve_problem': 'early_revenue_how_solve',
+    'how_make_money': 'early_revenue_monetization',
+    'acquire_customers': 'early_revenue_customers',
+    'competitors': 'early_revenue_competitors',
+    'product_development': 'early_revenue_development',
+    'team_roles': 'early_revenue_team',
+    'when_proceed': 'early_revenue_timeline'
   };
   
   return keyMapping[questionKey] || questionKey;
@@ -251,7 +276,7 @@ export const parseStageAwareQuestions = (application: ExtendedYffApplication): S
   // Detect user's stage
   const detectedStage = detectUserStage(application);
   if (!detectedStage) {
-    warnings.push('Could not detect user stage - using Early Revenue as default');
+    warnings.push('Could not detect user stage - using early_revenue as default');
   }
   
   const stage = detectedStage || 'early_revenue';
@@ -263,25 +288,60 @@ export const parseStageAwareQuestions = (application: ExtendedYffApplication): S
   const answerData = extractAnswerData(application);
   const rawData = answerData || {};
   
+  if (!answerData) {
+    warnings.push('No answer data found in application');
+    console.log('❌ NO ANSWER DATA - returning empty result');
+    return {
+      detectedStage: stage,
+      questions: [],
+      totalQuestions: Object.keys(questionMap).length,
+      answeredQuestions: 0,
+      warnings,
+      rawData: {}
+    };
+  }
+  
   // Parse evaluation data
   const evaluationData = parseEvaluationData(application.evaluation_data);
   const evaluationScores = evaluationData.scores || {};
+  
+  console.log('🤖 EVALUATION SCORES AVAILABLE:', Object.keys(evaluationScores));
   
   // Process each question for the detected stage
   let answeredCount = 0;
   
   for (const [questionKey, questionText] of Object.entries(questionMap)) {
-    const rawAnswer = answerData?.[questionKey];
+    const rawAnswer = answerData[questionKey];
     const hasAnswer = isValidAnswer(rawAnswer);
     const userAnswer = hasAnswer ? extractAnswerText(rawAnswer) : 'Not provided';
     
     if (hasAnswer) {
       answeredCount++;
+      console.log(`✅ QUESTION ${questionKey}: HAS ANSWER`);
+    } else {
+      console.log(`❌ QUESTION ${questionKey}: NO ANSWER`);
     }
     
-    // Get AI evaluation data
-    const evalKey = getEvaluationKey(questionKey);
-    const aiEvaluation = evaluationScores[evalKey] || evaluationScores[questionKey];
+    // Get AI evaluation data - try multiple key variations
+    const possibleEvalKeys = [
+      questionKey,
+      getEvaluationKey(questionKey),
+      questionKey.toLowerCase(),
+      questionKey.replace(/_/g, '')
+    ];
+    
+    let aiEvaluation = null;
+    for (const evalKey of possibleEvalKeys) {
+      if (evaluationScores[evalKey]) {
+        aiEvaluation = evaluationScores[evalKey];
+        console.log(`🎯 FOUND AI EVALUATION for ${questionKey} using key: ${evalKey}`);
+        break;
+      }
+    }
+    
+    if (!aiEvaluation) {
+      console.log(`❓ NO AI EVALUATION found for ${questionKey}`);
+    }
     
     questions.push({
       questionKey,
@@ -294,8 +354,6 @@ export const parseStageAwareQuestions = (application: ExtendedYffApplication): S
       aiImprovements: aiEvaluation?.areas_for_improvement || aiEvaluation?.improvements,
       aiRawFeedback: aiEvaluation?.raw_feedback
     });
-    
-    console.log(`📝 QUESTION ${questionKey}:`, hasAnswer ? '✅ HAS ANSWER' : '❌ NO ANSWER', aiEvaluation?.score ? `(Score: ${aiEvaluation.score}/10)` : '(No AI score)');
   }
   
   console.log('🎉 STAGE-AWARE PARSING COMPLETE:', {

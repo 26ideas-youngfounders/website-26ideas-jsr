@@ -5,7 +5,7 @@
  * Dynamically displays questionnaire answers based on the user's selected stage
  * with proper question mapping and AI scoring integration.
  * 
- * @version 1.0.0
+ * @version 1.1.0
  * @author 26ideas Development Team
  */
 
@@ -23,7 +23,8 @@ import {
   Zap,
   FileText,
   Eye,
-  Target
+  Target,
+  Bug
 } from 'lucide-react';
 
 interface StageAwareQuestionnaireDisplayProps {
@@ -61,6 +62,7 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
 }) => {
   // Parse questions based on detected stage
   const parsingResult = useMemo(() => {
+    console.log('🎨 RENDERING StageAwareQuestionnaireDisplay for:', application.application_id);
     return parseStageAwareQuestions(application);
   }, [application]);
 
@@ -121,7 +123,7 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-indigo-600">
-              {Math.round((parsingResult.answeredQuestions / parsingResult.totalQuestions) * 100)}%
+              {parsingResult.totalQuestions > 0 ? Math.round((parsingResult.answeredQuestions / parsingResult.totalQuestions) * 100) : 0}%
             </div>
             <div className="text-indigo-700">Complete</div>
           </div>
@@ -154,10 +156,12 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
           <div className="text-sm text-red-600 space-y-1">
             <p><strong>Application ID:</strong> {application.application_id}</p>
             <p><strong>Detected Stage:</strong> {parsingResult.detectedStage || 'None'}</p>
+            <p><strong>Warnings:</strong> {parsingResult.warnings.length}</p>
           </div>
           <details className="mt-4">
-            <summary className="cursor-pointer font-medium text-red-700 hover:text-red-800">
-              View Raw Application Data
+            <summary className="cursor-pointer font-medium text-red-700 hover:text-red-800 flex items-center gap-2">
+              <Bug className="h-4 w-4" />
+              View Raw Application Data for Debugging
             </summary>
             <div className="mt-2 p-3 bg-white rounded border max-h-96 overflow-y-auto">
               <pre className="text-xs text-gray-800 whitespace-pre-wrap">
@@ -209,12 +213,19 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
                   Awaiting AI Evaluation
                 </Badge>
               )}
+              
+              {question.hasAnswer && question.aiScore && (
+                <Badge variant="outline" className="text-xs border-green-300 text-green-700">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Complete
+                </Badge>
+              )}
             </div>
           </div>
         ))}
       </div>
       
-      {/* Developer debug section */}
+      {/* Enhanced developer debug section */}
       <details className="mt-8 pt-4 border-t border-gray-200">
         <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800 flex items-center gap-2">
           <Eye className="h-4 w-4" />
@@ -238,6 +249,18 @@ export const StageAwareQuestionnaireDisplay: React.FC<StageAwareQuestionnaireDis
           </div>
           <div>
             <strong>Warnings:</strong> {parsingResult.warnings.length}
+          </div>
+          <div className="pt-2 border-t border-gray-300">
+            <strong>Available Answer Keys:</strong>
+            <div className="mt-1 text-xs text-gray-600 font-mono">
+              {Object.keys(parsingResult.rawData).join(', ') || 'None'}
+            </div>
+          </div>
+          <div className="pt-2 border-t border-gray-300">
+            <strong>Stage Fields Checked:</strong>
+            <div className="mt-1 text-xs text-gray-600">
+              application.stage, application.selected_stage, application.application_stage, application.user_stage, yff_team_registrations.*
+            </div>
           </div>
         </div>
       </details>

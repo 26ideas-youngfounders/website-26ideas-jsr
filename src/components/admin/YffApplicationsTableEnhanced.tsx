@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Enhanced YFF Applications Admin Table with AI Scoring Integration
  * 
@@ -471,15 +470,9 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <YffApplicationEvaluationDialog 
-                        application={{
-                          application_id: application.application_id,
-                          status: application.status,
-                          evaluation_status: application.evaluation_status,
-                          overall_score: application.overall_score,
-                          evaluation_completed_at: application.evaluation_completed_at,
-                          answers: application.answers,
-                          individuals: application.individuals
-                        }}
+                        application={application}
+                        open={false}
+                        onOpenChange={() => {}}
                       />
                       
                       {(!application.evaluation_status || application.evaluation_status === 'pending' || application.evaluation_status === 'failed') && (

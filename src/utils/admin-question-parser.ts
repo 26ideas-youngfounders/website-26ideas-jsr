@@ -157,7 +157,6 @@ const extractDataFromApplication = (application: ExtendedYffApplication): any =>
     'answers',
     'questionnaire_answers', 
     'yff_team_registrations.questionnaire_answers',
-    'yff_team_registrations.answers',
     'application_data',
     'form_data',
     'submission_data',
@@ -176,7 +175,6 @@ const extractDataFromApplication = (application: ExtendedYffApplication): any =>
   const possibleDataSources = [
     application.answers,
     application.yff_team_registrations?.questionnaire_answers,
-    application.yff_team_registrations?.answers,
     (application as any).form_responses,
     (application as any).submission_data,
     (application as any).questionnaire_data,

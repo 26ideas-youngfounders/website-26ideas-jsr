@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ExtendedYffApplication, parseApplicationAnswers, parseEvaluationData } from '@/types/yff-application';
+import { ExtendedYffApplication, YffApplication, parseApplicationAnswers, parseEvaluationData } from '@/types/yff-application';
 import { YffApplicationDetailsDialog } from './YffApplicationDetailsDialog';
 import ApplicationScoringDialog from './ApplicationScoringDialog';
 import YffApplicationEvaluationDialog from './YffApplicationEvaluationDialog';
@@ -195,22 +194,9 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                   const answers = parseApplicationAnswers(app.answers);
                   const evaluationData = parseEvaluationData(app.evaluation_data);
                   
-                  // Create a properly typed application object for dialogs
-                  const fullApplication: ExtendedYffApplication = {
-                    application_id: app.application_id,
-                    individual_id: app.individual_id || '',
-                    status: app.status,
-                    evaluation_status: app.evaluation_status || 'pending',
-                    overall_score: app.overall_score || 0,
-                    evaluation_completed_at: app.evaluation_completed_at,
-                    evaluation_data: evaluationData,
-                    answers: app.answers,
-                    application_round: app.application_round || '',
-                    cumulative_score: app.cumulative_score || 0,
-                    reviewer_scores: app.reviewer_scores || null,
-                    submitted_at: app.submitted_at || '',
-                    created_at: app.created_at || '',
-                    updated_at: app.updated_at || '',
+                  // Convert to YffApplication type for dialog components
+                  const applicationForDialog: YffApplication = {
+                    ...app,
                     individuals: app.individuals
                   };
 
@@ -280,9 +266,9 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <YffApplicationDetailsDialog application={fullApplication} />
+                          <YffApplicationDetailsDialog application={applicationForDialog} />
                           <ApplicationScoringDialog application={scoringApplication} />
-                          <YffApplicationEvaluationDialog application={fullApplication} />
+                          <YffApplicationEvaluationDialog application={applicationForDialog} />
                         </div>
                       </TableCell>
                     </TableRow>

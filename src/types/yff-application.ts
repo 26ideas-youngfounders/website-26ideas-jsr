@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Extended YFF Application Types
  * 
@@ -18,6 +17,18 @@ export type BaseYffApplication = Database['public']['Tables']['yff_applications'
 export type BaseYffApplicationInsert = Database['public']['Tables']['yff_applications']['Insert'];
 export type BaseYffApplicationUpdate = Database['public']['Tables']['yff_applications']['Update'];
 
+/**
+ * Standardized individuals interface - consistent across all application types
+ */
+export interface YffApplicationIndividuals {
+  first_name: string;
+  last_name: string;
+  email?: string; // Optional to handle cases where email might not be present
+  phone_number?: string;
+  country_code?: string;
+  country_iso_code?: string;
+}
+
 // Extended types that include the missing timestamp columns and related data
 export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evaluation_completed_at'> {
   created_at: string;
@@ -26,11 +37,7 @@ export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evalua
   overall_score: number; // Made required to match base type
   evaluation_completed_at?: string | null;
   evaluation_data: Record<string, any>; // Make required to match base type
-  individuals?: {
-    first_name: string;
-    last_name: string;
-    email?: string;
-  } | null;
+  individuals?: YffApplicationIndividuals | null;
 }
 
 export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {
@@ -53,13 +60,18 @@ export interface ExtendedYffApplicationUpdate extends BaseYffApplicationUpdate {
 
 /**
  * Type for applications with joined individual data (used in queries with joins)
+ * Now using the standardized individuals interface
  */
 export interface YffApplicationWithIndividual extends ExtendedYffApplication {
-  individuals: {
-    first_name: string;
-    last_name: string;
-    email?: string;
-  } | null;
+  individuals: YffApplicationIndividuals | null;
+}
+
+/**
+ * Main YffApplication type that matches the component expectations
+ * Uses the same standardized individuals interface
+ */
+export interface YffApplication extends ExtendedYffApplication {
+  individuals?: YffApplicationIndividuals | null;
 }
 
 /**

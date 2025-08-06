@@ -1,10 +1,11 @@
+
 /**
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
- * Displays comprehensive application details with structured questionnaire answers
- * using the new splitting logic to ensure each question appears individually.
+ * Displays comprehensive application details with stage-aware questionnaire answers
+ * that dynamically detect and display the correct questions based on user's selected stage.
  * 
- * @version 3.0.0
+ * @version 4.0.0 - Stage-Aware Implementation
  * @author 26ideas Development Team
  */
 
@@ -25,7 +26,7 @@ import {
 } from 'lucide-react';
 import { ExtendedYffApplication } from '@/types/yff-application';
 import { TEAM_REGISTRATION_QUESTIONS } from '@/utils/admin-question-parser';
-import { StructuredQuestionnaireDisplay } from './StructuredQuestionnaireDisplay';
+import { StageAwareQuestionnaireDisplay } from './StageAwareQuestionnaireDisplay';
 
 interface YffApplicationDetailsDialogEnhancedProps {
   application: ExtendedYffApplication;
@@ -165,23 +166,23 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* Structured Questionnaire Display */}
+          {/* Stage-Aware Questionnaire Display */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
-                Complete Questionnaire with AI Scoring
+                Stage-Aware Questionnaire with AI Scoring
                 <Badge variant="secondary" className="ml-2 text-xs">
-                  Structured Display
+                  Dynamic Stage Detection
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                All questionnaire questions displayed individually with proper splitting and AI evaluation
+                Questionnaire answers displayed for the user's selected stage with proper question mapping
               </p>
             </CardHeader>
             <CardContent>
               <div className="max-h-[60vh] overflow-y-auto">
-                <StructuredQuestionnaireDisplay application={application} />
+                <StageAwareQuestionnaireDisplay application={application} />
               </div>
             </CardContent>
           </Card>

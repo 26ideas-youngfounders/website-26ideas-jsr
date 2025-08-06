@@ -5,7 +5,7 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.16.0
+ * @version 1.17.0
  * @author 26ideas Development Team
  */
 
@@ -18,7 +18,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { 
   Eye, 
-  Star, 
   User, 
   MessageSquare, 
   CheckCircle, 
@@ -528,8 +527,8 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   );
 
   const dialogContent = (
-    <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden" aria-describedby="dialog-description">
-      <DialogHeader className="pb-4">
+    <DialogContent className="max-w-7xl w-[95vw] h-[95vh] p-0 overflow-hidden" aria-describedby="dialog-description">
+      <DialogHeader className="px-6 py-4 border-b bg-white sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FileText className="h-6 w-6 text-blue-600" />
@@ -553,8 +552,8 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
         </div>
       </DialogHeader>
 
-      <ScrollArea className="flex-1 pr-6">
-        <div className="space-y-6">
+      <ScrollArea className="flex-1 h-full">
+        <div className="p-6 space-y-6">
           {/* Overall Score Summary */}
           <Card className="border-2 border-primary/20">
             <CardHeader className="pb-3">
@@ -624,7 +623,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                     <div key={item.questionKey} className="border rounded-lg p-4 bg-blue-50/30">
                       <div className="flex items-start justify-between gap-4 mb-3">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
                             <Badge variant="outline" className="text-xs">
                               Q{index + 1}
                             </Badge>
@@ -633,7 +632,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                             </Badge>
                             {item.score !== undefined && (
                               <Badge variant={getScoreBadgeColor(item.score)} className="text-xs">
-                                <Star className="h-3 w-3 mr-1" />
+                                <Brain className="h-3 w-3 mr-1" />
                                 {item.score}/10
                               </Badge>
                             )}
@@ -741,7 +740,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {teamRegistrationData.map((item) => (
                   <div key={item.questionKey} className={`p-3 rounded border ${item.hasAnswer ? 'bg-green-50/50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-sm font-medium text-gray-700">{item.questionText}:</span>
                       {item.hasAnswer ? (
                         <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
@@ -753,7 +752,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                         </Badge>
                       )}
                     </div>
-                    <p className={`text-sm ${item.hasAnswer ? 'text-gray-800' : 'text-gray-500 italic'}`}>
+                    <p className={`text-sm break-words ${item.hasAnswer ? 'text-gray-800' : 'text-gray-500 italic'}`}>
                       {item.userAnswer}
                     </p>
                   </div>
@@ -786,7 +785,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                         </div>
                         <div>
                           <span className="font-medium text-muted-foreground">Email:</span>
-                          <span className="ml-2">{member.email || 'N/A'}</span>
+                          <span className="ml-2 break-words">{member.email || 'N/A'}</span>
                         </div>
                         <div>
                           <span className="font-medium text-muted-foreground">Institution:</span>

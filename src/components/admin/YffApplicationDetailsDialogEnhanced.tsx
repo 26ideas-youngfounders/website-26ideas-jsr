@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
@@ -167,6 +168,26 @@ const safeParseEvaluationData = (evaluationData: any) => {
   }
 };
 
+/**
+ * Map question keys to evaluation keys for scoring lookup
+ * MOVED BEFORE useMemo to fix initialization error
+ */
+const getEvaluationKey = (questionKey: string): string => {
+  const keyMapping: Record<string, string> = {
+    'ideaDescription': 'tell_us_about_idea',
+    'problemSolved': 'problem_statement',
+    'targetAudience': 'whose_problem',
+    'solutionApproach': 'how_solve_problem',
+    'monetizationStrategy': 'how_make_money',
+    'customerAcquisition': 'acquire_customers',
+    'developmentApproach': 'product_development',
+    'teamInfo': 'team_roles',
+    'timeline': 'when_proceed'
+  };
+  
+  return keyMapping[questionKey] || questionKey;
+};
+
 export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetailsDialogEnhancedProps> = ({
   application,
   open: controlledOpen,
@@ -279,25 +300,6 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     console.log('✅ Final complete question map:', sortedQuestions);
     return sortedQuestions;
   }, [questionnaireAnswers, evaluationData.scores]);
-
-  /**
-   * Map question keys to evaluation keys for scoring lookup
-   */
-  const getEvaluationKey = (questionKey: string): string => {
-    const keyMapping: Record<string, string> = {
-      'ideaDescription': 'tell_us_about_idea',
-      'problemSolved': 'problem_statement',
-      'targetAudience': 'whose_problem',
-      'solutionApproach': 'how_solve_problem',
-      'monetizationStrategy': 'how_make_money',
-      'customerAcquisition': 'acquire_customers',
-      'developmentApproach': 'product_development',
-      'teamInfo': 'team_roles',
-      'timeline': 'when_proceed'
-    };
-    
-    return keyMapping[questionKey] || questionKey;
-  };
 
   /**
    * Handle dialog trigger click

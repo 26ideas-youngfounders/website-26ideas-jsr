@@ -98,9 +98,9 @@ export class AIComprehensiveScoringService {
       const processingTime = Date.now() - startTime;
       const completedAt = new Date().toISOString();
 
-      // Prepare evaluation data
+      // Prepare evaluation data as a JSON-compatible object
       const evaluationData = {
-        scores: questionScores,
+        scores: JSON.parse(JSON.stringify(questionScores)), // Ensure it's JSON-serializable
         average_score: overallScore,
         idea_summary: ideaSummary,
         evaluation_completed_at: completedAt,

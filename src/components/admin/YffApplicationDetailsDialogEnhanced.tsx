@@ -1,11 +1,12 @@
+
 /**
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
  * Displays comprehensive application details with separate sections for:
- * - Questionnaire answers (only answered questions from /yff/questionnaire)
+ * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.3.0
+ * @version 1.4.0
  * @author 26ideas Development Team
  */
 
@@ -45,19 +46,20 @@ interface YffApplicationDetailsDialogEnhancedProps {
 }
 
 /**
- * Questionnaire questions that should only show if answered
+ * Map questionnaire keys to human-readable questions
  */
-const QUESTIONNAIRE_QUESTIONS: Record<string, string> = {
-  'tell_us_about_idea': 'Tell us about your idea',
-  'problem_statement': 'What problem does your idea solve?',
-  'whose_problem': 'Whose problem does your idea solve for?',
-  'how_solve_problem': 'How does your idea solve this problem?',
-  'how_make_money': 'How do you plan to make money from this idea?',
-  'acquire_customers': 'How do you plan to acquire customers?',
+const QUESTIONNAIRE_KEY_TO_QUESTION: Record<string, string> = {
+  'ideaDescription': 'Tell us about your idea',
+  'problemSolved': 'What problem does your idea solve?',
+  'targetAudience': 'Whose problem does your idea solve for?',
+  'solutionApproach': 'How does your idea solve this problem?',
+  'monetizationStrategy': 'How do you plan to make money from this idea?',
+  'customerAcquisition': 'How do you plan to acquire customers?',
   'competitors': 'List 3 potential competitors for your idea',
-  'product_development': 'What is your approach to product development?',
-  'team_roles': 'Who is on your team, and what are their roles?',
-  'when_proceed': 'When do you plan to proceed with the idea?'
+  'developmentApproach': 'What is your approach to product development?',
+  'teamInfo': 'Who is on your team, and what are their roles?',
+  'timeline': 'When do you plan to proceed with the idea?',
+  'productStage': 'What stage is your product currently in?'
 };
 
 /**
@@ -77,7 +79,15 @@ const TEAM_REGISTRATION_QUESTIONS: Record<string, string> = {
   'ventureName': 'Venture Name',
   'industrySector': 'Industry Sector',
   'numberOfMembers': 'Number of Team Members',
-  'website': 'Website URL'
+  'website': 'Website URL',
+  'linkedin_profile': 'LinkedIn Profile',
+  'social_media_handles': 'Social Media Handles',
+  'gender': 'Gender',
+  'pin_code': 'Pin Code',
+  'permanent_address': 'Permanent Address',
+  'country_code': 'Country Code',
+  'team_name': 'Team Name',
+  'referral_id': 'Referral ID'
 };
 
 /**
@@ -155,6 +165,33 @@ const safeParseEvaluationData = (evaluationData: any) => {
 };
 
 /**
+ * Parse questionnaire answers from yff_team_registrations
+ */
+const parseQuestionnaireAnswers = (teamRegistrationData: any) => {
+  try {
+    console.log('🔍 Parsing questionnaire answers from team registration:', teamRegistrationData);
+    
+    // Check for questionnaire_answers field
+    if (teamRegistrationData?.questionnaire_answers) {
+      let questionnaireAnswers = teamRegistrationData.questionnaire_answers;
+      
+      // Parse if it's a string
+      if (typeof questionnaireAnswers === 'string') {
+        questionnaireAnswers = JSON.parse(questionnaireAnswers);
+      }
+      
+      console.log('📝 Found questionnaire answers:', questionnaireAnswers);
+      return questionnaireAnswers || {};
+    }
+    
+    return {};
+  } catch (error) {
+    console.error('❌ Error parsing questionnaire answers:', error);
+    return {};
+  }
+};
+
+/**
  * Map question keys to evaluation keys for scoring lookup
  */
 const getEvaluationKey = (questionKey: string): string => {
@@ -167,7 +204,9 @@ const getEvaluationKey = (questionKey: string): string => {
     'customerAcquisition': 'acquire_customers',
     'developmentApproach': 'product_development',
     'teamInfo': 'team_roles',
-    'timeline': 'when_proceed'
+    'timeline': 'when_proceed',
+    'competitors': 'competitors',
+    'productStage': 'product_development'
   };
   
   return keyMapping[questionKey] || questionKey;
@@ -196,17 +235,31 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   }, [application.evaluation_data, application.application_id]);
   
   const teamAnswers = parsedAnswers.team || {};
-  const questionnaireAnswers = parsedAnswers.questionnaire_answers || {};
+  
+  // Parse questionnaire answers from team registration data
+  const questionnaireAnswers = useMemo(() => {
+    console.log('🔧 Processing questionnaire answers from team registration data');
+    
+    // First check if we have a yff_team_registrations object in the application
+    if (application.yff_team_registrations) {
+      const questAnswers = parseQuestionnaireAnswers(application.yff_team_registrations);
+      console.log('📝 Questionnaire answers from team registration:', questAnswers);
+      return questAnswers;
+    }
+    
+    // Fallback to parsed answers structure
+    return parsedAnswers.questionnaire_answers || {};
+  }, [application.yff_team_registrations, parsedAnswers.questionnaire_answers]);
   
   console.log('📝 Team answers:', teamAnswers);
   console.log('📝 Questionnaire answers:', questionnaireAnswers);
   console.log('📊 Evaluation scores:', evaluationData.scores);
 
   /**
-   * Process questionnaire answers (only answered questions)
+   * Process questionnaire answers (all answered questions)
    */
   const answeredQuestionnaireQuestions = useMemo(() => {
-    console.log('🗂️ Processing questionnaire questions (only answered)...');
+    console.log('🗂️ Processing questionnaire questions...');
     
     const answeredQuestions: Array<{
       questionKey: string;
@@ -218,16 +271,17 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       rawFeedback?: string;
     }> = [];
 
-    Object.entries(QUESTIONNAIRE_QUESTIONS).forEach(([questionKey, questionText]) => {
-      const userAnswer = questionnaireAnswers[questionKey];
+    // Process all keys in questionnaireAnswers
+    Object.entries(questionnaireAnswers).forEach(([questionKey, userAnswer]) => {
       const hasAnswer = userAnswer !== undefined && userAnswer !== null && userAnswer !== '';
       
       // Only include questions that have answers
       if (hasAnswer) {
+        const questionText = QUESTIONNAIRE_KEY_TO_QUESTION[questionKey] || questionKey;
         const evalKey = getEvaluationKey(questionKey);
         const evaluationScore = evaluationData.scores?.[evalKey] || evaluationData.scores?.[questionKey];
         
-        console.log(`📝 Including answered question: ${questionKey} with answer length: ${String(userAnswer).length}`);
+        console.log(`📝 Including answered question: ${questionKey} (${questionText}) with answer length: ${String(userAnswer).length}`);
         
         answeredQuestions.push({
           questionKey,
@@ -260,8 +314,11 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       hasAnswer: boolean;
     }> = [];
 
+    // Use team registration data from the application object
+    const teamRegData = application.yff_team_registrations || teamAnswers;
+
     Object.entries(TEAM_REGISTRATION_QUESTIONS).forEach(([questionKey, questionText]) => {
-      const userAnswer = teamAnswers[questionKey];
+      const userAnswer = teamRegData[questionKey];
       const hasAnswer = userAnswer !== undefined && userAnswer !== null && userAnswer !== '';
       
       console.log(`📋 Team registration question: ${questionKey}, Has answer: ${hasAnswer}`);
@@ -276,7 +333,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
 
     console.log('✅ Final team registration data entries:', teamData.length);
     return teamData;
-  }, [teamAnswers]);
+  }, [application.yff_team_registrations, teamAnswers]);
 
   /**
    * Handle dialog trigger click
@@ -304,7 +361,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 Application Details with AI Scoring
               </DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                {teamAnswers.ventureName || 'Unnamed Venture'} • {teamAnswers.fullName || application.individuals?.first_name + ' ' + application.individuals?.last_name || 'Unknown Applicant'}
+                {application.yff_team_registrations?.venture_name || teamAnswers.ventureName || 'Unnamed Venture'} • {application.yff_team_registrations?.full_name || teamAnswers.fullName || application.individuals?.first_name + ' ' + application.individuals?.last_name || 'Unknown Applicant'}
               </p>
             </div>
           </div>
@@ -380,7 +437,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Questions from /yff/questionnaire that the participant answered
+                Questions from the YFF questionnaire that the participant answered
               </p>
             </CardHeader>
             <CardContent>
@@ -524,17 +581,18 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
           </Card>
 
           {/* Team Members */}
-          {Array.isArray(teamAnswers.teamMembers) && teamAnswers.teamMembers.length > 0 && (
+          {((application.yff_team_registrations?.team_members && Array.isArray(application.yff_team_registrations.team_members) && application.yff_team_registrations.team_members.length > 0) ||
+            (Array.isArray(teamAnswers.teamMembers) && teamAnswers.teamMembers.length > 0)) && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  Team Members ({teamAnswers.teamMembers.length})
+                  Team Members ({(application.yff_team_registrations?.team_members?.length || teamAnswers.teamMembers?.length || 0)})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {teamAnswers.teamMembers.map((member: any, index: number) => (
+                  {(application.yff_team_registrations?.team_members || teamAnswers.teamMembers || []).map((member: any, index: number) => (
                     <div key={index} className="border rounded-lg p-4 bg-gray-50/50">
                       <h4 className="font-semibold text-sm mb-3 text-gray-700">
                         Team Member {index + 2}
@@ -542,7 +600,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                       <div className="space-y-2 text-sm">
                         <div>
                           <span className="font-medium text-muted-foreground">Name:</span>
-                          <span className="ml-2">{member.fullName || 'N/A'}</span>
+                          <span className="ml-2">{member.fullName || member.full_name || 'N/A'}</span>
                         </div>
                         <div>
                           <span className="font-medium text-muted-foreground">Email:</span>
@@ -550,11 +608,11 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                         </div>
                         <div>
                           <span className="font-medium text-muted-foreground">Institution:</span>
-                          <span className="ml-2">{member.institutionName || 'N/A'}</span>
+                          <span className="ml-2">{member.institutionName || member.institution_name || 'N/A'}</span>
                         </div>
                         <div>
                           <span className="font-medium text-muted-foreground">Course:</span>
-                          <span className="ml-2">{member.courseProgram || 'N/A'}</span>
+                          <span className="ml-2">{member.courseProgram || member.course_program || 'N/A'}</span>
                         </div>
                       </div>
                     </div>

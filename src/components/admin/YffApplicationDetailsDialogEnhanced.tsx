@@ -1,10 +1,11 @@
+
 /**
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
  * Displays comprehensive application details with question-wise answers
  * and corresponding AI scores in a structured, user-friendly format.
  * 
- * @version 1.0.0
+ * @version 1.1.0
  * @author 26ideas Development Team
  */
 
@@ -55,7 +56,17 @@ const IDEA_STAGE_QUESTION_MAPPING: Record<string, string> = {
   'competitors': 'List 3 potential competitors for your idea',
   'product_development': 'What is your approach to product development?',
   'team_roles': 'Who is on your team, and what are their roles?',
-  'when_proceed': 'When do you plan to proceed with the idea?'
+  'when_proceed': 'When do you plan to proceed with the idea?',
+  // Additional mappings for common variations
+  'ideaDescription': 'Tell us about your idea',
+  'problemSolved': 'What problem does your idea solve?',
+  'targetAudience': 'Whose problem does your idea solve for?',
+  'solutionApproach': 'How does your idea solve this problem?',
+  'monetizationStrategy': 'How do you plan to make money from this idea?',
+  'customerAcquisition': 'How do you plan to acquire customers?',
+  'developmentApproach': 'What is your approach to product development?',
+  'teamInfo': 'Who is on your team, and what are their roles?',
+  'timeline': 'When do you plan to proceed with the idea?'
 };
 
 /**
@@ -80,6 +91,58 @@ const getScoreBadgeColor = (score?: number): "default" | "secondary" | "destruct
   return 'destructive';
 };
 
+/**
+ * Safe parsing function for application answers
+ */
+const safeParseAnswers = (answers: any) => {
+  try {
+    console.log('🔍 Parsing application answers:', answers);
+    if (!answers) return { team: {}, questionnaire_answers: {} };
+    
+    if (typeof answers === 'string') {
+      const parsed = JSON.parse(answers);
+      console.log('📋 Parsed JSON answers:', parsed);
+      return parsed;
+    }
+    
+    if (typeof answers === 'object') {
+      console.log('📋 Direct object answers:', answers);
+      return answers;
+    }
+    
+    return { team: {}, questionnaire_answers: {} };
+  } catch (error) {
+    console.error('❌ Error parsing answers:', error);
+    return { team: {}, questionnaire_answers: {} };
+  }
+};
+
+/**
+ * Safe parsing function for evaluation data
+ */
+const safeParseEvaluationData = (evaluationData: any) => {
+  try {
+    console.log('🔍 Parsing evaluation data:', evaluationData);
+    if (!evaluationData) return { scores: {} };
+    
+    if (typeof evaluationData === 'string') {
+      const parsed = JSON.parse(evaluationData);
+      console.log('📊 Parsed evaluation data:', parsed);
+      return parsed;
+    }
+    
+    if (typeof evaluationData === 'object') {
+      console.log('📊 Direct object evaluation data:', evaluationData);
+      return evaluationData;
+    }
+    
+    return { scores: {} };
+  } catch (error) {
+    console.error('❌ Error parsing evaluation data:', error);
+    return { scores: {} };
+  }
+};
+
 export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetailsDialogEnhancedProps> = ({
   application,
   open: controlledOpen,
@@ -91,23 +154,29 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange || setInternalOpen;
 
-  // Parse application data
-  const parsedAnswers = useMemo(() => parseApplicationAnswers(application.answers), [application.answers]);
-  const evaluationData = useMemo(() => parseEvaluationData(application.evaluation_data), [application.evaluation_data]);
+  // Safe parsing of application data
+  const parsedAnswers = useMemo(() => {
+    console.log('🔧 Processing application answers for:', application.application_id);
+    return safeParseAnswers(application.answers);
+  }, [application.answers, application.application_id]);
+
+  const evaluationData = useMemo(() => {
+    console.log('🔧 Processing evaluation data for:', application.application_id);
+    return safeParseEvaluationData(application.evaluation_data);
+  }, [application.evaluation_data, application.application_id]);
   
   const teamAnswers = parsedAnswers.team || {};
   const questionnaireAnswers = parsedAnswers.questionnaire_answers || {};
   
-  // Get ordered questions for scoring display
-  const orderedQuestions = useMemo(() => {
-    const scores = evaluationData.scores || {};
-    return getOrderedQuestions(scores);
-  }, [evaluationData.scores]);
+  console.log('📝 Team answers:', teamAnswers);
+  console.log('📝 Questionnaire answers:', questionnaireAnswers);
+  console.log('📊 Evaluation scores:', evaluationData.scores);
 
   /**
    * Map questionnaire answers to their corresponding evaluation scores
    */
   const questionAnswerMap = useMemo(() => {
+    console.log('🗺️ Creating question-answer mapping...');
     const map: Array<{
       questionKey: string;
       questionText: string;
@@ -118,49 +187,65 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       rawFeedback?: string;
     }> = [];
 
-    // Map questionnaire answers to evaluation scores
-    Object.entries(questionnaireAnswers).forEach(([key, answer]) => {
-      let mappedKey = key;
-      let questionText = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+    // Process questionnaire answers
+    if (questionnaireAnswers && typeof questionnaireAnswers === 'object') {
+      Object.entries(questionnaireAnswers).forEach(([key, answer]) => {
+        console.log(`🔍 Processing question: ${key} -> ${answer}`);
+        
+        let mappedKey = key;
+        let questionText = IDEA_STAGE_QUESTION_MAPPING[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
 
-      // Map camelCase keys to snake_case evaluation keys
-      const keyMapping: Record<string, string> = {
-        'ideaDescription': 'tell_us_about_idea',
-        'problemSolved': 'problem_statement',
-        'targetAudience': 'whose_problem',
-        'solutionApproach': 'how_solve_problem',
-        'monetizationStrategy': 'how_make_money',
-        'customerAcquisition': 'acquire_customers',
-        'competitors': 'competitors',
-        'developmentApproach': 'product_development',
-        'teamInfo': 'team_roles',
-        'timeline': 'when_proceed'
-      };
+        // Map camelCase keys to snake_case evaluation keys for scoring
+        const keyMapping: Record<string, string> = {
+          'ideaDescription': 'tell_us_about_idea',
+          'problemSolved': 'problem_statement',
+          'targetAudience': 'whose_problem',
+          'solutionApproach': 'how_solve_problem',
+          'monetizationStrategy': 'how_make_money',
+          'customerAcquisition': 'acquire_customers',
+          'competitors': 'competitors',
+          'developmentApproach': 'product_development',
+          'teamInfo': 'team_roles',
+          'timeline': 'when_proceed'
+        };
 
-      if (keyMapping[key]) {
-        mappedKey = keyMapping[key];
-        questionText = IDEA_STAGE_QUESTION_MAPPING[mappedKey] || questionText;
-      }
+        // Use the mapped key for scoring lookup
+        if (keyMapping[key]) {
+          mappedKey = keyMapping[key];
+          questionText = IDEA_STAGE_QUESTION_MAPPING[mappedKey] || questionText;
+        }
 
-      // Find corresponding evaluation score
-      const evaluationScore = evaluationData.scores?.[mappedKey];
+        // Find corresponding evaluation score
+        const evaluationScore = evaluationData.scores?.[mappedKey] || evaluationData.scores?.[key];
+        
+        console.log(`📊 Score lookup for ${key} (mapped to ${mappedKey}):`, evaluationScore);
 
-      map.push({
-        questionKey: key,
-        questionText,
-        userAnswer: String(answer || 'No answer provided'),
-        score: evaluationScore?.score,
-        strengths: evaluationScore?.strengths,
-        improvements: evaluationScore?.areas_for_improvement,
-        rawFeedback: evaluationScore?.raw_feedback
+        map.push({
+          questionKey: key,
+          questionText,
+          userAnswer: String(answer || 'No answer provided'),
+          score: evaluationScore?.score,
+          strengths: evaluationScore?.strengths,
+          improvements: evaluationScore?.areas_for_improvement,
+          rawFeedback: evaluationScore?.raw_feedback
+        });
       });
-    });
+    }
 
+    console.log('✅ Final question-answer map:', map);
     return map;
   }, [questionnaireAnswers, evaluationData.scores]);
 
+  /**
+   * Handle dialog trigger click
+   */
+  const handleDialogTrigger = () => {
+    console.log('👆 Dialog trigger clicked for application:', application.application_id);
+    setOpen(true);
+  };
+
   const DialogButton = () => (
-    <Button variant="outline" size="sm" className="flex items-center gap-2">
+    <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={handleDialogTrigger}>
       <Eye className="h-3 w-3" />
       View Details
     </Button>
@@ -177,7 +262,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 Application Details with AI Scoring
               </DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                {teamAnswers.ventureName || 'Unnamed Venture'} • {teamAnswers.fullName || 'Unknown Applicant'}
+                {teamAnswers.ventureName || 'Unnamed Venture'} • {teamAnswers.fullName || application.individuals?.first_name + ' ' + application.individuals?.last_name || 'Unknown Applicant'}
               </p>
             </div>
           </div>
@@ -228,7 +313,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                       <span className="ml-2 font-medium">
                         {application.submitted_at ? 
                           new Date(application.submitted_at).toLocaleDateString() : 
-                          'N/A'
+                          new Date(application.created_at).toLocaleDateString()
                         }
                       </span>
                     </div>
@@ -255,7 +340,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 <div className="space-y-2">
                   <div>
                     <span className="font-medium text-muted-foreground">Full Name:</span>
-                    <span className="ml-2">{teamAnswers.fullName || 'N/A'}</span>
+                    <span className="ml-2">{teamAnswers.fullName || `${application.individuals?.first_name} ${application.individuals?.last_name}` || 'N/A'}</span>
                   </div>
                   <div>
                     <span className="font-medium text-muted-foreground">Email:</span>

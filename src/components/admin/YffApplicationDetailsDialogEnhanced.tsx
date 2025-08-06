@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
@@ -6,7 +5,7 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.10.0
+ * @version 1.11.0
  * @author 26ideas Development Team
  */
 
@@ -213,30 +212,46 @@ const getEvaluationKey = (questionKey: string): string => {
 };
 
 /**
- * Extremely permissive validation - show almost everything
+ * ULTRA-PERMISSIVE validation - show everything except truly empty values
  */
 const isValidAnswer = (value: any): boolean => {
-  console.log('🔍 Validating answer:', { value, type: typeof value, isNull: value === null, isUndefined: value === undefined });
+  console.log('🔍 Ultra-permissive validation for:', { value, type: typeof value });
   
-  // Only exclude truly empty/null values
+  // Only exclude null, undefined, or completely empty strings
   if (value === null || value === undefined) {
-    console.log('❌ Answer is null or undefined');
+    console.log('❌ Excluding null/undefined');
     return false;
   }
   
+  // Convert to string and check if it's completely empty
   const stringValue = String(value).trim();
-  console.log('🔍 String value:', `"${stringValue}"`, 'Length:', stringValue.length);
-  
-  // Only exclude completely empty strings or obvious invalid values
-  if (stringValue === '' || 
-      stringValue === 'undefined' || 
-      stringValue === 'null') {
-    console.log('❌ Answer is empty string or invalid literal');
+  if (stringValue === '') {
+    console.log('❌ Excluding empty string');
     return false;
   }
   
-  console.log('✅ Answer is valid');
+  // Accept everything else, including "0", "false", single characters, etc.
+  console.log('✅ ACCEPTING value:', stringValue);
   return true;
+};
+
+/**
+ * Get team registration data with ultra-permissive validation
+ */
+const getTeamRegistrationValue = (data: any, key: string): { value: string; hasAnswer: boolean } => {
+  console.log(`🔍 Getting team registration value for ${key}:`, data?.[key]);
+  
+  if (!data) {
+    return { value: 'No data available', hasAnswer: false };
+  }
+  
+  const rawValue = data[key];
+  const hasAnswer = isValidAnswer(rawValue);
+  
+  return {
+    value: hasAnswer ? String(rawValue).trim() : 'Not provided',
+    hasAnswer
+  };
 };
 
 export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetailsDialogEnhancedProps> = ({
@@ -265,7 +280,8 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   
   // Parse questionnaire answers from team registration data with null safety
   const questionnaireAnswers = useMemo(() => {
-    console.log('🔧 Processing questionnaire answers from team registration data');
+    console.log('🔧 ULTRA-PERMISSIVE Processing questionnaire answers from team registration data');
+    console.log('🔧 Team registration data:', application.yff_team_registrations);
     
     // Check if we have team registration data
     if (application.yff_team_registrations) {
@@ -275,21 +291,22 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     }
     
     // Fallback to parsed answers structure
-    return parsedAnswers.questionnaire_answers || {};
+    const fallback = parsedAnswers.questionnaire_answers || {};
+    console.log('📝 Fallback questionnaire answers:', fallback);
+    return fallback;
   }, [application.yff_team_registrations, parsedAnswers.questionnaire_answers]);
   
-  console.log('📝 Team answers:', teamAnswers);
-  console.log('📝 Questionnaire answers:', questionnaireAnswers);
-  console.log('📊 Evaluation scores:', evaluationData.scores);
+  console.log('📝 Final team answers:', teamAnswers);
+  console.log('📝 Final questionnaire answers:', questionnaireAnswers);
+  console.log('📊 Final evaluation scores:', evaluationData.scores);
 
   /**
-   * Process questionnaire answers - show ALL answers with extremely permissive filtering
+   * Process questionnaire answers - ULTRA-PERMISSIVE approach
    */
   const answeredQuestionnaireQuestions = useMemo(() => {
-    console.log('🗂️ Processing questionnaire questions - EXTREMELY PERMISSIVE APPROACH...');
+    console.log('🗂️ ULTRA-PERMISSIVE questionnaire processing...');
     console.log('🔍 Raw questionnaire answers object:', questionnaireAnswers);
-    console.log('🔍 Object keys:', Object.keys(questionnaireAnswers));
-    console.log('🔍 Object entries count:', Object.entries(questionnaireAnswers || {}).length);
+    console.log('🔍 Object keys found:', Object.keys(questionnaireAnswers || {}));
     
     const answeredQuestions: Array<{
       questionKey: string;
@@ -301,17 +318,14 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       rawFeedback?: string;
     }> = [];
 
-    // Process ALL entries in questionnaireAnswers with detailed logging
+    // Process ALL entries in questionnaireAnswers
     Object.entries(questionnaireAnswers || {}).forEach(([questionKey, userAnswer], index) => {
-      console.log(`\n🔍 [${index + 1}] Processing question: "${questionKey}"`);
-      console.log(`🔍 [${index + 1}] Answer value:`, userAnswer);
-      console.log(`🔍 [${index + 1}] Answer type: ${typeof userAnswer}`);
-      console.log(`🔍 [${index + 1}] Answer JSON:`, JSON.stringify(userAnswer));
+      console.log(`\n🔍 [${index + 1}] ULTRA-PERMISSIVE processing: "${questionKey}"`);
+      console.log(`🔍 [${index + 1}] Raw answer:`, userAnswer);
       
       const isValid = isValidAnswer(userAnswer);
-      console.log(`🔍 [${index + 1}] Is valid check result:`, isValid);
+      console.log(`🔍 [${index + 1}] Validation result:`, isValid);
       
-      // Use the extremely permissive validation
       if (isValid) {
         const answerString = String(userAnswer).trim();
         
@@ -325,10 +339,9 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                               evaluationData.scores?.[questionKey] ||
                               evaluationData.scores?.[questionKey.toLowerCase()];
         
-        console.log(`✅ [${index + 1}] ADDING question: "${questionKey}" -> "${questionText}"`);
-        console.log(`📏 [${index + 1}] Answer length: ${answerString.length} characters`);
-        console.log(`🎯 [${index + 1}] Evaluation key: ${evalKey}`);
-        console.log(`📊 [${index + 1}] Score:`, evaluationScore?.score);
+        console.log(`✅ [${index + 1}] ADDING: "${questionKey}" -> "${questionText}"`);
+        console.log(`📏 [${index + 1}] Answer length: ${answerString.length}`);
+        console.log(`📊 [${index + 1}] Score found:`, evaluationScore?.score);
         
         answeredQuestions.push({
           questionKey,
@@ -340,30 +353,23 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
           rawFeedback: evaluationScore?.raw_feedback
         });
       } else {
-        console.log(`❌ [${index + 1}] SKIPPING invalid question: "${questionKey}" - Answer:`, userAnswer);
-        console.log(`❌ [${index + 1}] Validation details:`, {
-          isNull: userAnswer === null,
-          isUndefined: userAnswer === undefined,
-          stringValue: String(userAnswer).trim(),
-          stringLength: String(userAnswer).trim().length
-        });
+        console.log(`❌ [${index + 1}] ULTRA-PERMISSIVE STILL SKIPPING: "${questionKey}"`);
       }
     });
 
-    console.log(`\n🎉 FINAL RESULT: ${answeredQuestions.length} questions will be displayed out of ${Object.keys(questionnaireAnswers).length} total`);
-    console.log(`📋 Questions to show:`, answeredQuestions.map(q => q.questionKey));
-    console.log(`📋 Questions skipped:`, Object.keys(questionnaireAnswers).filter(key => 
-      !answeredQuestions.some(q => q.questionKey === key)
-    ));
+    console.log(`\n🎉 ULTRA-PERMISSIVE FINAL: ${answeredQuestions.length} questions will show`);
+    console.log(`📋 Final question keys:`, answeredQuestions.map(q => q.questionKey));
     
     return answeredQuestions;
   }, [questionnaireAnswers, evaluationData.scores]);
 
   /**
-   * Process team registration data (all questions, including blank)
+   * Process team registration data with ultra-permissive validation
    */
   const teamRegistrationData = useMemo(() => {
-    console.log('🗂️ Processing team registration data (all questions)...');
+    console.log('🗂️ ULTRA-PERMISSIVE team registration processing...');
+    console.log('🔍 Team registration source data:', application.yff_team_registrations);
+    console.log('🔍 Fallback team answers:', teamAnswers);
     
     const teamData: Array<{
       questionKey: string;
@@ -372,24 +378,26 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       hasAnswer: boolean;
     }> = [];
 
-    // Use team registration data from the application object with null safety
+    // Use team registration data from the application object with fallback to teamAnswers
     const teamRegData = application.yff_team_registrations || teamAnswers;
+    console.log('🔍 Final team data source:', teamRegData);
 
     Object.entries(TEAM_REGISTRATION_QUESTIONS).forEach(([questionKey, questionText]) => {
-      const userAnswer = teamRegData?.[questionKey as keyof typeof teamRegData];
-      const hasAnswer = userAnswer !== undefined && userAnswer !== null && userAnswer !== '';
+      const { value, hasAnswer } = getTeamRegistrationValue(teamRegData, questionKey);
       
-      console.log(`📋 Team registration question: ${questionKey}, Has answer: ${hasAnswer}`);
+      console.log(`📋 Team field ${questionKey}: hasAnswer=${hasAnswer}, value="${value}"`);
       
       teamData.push({
         questionKey,
         questionText,
-        userAnswer: hasAnswer ? String(userAnswer) : 'No answer provided',
+        userAnswer: value,
         hasAnswer
       });
     });
 
-    console.log('✅ Final team registration data entries:', teamData.length);
+    const answeredCount = teamData.filter(item => item.hasAnswer).length;
+    console.log(`✅ Team registration: ${answeredCount}/${teamData.length} fields have answers`);
+    
     return teamData;
   }, [application.yff_team_registrations, teamAnswers]);
 
@@ -484,27 +492,33 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* Enhanced Debug Information Card */}
-          <Card className="border-yellow-200 bg-yellow-50">
+          {/* Ultra-Permissive Debug Information Card */}
+          <Card className="border-green-200 bg-green-50">
             <CardHeader>
-              <CardTitle className="text-yellow-800 text-sm">🔍 Enhanced Debug Information</CardTitle>
+              <CardTitle className="text-green-800 text-sm">🚀 Ultra-Permissive Debug Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xs text-yellow-700 space-y-1">
-                <div><strong>Total questionnaire keys found:</strong> {Object.keys(questionnaireAnswers).length}</div>
-                <div><strong>Raw keys:</strong> {Object.keys(questionnaireAnswers).join(', ')}</div>
-                <div><strong>Valid questions to display:</strong> {answeredQuestionnaireQuestions.length}</div>
-                <div><strong>Questions that will show:</strong> {answeredQuestionnaireQuestions.map(q => q.questionKey).join(', ')}</div>
-                <div><strong>Questions skipped:</strong> {Object.keys(questionnaireAnswers).filter(key => 
-                  !answeredQuestionnaireQuestions.some(q => q.questionKey === key)
-                ).join(', ')}</div>
-                <div><strong>Sample raw values:</strong></div>
-                {Object.entries(questionnaireAnswers).slice(0, 3).map(([key, value]) => (
-                  <div key={key} className="ml-2">• {key}: {JSON.stringify(value).slice(0, 100)}...</div>
-                ))}
-                <div><strong>Raw questionnaire object (first 500 chars):</strong></div>
-                <div className="bg-white p-2 rounded text-gray-800 font-mono text-xs whitespace-pre-wrap">
-                  {JSON.stringify(questionnaireAnswers, null, 2).slice(0, 500)}...
+              <div className="text-xs text-green-700 space-y-1">
+                <div><strong>Raw questionnaire keys found:</strong> {Object.keys(questionnaireAnswers || {}).length}</div>
+                <div><strong>All keys:</strong> {Object.keys(questionnaireAnswers || {}).join(', ')}</div>
+                <div><strong>Questions that passed ultra-permissive validation:</strong> {answeredQuestionnaireQuestions.length}</div>
+                <div><strong>Questions displaying:</strong> {answeredQuestionnaireQuestions.map(q => q.questionKey).join(', ')}</div>
+                <div><strong>Team registration fields with answers:</strong> {teamRegistrationData.filter(t => t.hasAnswer).length}/{teamRegistrationData.length}</div>
+                
+                <div className="mt-3 p-2 bg-white rounded border">
+                  <div><strong>Sample questionnaire data (first 3 entries):</strong></div>
+                  {Object.entries(questionnaireAnswers || {}).slice(0, 3).map(([key, value]) => (
+                    <div key={key} className="ml-2 font-mono text-xs">
+                      • {key}: {JSON.stringify(value).slice(0, 150)}{JSON.stringify(value).length > 150 ? '...' : ''}
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-2 p-2 bg-white rounded border">
+                  <div><strong>Full questionnaire structure preview:</strong></div>
+                  <pre className="text-xs bg-gray-100 p-2 rounded mt-1 whitespace-pre-wrap overflow-auto max-h-32">
+                    {JSON.stringify(questionnaireAnswers, null, 2).slice(0, 800)}...
+                  </pre>
                 </div>
               </div>
             </CardContent>
@@ -521,7 +535,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Questions from the YFF questionnaire that the participant answered
+                Questions from the YFF questionnaire that the participant answered (Ultra-Permissive Mode)
               </p>
             </CardHeader>
             <CardContent>
@@ -621,12 +635,14 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
               ) : (
                 <div className="text-center py-8">
                   <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No questionnaire answers available</p>
-                  <p className="text-sm text-gray-400">The participant has not answered any questionnaire questions yet</p>
-                  <div className="mt-4 text-xs text-gray-400">
-                    <div>Debug: Found {Object.keys(questionnaireAnswers).length} raw keys</div>
-                    <div>Keys: {Object.keys(questionnaireAnswers).join(', ')}</div>
-                    <div>After validation: {answeredQuestionnaireQuestions.length} valid questions</div>
+                  <p className="text-gray-500">No questionnaire answers found</p>
+                  <p className="text-sm text-gray-400">Even with ultra-permissive validation, no valid answers were detected</p>
+                  <div className="mt-4 text-xs text-gray-400 bg-gray-50 p-3 rounded">
+                    <div><strong>Debug info:</strong></div>
+                    <div>• Raw keys found: {Object.keys(questionnaireAnswers || {}).length}</div>
+                    <div>• Keys: {Object.keys(questionnaireAnswers || {}).join(', ')}</div>
+                    <div>• After ultra-permissive validation: {answeredQuestionnaireQuestions.length}</div>
+                    <div>• Data source: {application.yff_team_registrations ? 'team_registrations' : 'parsed_answers'}</div>
                   </div>
                 </div>
               )}
@@ -638,13 +654,13 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5" />
-                Team Registration Information
+                Team Registration Information (Ultra-Permissive)
                 <Badge variant="outline" className="ml-2 text-xs">
                   {teamRegistrationData.filter(item => item.hasAnswer).length} of {teamRegistrationData.length} completed
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                All team registration fields, including those not filled out
+                All team registration fields with ultra-permissive validation
               </p>
             </CardHeader>
             <CardContent>

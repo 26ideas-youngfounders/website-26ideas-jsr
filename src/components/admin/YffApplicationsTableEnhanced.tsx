@@ -1,11 +1,10 @@
-
 /**
  * @fileoverview Enhanced YFF Applications Admin Table with AI Scoring Integration
  * 
  * Displays YFF applications with comprehensive AI evaluation results,
  * real-time updates, and advanced filtering capabilities.
  * 
- * @version 2.0.0
+ * @version 2.1.0
  * @author 26ideas Development Team
  */
 
@@ -480,11 +479,8 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                   
                   <TableCell>
                     <div className="flex items-center gap-2">
+                      {/* Single View Details button with enhanced dialog */}
                       <YffApplicationDetailsDialogEnhanced
-                        application={application}
-                      />
-                      
-                      <YffApplicationEvaluationDialog 
                         application={application}
                       />
                       

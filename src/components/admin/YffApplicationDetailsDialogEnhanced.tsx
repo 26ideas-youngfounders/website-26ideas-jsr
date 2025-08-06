@@ -2,10 +2,10 @@
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
  * Displays comprehensive application details with separate sections for:
- * - Team registration data (from joined yff_team_registrations)
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
+ * - Team registration data (all questions, including blank ones)
  * 
- * @version 2.0.0
+ * @version 1.18.0
  * @author 26ideas Development Team
  */
 
@@ -44,7 +44,7 @@ interface YffApplicationDetailsDialogEnhancedProps {
 }
 
 /**
- * Map questionnaire keys to human-readable questions
+ * Map questionnaire keys to human-readable questions (FIXED: removed duplicates)
  */
 const QUESTIONNAIRE_KEY_TO_QUESTION: Record<string, string> = {
   'ideaDescription': 'Tell us about your idea',
@@ -58,6 +58,14 @@ const QUESTIONNAIRE_KEY_TO_QUESTION: Record<string, string> = {
   'teamInfo': 'Who is on your team, and what are their roles?',
   'timeline': 'When do you plan to proceed with the idea?',
   'productStage': 'What stage is your product currently in?',
+  'teaminfo': 'Who is on your team, and what are their roles?',
+  'problemStatement': 'What problem does your idea solve?',
+  'whoseProblem': 'Whose problem does your idea solve for?',
+  'howSolveProblem': 'How does your idea solve this problem?',
+  'howMakeMoney': 'How do you plan to make money from this idea?',
+  'acquireCustomers': 'How do you plan to acquire customers?',
+  'productDevelopment': 'What is your approach to product development?',
+  'whenProceed': 'When do you plan to proceed with the idea?',
   'tell_us_about_idea': 'Tell us about your idea',
   'product_stage': 'What stage is your product/service currently at?',
   'problem_statement': 'What problem does your idea solve?',
@@ -71,7 +79,7 @@ const QUESTIONNAIRE_KEY_TO_QUESTION: Record<string, string> = {
 };
 
 /**
- * Team registration questions that should always show
+ * Team registration questions that should always show (with placeholders for blank answers)
  */
 const TEAM_REGISTRATION_QUESTIONS: Record<string, string> = {
   'full_name': 'Full Name',
@@ -121,23 +129,54 @@ const getScoreBadgeColor = (score?: number): "default" | "secondary" | "destruct
 };
 
 /**
- * Safe parsing function for application answers
+ * ENHANCED: Safe unwrapping function for wrapped data values
+ */
+const safeUnwrapValue = (value: any): any => {
+  console.log('🔧 Unwrapping value:', value, 'Type:', typeof value);
+  
+  // Handle null/undefined
+  if (value === null || value === undefined) {
+    return null;
+  }
+  
+  // Handle wrapped values with _type property
+  if (typeof value === 'object' && value !== null) {
+    if ('_type' in value) {
+      console.log('🔧 Found _type wrapper:', value._type, 'Value:', value.value);
+      // If the wrapper indicates undefined/null, return null
+      if (value._type === 'undefined' || value.value === 'undefined' || value.value === null) {
+        return null;
+      }
+      // Otherwise return the wrapped value
+      return value.value !== undefined ? value.value : value;
+    }
+  }
+  
+  return value;
+};
+
+/**
+ * ENHANCED: Safe parsing function for application answers with better unwrapping
  */
 const safeParseAnswers = (answers: any) => {
   try {
-    console.log('🔍 Parsing application answers:', answers);
+    console.log('🔍 ENHANCED parsing application answers:', answers);
     
-    if (!answers) return { team: {}, questionnaire_answers: {} };
+    // First unwrap if needed
+    const unwrappedAnswers = safeUnwrapValue(answers);
+    console.log('🔍 Unwrapped answers:', unwrappedAnswers);
     
-    if (typeof answers === 'string') {
-      const parsed = JSON.parse(answers);
+    if (!unwrappedAnswers) return { team: {}, questionnaire_answers: {} };
+    
+    if (typeof unwrappedAnswers === 'string') {
+      const parsed = JSON.parse(unwrappedAnswers);
       console.log('📋 Parsed JSON answers:', parsed);
       return parsed;
     }
     
-    if (typeof answers === 'object') {
-      console.log('📋 Direct object answers:', answers);
-      return answers;
+    if (typeof unwrappedAnswers === 'object') {
+      console.log('📋 Direct object answers:', unwrappedAnswers);
+      return unwrappedAnswers;
     }
     
     return { team: {}, questionnaire_answers: {} };
@@ -148,23 +187,26 @@ const safeParseAnswers = (answers: any) => {
 };
 
 /**
- * Safe parsing function for evaluation data
+ * ENHANCED: Safe parsing function for evaluation data with unwrapping
  */
 const safeParseEvaluationData = (evaluationData: any) => {
   try {
-    console.log('🔍 Parsing evaluation data:', evaluationData);
+    console.log('🔍 ENHANCED parsing evaluation data:', evaluationData);
     
-    if (!evaluationData) return { scores: {} };
+    const unwrappedData = safeUnwrapValue(evaluationData);
+    console.log('🔍 Unwrapped evaluation data:', unwrappedData);
     
-    if (typeof evaluationData === 'string') {
-      const parsed = JSON.parse(evaluationData);
+    if (!unwrappedData) return { scores: {} };
+    
+    if (typeof unwrappedData === 'string') {
+      const parsed = JSON.parse(unwrappedData);
       console.log('📊 Parsed evaluation data:', parsed);
       return parsed;
     }
     
-    if (typeof evaluationData === 'object') {
-      console.log('📊 Direct object evaluation data:', evaluationData);
-      return evaluationData;
+    if (typeof unwrappedData === 'object') {
+      console.log('📊 Direct object evaluation data:', unwrappedData);
+      return unwrappedData;
     }
     
     return { scores: {} };
@@ -175,75 +217,138 @@ const safeParseEvaluationData = (evaluationData: any) => {
 };
 
 /**
- * Get team registration data - now properly handles joined data
- */
-const getTeamRegistrationData = (teamRegistrations: any): any => {
-  console.log('🔍 Processing team registration data:', teamRegistrations);
-  
-  if (!teamRegistrations) {
-    console.log('❌ No team registration data found');
-    return null;
-  }
-  
-  // Handle array case (if multiple registrations)
-  if (Array.isArray(teamRegistrations)) {
-    console.log('📋 Team registration is array, taking first item');
-    return teamRegistrations[0] || null;
-  }
-  
-  // Handle single object case
-  if (typeof teamRegistrations === 'object') {
-    console.log('📋 Team registration is single object');
-    return teamRegistrations;
-  }
-  
-  console.log('❌ Team registration data is not in expected format');
-  return null;
-};
-
-/**
- * Extract questionnaire answers from team registration data
- */
-const extractQuestionnaireAnswers = (teamRegData: any): Record<string, any> => {
-  console.log('🔍 Extracting questionnaire answers from:', teamRegData);
-  
-  if (!teamRegData) return {};
-  
-  const questionnaireAnswers = teamRegData.questionnaire_answers || {};
-  console.log('📝 Found questionnaire answers:', questionnaireAnswers);
-  
-  if (typeof questionnaireAnswers === 'string') {
-    try {
-      return JSON.parse(questionnaireAnswers);
-    } catch (e) {
-      console.error('❌ Failed to parse questionnaire JSON:', e);
-      return {};
-    }
-  }
-  
-  return questionnaireAnswers;
-};
-
-/**
- * Validation function for answers
+ * ENHANCED: More permissive validation that handles wrapped data types correctly
  */
 const isValidAnswer = (value: any): boolean => {
-  if (value === null || value === undefined) return false;
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === 'object') return Object.keys(value).length > 0;
+  // First unwrap the value
+  const unwrapped = safeUnwrapValue(value);
   
-  const stringValue = String(value).trim();
-  return stringValue !== '' && stringValue !== 'undefined' && stringValue !== 'null';
+  // Handle null and undefined after unwrapping
+  if (unwrapped === null || unwrapped === undefined) {
+    return false;
+  }
+  
+  // Handle arrays
+  if (Array.isArray(unwrapped)) {
+    return unwrapped.length > 0;
+  }
+  
+  // Handle objects
+  if (typeof unwrapped === 'object') {
+    const keys = Object.keys(unwrapped);
+    return keys.length > 0;
+  }
+  
+  // Handle primitives (strings, numbers, booleans)
+  const stringValue = String(unwrapped).trim();
+  
+  // Only exclude truly empty or meaningless values
+  return stringValue !== '' && 
+         stringValue !== 'undefined' && 
+         stringValue !== 'null';
 };
 
 /**
- * Extract display value
+ * ENHANCED: Extract display value with better handling for wrapped and complex objects
  */
 const extractValue = (value: any): string => {
-  if (value === null || value === undefined) return 'Not provided';
-  if (Array.isArray(value)) return value.map(item => extractValue(item)).join(', ');
-  if (typeof value === 'object') return JSON.stringify(value, null, 2);
-  return String(value).trim();
+  const unwrapped = safeUnwrapValue(value);
+  
+  if (unwrapped === null || unwrapped === undefined) {
+    return 'Not provided';
+  }
+  
+  if (Array.isArray(unwrapped)) {
+    return unwrapped.map(item => extractValue(item)).join(', ');
+  }
+  
+  if (typeof unwrapped === 'object') {
+    try {
+      const entries = Object.entries(unwrapped)
+        .filter(([key, val]) => isValidAnswer(val))
+        .map(([key, val]) => `${key}: ${extractValue(val)}`);
+      
+      if (entries.length > 0) {
+        return entries.join('; ');
+      }
+    } catch (error) {
+      // Fallback for complex objects
+    }
+    
+    return JSON.stringify(unwrapped, null, 2);
+  }
+  
+  return String(unwrapped).trim();
+};
+
+/**
+ * COMPLETELY REWRITTEN: Extract all individual questions from questionnaire answers
+ */
+const parseQuestionnaireAnswers = (teamRegistrationData: any): Record<string, any> => {
+  console.log('🔍 PARSING questionnaire answers from:', teamRegistrationData);
+  
+  if (!teamRegistrationData) {
+    console.log('❌ No team registration data provided');
+    return {};
+  }
+  
+  const results: Record<string, any> = {};
+  
+  // Function to extract questions from any object structure
+  const extractQuestions = (obj: any, depth = 0) => {
+    if (!obj || typeof obj !== 'object' || depth > 5) return;
+    
+    // Check for direct questionnaire_answers field
+    if (obj.questionnaire_answers) {
+      console.log(`📝 Found questionnaire_answers at depth ${depth}:`, obj.questionnaire_answers);
+      
+      let questionnaireData = obj.questionnaire_answers;
+      
+      // Parse if it's a string
+      if (typeof questionnaireData === 'string') {
+        try {
+          questionnaireData = JSON.parse(questionnaireData);
+          console.log(`📝 Parsed questionnaire JSON:`, questionnaireData);
+        } catch (e) {
+          console.error(`❌ Failed to parse questionnaire JSON:`, e);
+          return;
+        }
+      }
+      
+      // Extract individual questions
+      if (typeof questionnaireData === 'object' && questionnaireData !== null) {
+        Object.entries(questionnaireData).forEach(([questionKey, answer]) => {
+          if (isValidAnswer(answer)) {
+            results[questionKey] = answer;
+            console.log(`✅ Added question: ${questionKey}`);
+          }
+        });
+      }
+    }
+    
+    // Look for known question keys directly in the object
+    const knownQuestionKeys = Object.keys(QUESTIONNAIRE_KEY_TO_QUESTION);
+    knownQuestionKeys.forEach(key => {
+      if (obj[key] && isValidAnswer(obj[key]) && !results[key]) {
+        results[key] = obj[key];
+        console.log(`✅ Found direct question: ${key}`);
+      }
+    });
+    
+    // Recursively search nested objects
+    Object.entries(obj).forEach(([key, value]) => {
+      if (typeof value === 'object' && value !== null && key !== 'questionnaire_answers') {
+        extractQuestions(value, depth + 1);
+      }
+    });
+  };
+  
+  extractQuestions(teamRegistrationData);
+  
+  console.log(`🎉 FINAL: Found ${Object.keys(results).length} questionnaire answers`);
+  console.log(`📋 Questions found:`, Object.keys(results));
+  
+  return results;
 };
 
 /**
@@ -267,6 +372,29 @@ const getEvaluationKey = (questionKey: string): string => {
   return keyMapping[questionKey] || questionKey;
 };
 
+/**
+ * ENHANCED: Get team registration data with ultra permissive validation and proper unwrapping
+ */
+const getTeamRegistrationValue = (data: any, key: string): { value: string; hasAnswer: boolean } => {
+  console.log(`🔍 ENHANCED getting team registration value for ${key}:`, data?.[key]);
+  
+  if (!data) {
+    return { value: 'No data available', hasAnswer: false };
+  }
+
+  const rawValue = data[key];
+  const unwrappedValue = safeUnwrapValue(rawValue);
+  const hasAnswer = isValidAnswer(unwrappedValue);
+  const extractedValue = hasAnswer ? extractValue(unwrappedValue) : 'Not provided';
+  
+  console.log(`📋 ENHANCED team field ${key}: unwrapped=${JSON.stringify(unwrappedValue)}, hasAnswer=${hasAnswer}, value="${extractedValue}"`);
+  
+  return {
+    value: extractedValue,
+    hasAnswer
+  };
+};
+
 export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetailsDialogEnhancedProps> = ({
   application,
   open: controlledOpen,
@@ -278,38 +406,54 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange || setInternalOpen;
 
-  // Parse application data
+  // ENHANCED: Safe parsing of application data with better unwrapping
   const parsedAnswers = useMemo(() => {
-    console.log('🔧 Processing application answers for:', application.application_id);
+    console.log('🔧 ENHANCED processing application answers for:', application.application_id);
+    console.log('🔧 Raw application.answers:', application.answers);
     return safeParseAnswers(application.answers);
   }, [application.answers, application.application_id]);
 
   const evaluationData = useMemo(() => {
-    console.log('🔧 Processing evaluation data for:', application.application_id);
+    console.log('🔧 ENHANCED processing evaluation data for:', application.application_id);
+    console.log('🔧 Raw evaluation_data:', application.evaluation_data);
     return safeParseEvaluationData(application.evaluation_data);
   }, [application.evaluation_data, application.application_id]);
-
-  // Get team registration data from the joined table
-  const teamRegistrationData = useMemo(() => {
-    console.log('🔧 Processing joined team registration data for:', application.application_id);
-    return getTeamRegistrationData(application.yff_team_registrations);
-  }, [application.yff_team_registrations, application.application_id]);
-
-  // Extract questionnaire answers from team registration data
+  
+  const teamAnswers = parsedAnswers.team || {};
+  
+  // ENHANCED: Parse questionnaire answers with proper extraction and unwrapping
   const questionnaireAnswers = useMemo(() => {
-    console.log('🔧 Extracting questionnaire answers for application:', application.application_id);
-    return extractQuestionnaireAnswers(teamRegistrationData);
-  }, [teamRegistrationData, application.application_id]);
-
-  console.log('📝 Final questionnaire answers:', questionnaireAnswers);
-  console.log('📊 Final evaluation scores:', evaluationData.scores);
-  console.log('👥 Final team registration data:', teamRegistrationData);
+    console.log('🔧 ENHANCED PROCESSING questionnaire parsing for application:', application.application_id);
+    console.log('🔧 Raw team registration data:', application.yff_team_registrations);
+    
+    // First try to get from team registration data with unwrapping
+    if (application.yff_team_registrations) {
+      const unwrappedTeamReg = safeUnwrapValue(application.yff_team_registrations);
+      console.log('🔧 Unwrapped team registration:', unwrappedTeamReg);
+      
+      if (unwrappedTeamReg) {
+        const parsed = parseQuestionnaireAnswers(unwrappedTeamReg);
+        if (Object.keys(parsed).length > 0) {
+          return parsed;
+        }
+      }
+    }
+    
+    // Fallback to parsed answers structure
+    const fallback = parsedAnswers.questionnaire_answers || {};
+    console.log('🔧 Using fallback questionnaire answers:', fallback);
+    return fallback;
+  }, [application.yff_team_registrations, parsedAnswers.questionnaire_answers, application.application_id]);
+  
+  console.log('📝 ENHANCED FINAL questionnaire answers:', questionnaireAnswers);
+  console.log('📊 ENHANCED Final evaluation scores:', evaluationData.scores);
 
   /**
-   * Process questionnaire answers for display
+   * FIXED: Process questionnaire answers with proper iteration
    */
   const answeredQuestionnaireQuestions = useMemo(() => {
     console.log('🗂️ Processing questionnaire questions...');
+    console.log('🔍 Questionnaire answers to process:', questionnaireAnswers);
     
     const answeredQuestions: Array<{
       questionKey: string;
@@ -321,7 +465,11 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       rawFeedback?: string;
     }> = [];
 
-    Object.entries(questionnaireAnswers || {}).forEach(([questionKey, userAnswer]) => {
+    // Process all entries in questionnaireAnswers
+    Object.entries(questionnaireAnswers || {}).forEach(([questionKey, userAnswer], index) => {
+      console.log(`\n🔍 [${index + 1}] Processing question: "${questionKey}"`);
+      console.log(`🔍 [${index + 1}] Raw answer:`, userAnswer);
+      
       if (isValidAnswer(userAnswer)) {
         const answerString = extractValue(userAnswer);
         
@@ -335,7 +483,8 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                               evaluationData.scores?.[questionKey] ||
                               evaluationData.scores?.[questionKey.toLowerCase()];
         
-        console.log(`✅ Adding question: "${questionKey}" -> "${questionText}"`);
+        console.log(`✅ [${index + 1}] ADDING question: "${questionKey}" -> "${questionText}"`);
+        console.log(`📊 [${index + 1}] Score:`, evaluationScore?.score);
         
         answeredQuestions.push({
           questionKey,
@@ -346,34 +495,45 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
           improvements: evaluationScore?.areas_for_improvement,
           rawFeedback: evaluationScore?.raw_feedback
         });
+      } else {
+        console.log(`❌ [${index + 1}] SKIPPED invalid answer: "${questionKey}"`);
       }
     });
 
-    console.log(`🎉 Final: ${answeredQuestions.length} questions will be displayed`);
+    console.log(`\n🎉 FINAL: ${answeredQuestions.length} questions will be displayed`);
+    
     return answeredQuestions;
   }, [questionnaireAnswers, evaluationData.scores]);
 
   /**
-   * Process team registration fields for display
+   * ENHANCED: Process team registration data with ultra permissive validation and proper unwrapping
    */
-  const teamRegistrationFields = useMemo(() => {
-    console.log('🗂️ Processing team registration fields...');
+  const teamRegistrationData = useMemo(() => {
+    console.log('🗂️ ENHANCED ULTRA PERMISSIVE team registration processing...');
+    console.log('🔍 Team registration source data:', application.yff_team_registrations);
+    console.log('🔍 Fallback team answers:', teamAnswers);
     
-    const fields: Array<{
+    const teamData: Array<{
       questionKey: string;
       questionText: string;
       userAnswer: string;
       hasAnswer: boolean;
     }> = [];
 
+    // ENHANCED: Unwrap the team registration data properly
+    const unwrappedTeamReg = safeUnwrapValue(application.yff_team_registrations);
+    console.log('🔍 ENHANCED unwrapped team registration:', unwrappedTeamReg);
+    
+    // Use unwrapped team registration data with fallback to teamAnswers
+    const teamRegData = unwrappedTeamReg || teamAnswers;
+    console.log('🔍 ENHANCED final team data source:', teamRegData);
+
     Object.entries(TEAM_REGISTRATION_QUESTIONS).forEach(([questionKey, questionText]) => {
-      const rawValue = teamRegistrationData?.[questionKey];
-      const hasAnswer = isValidAnswer(rawValue);
-      const value = hasAnswer ? extractValue(rawValue) : 'Not provided';
+      const { value, hasAnswer } = getTeamRegistrationValue(teamRegData, questionKey);
       
-      console.log(`📋 Team field ${questionKey}: hasAnswer=${hasAnswer}, value="${value}"`);
+      console.log(`📋 ENHANCED team field ${questionKey}: hasAnswer=${hasAnswer}, value="${value}"`);
       
-      fields.push({
+      teamData.push({
         questionKey,
         questionText,
         userAnswer: value,
@@ -381,11 +541,11 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       });
     });
 
-    const answeredCount = fields.filter(item => item.hasAnswer).length;
-    console.log(`✅ Team registration: ${answeredCount}/${fields.length} fields have answers`);
+    const answeredCount = teamData.filter(item => item.hasAnswer).length;
+    console.log(`✅ ENHANCED team registration: ${answeredCount}/${teamData.length} fields have answers`);
     
-    return fields;
-  }, [teamRegistrationData]);
+    return teamData;
+  }, [application.yff_team_registrations, teamAnswers]);
 
   /**
    * Handle dialog trigger click
@@ -413,7 +573,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 Application Details with AI Scoring
               </DialogTitle>
               <DialogDescription id="dialog-description" className="text-sm text-muted-foreground mt-1">
-                {teamRegistrationData?.venture_name || 'Unnamed Venture'} • {teamRegistrationData?.full_name || application.individuals?.first_name + ' ' + application.individuals?.last_name || 'Unknown Applicant'}
+                {application.yff_team_registrations?.venture_name || teamAnswers.ventureName || 'Unnamed Venture'} • {application.yff_team_registrations?.full_name || teamAnswers.fullName || application.individuals?.first_name + ' ' + application.individuals?.last_name || 'Unknown Applicant'}
               </DialogDescription>
             </div>
           </div>
@@ -478,46 +638,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* Team Registration Information - NEW SECTION */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                Team Registration Information
-                <Badge variant="outline" className="ml-2 text-xs">
-                  {teamRegistrationFields.filter(item => item.hasAnswer).length} of {teamRegistrationFields.length} completed
-                </Badge>
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Complete team registration details as submitted by the applicant
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {teamRegistrationFields.map((item) => (
-                  <div key={item.questionKey} className={`p-3 rounded border ${item.hasAnswer ? 'bg-green-50/50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="text-sm font-medium text-gray-700">{item.questionText}:</span>
-                      {item.hasAnswer ? (
-                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
-                          Provided
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs text-gray-500">
-                          Not Provided
-                        </Badge>
-                      )}
-                    </div>
-                    <p className={`text-sm break-words ${item.hasAnswer ? 'text-gray-800' : 'text-gray-500 italic'}`}>
-                      {item.userAnswer}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Questionnaire Answers with AI Scoring */}
+          {/* FIXED: Questionnaire Answers - Now shows ALL questions */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -637,18 +758,58 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
+          {/* Team Registration Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Team Registration Information
+                <Badge variant="outline" className="ml-2 text-xs">
+                  {teamRegistrationData.filter(item => item.hasAnswer).length} of {teamRegistrationData.length} completed
+                </Badge>
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                All team registration fields
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {teamRegistrationData.map((item) => (
+                  <div key={item.questionKey} className={`p-3 rounded border ${item.hasAnswer ? 'bg-green-50/50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-sm font-medium text-gray-700">{item.questionText}:</span>
+                      {item.hasAnswer ? (
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                          Provided
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs text-gray-500">
+                          Not Provided
+                        </Badge>
+                      )}
+                    </div>
+                    <p className={`text-sm break-words ${item.hasAnswer ? 'text-gray-800' : 'text-gray-500 italic'}`}>
+                      {item.userAnswer}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Team Members */}
-          {teamRegistrationData?.team_members && Array.isArray(teamRegistrationData.team_members) && teamRegistrationData.team_members.length > 0 && (
+          {((application.yff_team_registrations?.team_members && Array.isArray(application.yff_team_registrations.team_members) && application.yff_team_registrations.team_members.length > 0) ||
+            (Array.isArray(teamAnswers.teamMembers) && teamAnswers.teamMembers.length > 0)) && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  Team Members ({teamRegistrationData.team_members.length})
+                  Team Members ({(application.yff_team_registrations?.team_members?.length || teamAnswers.teamMembers?.length || 0)})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {teamRegistrationData.team_members.map((member: any, index: number) => (
+                  {(application.yff_team_registrations?.team_members || teamAnswers.teamMembers || []).map((member: any, index: number) => (
                     <div key={index} className="border rounded-lg p-4 bg-gray-50/50">
                       <h4 className="font-semibold text-sm mb-3 text-gray-700">
                         Team Member {index + 2}

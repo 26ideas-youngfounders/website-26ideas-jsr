@@ -5,7 +5,7 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.15.0
+ * @version 1.16.0
  * @author 26ideas Development Team
  */
 
@@ -66,7 +66,18 @@ const QUESTIONNAIRE_KEY_TO_QUESTION: Record<string, string> = {
   'howMakeMoney': 'How do you plan to make money from this idea?',
   'acquireCustomers': 'How do you plan to acquire customers?',
   'productDevelopment': 'What is your approach to product development?',
-  'whenProceed': 'When do you plan to proceed with the idea?'
+  'whenProceed': 'When do you plan to proceed with the idea?',
+  'tell_us_about_idea': 'Tell us about your idea',
+  'product_stage': 'What stage is your product/service currently at?',
+  'problem_statement': 'What problem does your idea solve?',
+  'whose_problem': 'Whose problem does your idea solve for?',
+  'how_solve_problem': 'How does your idea solve this problem?',
+  'how_make_money': 'How do you plan to make money from this idea?',
+  'acquire_customers': 'How do you plan to acquire first paying customers?',
+  'competitors': 'List 3 potential competitors',
+  'product_development': 'How are you developing the product?',
+  'team_roles': 'Who is on your team and their roles?',
+  'when_proceed': 'When/Since when have you been working on the idea?'
 };
 
 /**
@@ -172,7 +183,7 @@ const safeParseEvaluationData = (evaluationData: any) => {
 };
 
 /**
- * ENHANCED: Ultra permissive validation that properly handles all data types
+ * FIXED: More permissive validation that handles all data types correctly
  */
 const isValidAnswer = (value: any): boolean => {
   // Handle null and undefined
@@ -182,7 +193,7 @@ const isValidAnswer = (value: any): boolean => {
   
   // Handle arrays
   if (Array.isArray(value)) {
-    return value.length > 0 && value.some(item => isValidAnswer(item));
+    return value.length > 0;
   }
   
   // Handle objects
@@ -199,22 +210,20 @@ const isValidAnswer = (value: any): boolean => {
     
     // For regular objects, check if they have meaningful content
     const keys = Object.keys(value);
-    return keys.length > 0 && keys.some(key => isValidAnswer(value[key]));
+    return keys.length > 0;
   }
   
   // Handle primitives (strings, numbers, booleans)
   const stringValue = String(value).trim();
   
-  // Only exclude truly empty or invalid values
+  // Only exclude truly empty or meaningless values
   return stringValue !== '' && 
          stringValue !== 'undefined' && 
-         stringValue !== 'null' &&
-         stringValue !== '{}' &&
-         stringValue !== '[]';
+         stringValue !== 'null';
 };
 
 /**
- * ENHANCED: Extract display value with better handling for complex objects
+ * FIXED: Extract display value with better handling for complex objects
  */
 const extractValue = (value: any): string => {
   if (value === null || value === undefined) {
@@ -222,8 +231,7 @@ const extractValue = (value: any): string => {
   }
   
   if (Array.isArray(value)) {
-    const validItems = value.filter(item => isValidAnswer(item)).map(item => extractValue(item));
-    return validItems.join(', ') || 'Empty list';
+    return value.map(item => extractValue(item)).join(', ');
   }
   
   if (typeof value === 'object') {
@@ -242,103 +250,83 @@ const extractValue = (value: any): string => {
         return entries.join('; ');
       }
     } catch (error) {
-      console.log('Error processing object, using string representation');
+      // Fallback for complex objects
     }
     
-    // If it's a simple object, try JSON.stringify but make it readable
-    const stringified = JSON.stringify(value, null, 2);
-    if (stringified.length < 200) {
-      return stringified;
-    }
-    
-    // For very long objects, just show a summary
-    return `[Object with ${Object.keys(value).length} properties]`;
+    return JSON.stringify(value, null, 2);
   }
   
   return String(value).trim();
 };
 
 /**
- * COMPLETELY REWRITTEN: Deep questionnaire parsing that handles nested JSON structures
+ * COMPLETELY REWRITTEN: Extract all individual questions from questionnaire answers
  */
 const parseQuestionnaireAnswers = (teamRegistrationData: any): Record<string, any> => {
-  try {
-    console.log('🔍 DEEP PARSING questionnaire answers from team registration:', teamRegistrationData);
-    
-    if (!teamRegistrationData) {
-      console.log('❌ No team registration data provided');
-      return {};
-    }
-    
-    // Function to recursively search for questionnaire answers
-    const findQuestionnaireData = (obj: any, depth = 0): Record<string, any> => {
-      if (depth > 5) return {}; // Prevent infinite recursion
-      
-      const results: Record<string, any> = {};
-      
-      if (!obj || typeof obj !== 'object') {
-        return results;
-      }
-      
-      // Direct questionnaire_answers field
-      if (obj.questionnaire_answers) {
-        console.log(`📝 Found questionnaire_answers at depth ${depth}:`, obj.questionnaire_answers);
-        
-        let questionnaireData = obj.questionnaire_answers;
-        
-        // Parse if it's a string
-        if (typeof questionnaireData === 'string') {
-          try {
-            questionnaireData = JSON.parse(questionnaireData);
-            console.log(`📝 Parsed questionnaire JSON at depth ${depth}:`, questionnaireData);
-          } catch (e) {
-            console.error(`❌ Failed to parse questionnaire JSON at depth ${depth}:`, e);
-            return results;
-          }
-        }
-        
-        // If the parsed data is an object, extract individual questions
-        if (typeof questionnaireData === 'object' && questionnaireData !== null) {
-          // Check if it's a nested structure with individual questions
-          Object.entries(questionnaireData).forEach(([key, value]) => {
-            if (isValidAnswer(value)) {
-              results[key] = value;
-              console.log(`✅ Added question "${key}" with value:`, String(extractValue(value)).substring(0, 50) + '...');
-            }
-          });
-        }
-      }
-      
-      // Look for individual question fields directly in the object
-      const knownQuestionKeys = Object.keys(QUESTIONNAIRE_KEY_TO_QUESTION);
-      knownQuestionKeys.forEach(key => {
-        if (obj[key] && isValidAnswer(obj[key]) && !results[key]) {
-          results[key] = obj[key];
-          console.log(`✅ Found direct question "${key}" at depth ${depth}`);
-        }
-      });
-      
-      // Recursively search nested objects
-      Object.entries(obj).forEach(([key, value]) => {
-        if (typeof value === 'object' && value !== null && key !== 'questionnaire_answers') {
-          const nestedResults = findQuestionnaireData(value, depth + 1);
-          Object.assign(results, nestedResults);
-        }
-      });
-      
-      return results;
-    };
-    
-    const foundAnswers = findQuestionnaireData(teamRegistrationData);
-    
-    console.log(`🎉 FINAL QUESTIONNAIRE PARSING: Found ${Object.keys(foundAnswers).length} questions`);
-    console.log(`📋 Question keys found:`, Object.keys(foundAnswers));
-    
-    return foundAnswers;
-  } catch (error) {
-    console.error('❌ Error in deep questionnaire parsing:', error);
+  console.log('🔍 PARSING questionnaire answers from:', teamRegistrationData);
+  
+  if (!teamRegistrationData) {
+    console.log('❌ No team registration data provided');
     return {};
   }
+  
+  const results: Record<string, any> = {};
+  
+  // Function to extract questions from any object structure
+  const extractQuestions = (obj: any, depth = 0) => {
+    if (!obj || typeof obj !== 'object' || depth > 5) return;
+    
+    // Check for direct questionnaire_answers field
+    if (obj.questionnaire_answers) {
+      console.log(`📝 Found questionnaire_answers at depth ${depth}:`, obj.questionnaire_answers);
+      
+      let questionnaireData = obj.questionnaire_answers;
+      
+      // Parse if it's a string
+      if (typeof questionnaireData === 'string') {
+        try {
+          questionnaireData = JSON.parse(questionnaireData);
+          console.log(`📝 Parsed questionnaire JSON:`, questionnaireData);
+        } catch (e) {
+          console.error(`❌ Failed to parse questionnaire JSON:`, e);
+          return;
+        }
+      }
+      
+      // Extract individual questions
+      if (typeof questionnaireData === 'object' && questionnaireData !== null) {
+        Object.entries(questionnaireData).forEach(([questionKey, answer]) => {
+          if (isValidAnswer(answer)) {
+            results[questionKey] = answer;
+            console.log(`✅ Added question: ${questionKey}`);
+          }
+        });
+      }
+    }
+    
+    // Look for known question keys directly in the object
+    const knownQuestionKeys = Object.keys(QUESTIONNAIRE_KEY_TO_QUESTION);
+    knownQuestionKeys.forEach(key => {
+      if (obj[key] && isValidAnswer(obj[key]) && !results[key]) {
+        results[key] = obj[key];
+        console.log(`✅ Found direct question: ${key}`);
+      }
+    });
+    
+    // Recursively search nested objects
+    Object.entries(obj).forEach(([key, value]) => {
+      if (typeof value === 'object' && value !== null && key !== 'questionnaire_answers') {
+        extractQuestions(value, depth + 1);
+      }
+    });
+  };
+  
+  extractQuestions(teamRegistrationData);
+  
+  console.log(`🎉 FINAL: Found ${Object.keys(results).length} questionnaire answers`);
+  console.log(`📋 Questions found:`, Object.keys(results));
+  
+  return results;
 };
 
 /**
@@ -408,29 +396,34 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   
   const teamAnswers = parsedAnswers.team || {};
   
-  // ENHANCED: Parse questionnaire answers with deep parsing
+  // FIXED: Parse questionnaire answers with proper extraction
   const questionnaireAnswers = useMemo(() => {
-    console.log('🔧 ENHANCED questionnaire parsing for application:', application.application_id);
+    console.log('🔧 PROCESSING questionnaire parsing for application:', application.application_id);
     console.log('🔧 Team registration data:', application.yff_team_registrations);
     
+    // First try to get from team registration data
     if (application.yff_team_registrations) {
-      return parseQuestionnaireAnswers(application.yff_team_registrations);
+      const parsed = parseQuestionnaireAnswers(application.yff_team_registrations);
+      if (Object.keys(parsed).length > 0) {
+        return parsed;
+      }
     }
     
     // Fallback to parsed answers structure
-    return parsedAnswers.questionnaire_answers || {};
+    const fallback = parsedAnswers.questionnaire_answers || {};
+    console.log('🔧 Using fallback questionnaire answers:', fallback);
+    return fallback;
   }, [application.yff_team_registrations, parsedAnswers.questionnaire_answers, application.application_id]);
   
   console.log('📝 FINAL questionnaire answers:', questionnaireAnswers);
   console.log('📊 Final evaluation scores:', evaluationData.scores);
 
   /**
-   * ENHANCED: Process questionnaire answers with improved validation and display
+   * FIXED: Process questionnaire answers with proper iteration
    */
   const answeredQuestionnaireQuestions = useMemo(() => {
     console.log('🗂️ Processing questionnaire questions...');
-    console.log('🔍 Raw questionnaire answers object:', questionnaireAnswers);
-    console.log('🔍 Object keys found:', Object.keys(questionnaireAnswers || {}));
+    console.log('🔍 Questionnaire answers to process:', questionnaireAnswers);
     
     const answeredQuestions: Array<{
       questionKey: string;
@@ -444,18 +437,14 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
 
     // Process all entries in questionnaireAnswers
     Object.entries(questionnaireAnswers || {}).forEach(([questionKey, userAnswer], index) => {
-      console.log(`\n🔍 [${index + 1}] Processing: "${questionKey}"`);
+      console.log(`\n🔍 [${index + 1}] Processing question: "${questionKey}"`);
       console.log(`🔍 [${index + 1}] Raw answer:`, userAnswer);
       
-      const isValid = isValidAnswer(userAnswer);
-      console.log(`🔍 [${index + 1}] Validation result:`, isValid);
-      
-      if (isValid) {
+      if (isValidAnswer(userAnswer)) {
         const answerString = extractValue(userAnswer);
         
         // Get human-readable question text
         const questionText = QUESTIONNAIRE_KEY_TO_QUESTION[questionKey] || 
-          QUESTIONNAIRE_KEY_TO_QUESTION[questionKey.toLowerCase()] ||
           questionKey.charAt(0).toUpperCase() + questionKey.slice(1).replace(/([A-Z])/g, ' $1');
         
         // Look up evaluation score
@@ -464,9 +453,8 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                               evaluationData.scores?.[questionKey] ||
                               evaluationData.scores?.[questionKey.toLowerCase()];
         
-        console.log(`✅ [${index + 1}] ADDING: "${questionKey}" -> "${questionText}"`);
-        console.log(`📏 [${index + 1}] Answer: ${answerString.slice(0, 100)}...`);
-        console.log(`📊 [${index + 1}] Score found:`, evaluationScore?.score);
+        console.log(`✅ [${index + 1}] ADDING question: "${questionKey}" -> "${questionText}"`);
+        console.log(`📊 [${index + 1}] Score:`, evaluationScore?.score);
         
         answeredQuestions.push({
           questionKey,
@@ -478,12 +466,11 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
           rawFeedback: evaluationScore?.raw_feedback
         });
       } else {
-        console.log(`❌ [${index + 1}] SKIPPING: "${questionKey}"`);
+        console.log(`❌ [${index + 1}] SKIPPED invalid answer: "${questionKey}"`);
       }
     });
 
     console.log(`\n🎉 FINAL: ${answeredQuestions.length} questions will be displayed`);
-    console.log(`📋 Question keys:`, answeredQuestions.map(q => q.questionKey));
     
     return answeredQuestions;
   }, [questionnaireAnswers, evaluationData.scores]);
@@ -617,7 +604,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* ENHANCED: Questionnaire Answers - Now properly parsed and displayed */}
+          {/* FIXED: Questionnaire Answers - Now shows ALL questions */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -628,7 +615,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Questions from the YFF questionnaire that the participant answered
+                All questions from the YFF questionnaire that the participant answered
               </p>
             </CardHeader>
             <CardContent>

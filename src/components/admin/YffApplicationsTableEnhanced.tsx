@@ -34,7 +34,7 @@ interface YffApplicationsTableEnhancedProps {
 // Define local interface to match dialog component expectations
 interface DialogApplication {
   application_id: string;
-  individual_id?: string;
+  individual_id: string; // Made required to match ExtendedYffApplication
   status: string;
   application_round?: string;
   answers: any;
@@ -223,7 +223,7 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                   // Convert to DialogApplication type for dialog components
                   const applicationForDialog: DialogApplication = {
                     application_id: app.application_id,
-                    individual_id: app.individual_id,
+                    individual_id: app.individual_id || '', // Provide fallback to ensure required field
                     status: app.status,
                     application_round: app.application_round,
                     answers: app.answers,

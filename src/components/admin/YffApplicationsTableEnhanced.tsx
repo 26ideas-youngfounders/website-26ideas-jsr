@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Enhanced YFF Applications Admin Table with AI Scoring Integration
  * 
@@ -46,7 +45,7 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { YffApplicationEvaluationDialog } from './YffApplicationEvaluationDialog';
-import { YffApplicationDetailsDialogTrigger } from './YffApplicationDetailsDialogTrigger';
+import { YffApplicationDetailsDialogEnhanced } from './YffApplicationDetailsDialogEnhanced';
 import { useBackgroundScoring } from '@/hooks/useBackgroundScoring';
 import type { YffApplicationWithIndividual } from '@/types/yff-application';
 import { parseApplicationAnswers, parseEvaluationData } from '@/types/yff-application';
@@ -480,8 +479,8 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                   
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {/* View Details button with enhanced dialog */}
-                      <YffApplicationDetailsDialogTrigger
+                      {/* Single View Details button with enhanced dialog */}
+                      <YffApplicationDetailsDialogEnhanced
                         application={application}
                       />
                       

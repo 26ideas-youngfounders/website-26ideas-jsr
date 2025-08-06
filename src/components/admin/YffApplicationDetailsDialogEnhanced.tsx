@@ -5,7 +5,7 @@
  * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
  * - Team registration data (all questions, including blank ones)
  * 
- * @version 1.17.0
+ * @version 1.18.0
  * @author 26ideas Development Team
  */
 
@@ -129,22 +129,54 @@ const getScoreBadgeColor = (score?: number): "default" | "secondary" | "destruct
 };
 
 /**
- * Safe parsing function for application answers
+ * ENHANCED: Safe unwrapping function for wrapped data values
+ */
+const safeUnwrapValue = (value: any): any => {
+  console.log('🔧 Unwrapping value:', value, 'Type:', typeof value);
+  
+  // Handle null/undefined
+  if (value === null || value === undefined) {
+    return null;
+  }
+  
+  // Handle wrapped values with _type property
+  if (typeof value === 'object' && value !== null) {
+    if ('_type' in value) {
+      console.log('🔧 Found _type wrapper:', value._type, 'Value:', value.value);
+      // If the wrapper indicates undefined/null, return null
+      if (value._type === 'undefined' || value.value === 'undefined' || value.value === null) {
+        return null;
+      }
+      // Otherwise return the wrapped value
+      return value.value !== undefined ? value.value : value;
+    }
+  }
+  
+  return value;
+};
+
+/**
+ * ENHANCED: Safe parsing function for application answers with better unwrapping
  */
 const safeParseAnswers = (answers: any) => {
   try {
-    console.log('🔍 Parsing application answers:', answers);
-    if (!answers) return { team: {}, questionnaire_answers: {} };
+    console.log('🔍 ENHANCED parsing application answers:', answers);
     
-    if (typeof answers === 'string') {
-      const parsed = JSON.parse(answers);
+    // First unwrap if needed
+    const unwrappedAnswers = safeUnwrapValue(answers);
+    console.log('🔍 Unwrapped answers:', unwrappedAnswers);
+    
+    if (!unwrappedAnswers) return { team: {}, questionnaire_answers: {} };
+    
+    if (typeof unwrappedAnswers === 'string') {
+      const parsed = JSON.parse(unwrappedAnswers);
       console.log('📋 Parsed JSON answers:', parsed);
       return parsed;
     }
     
-    if (typeof answers === 'object') {
-      console.log('📋 Direct object answers:', answers);
-      return answers;
+    if (typeof unwrappedAnswers === 'object') {
+      console.log('📋 Direct object answers:', unwrappedAnswers);
+      return unwrappedAnswers;
     }
     
     return { team: {}, questionnaire_answers: {} };
@@ -155,22 +187,26 @@ const safeParseAnswers = (answers: any) => {
 };
 
 /**
- * Safe parsing function for evaluation data
+ * ENHANCED: Safe parsing function for evaluation data with unwrapping
  */
 const safeParseEvaluationData = (evaluationData: any) => {
   try {
-    console.log('🔍 Parsing evaluation data:', evaluationData);
-    if (!evaluationData) return { scores: {} };
+    console.log('🔍 ENHANCED parsing evaluation data:', evaluationData);
     
-    if (typeof evaluationData === 'string') {
-      const parsed = JSON.parse(evaluationData);
+    const unwrappedData = safeUnwrapValue(evaluationData);
+    console.log('🔍 Unwrapped evaluation data:', unwrappedData);
+    
+    if (!unwrappedData) return { scores: {} };
+    
+    if (typeof unwrappedData === 'string') {
+      const parsed = JSON.parse(unwrappedData);
       console.log('📊 Parsed evaluation data:', parsed);
       return parsed;
     }
     
-    if (typeof evaluationData === 'object') {
-      console.log('📊 Direct object evaluation data:', evaluationData);
-      return evaluationData;
+    if (typeof unwrappedData === 'object') {
+      console.log('📊 Direct object evaluation data:', unwrappedData);
+      return unwrappedData;
     }
     
     return { scores: {} };
@@ -181,38 +217,30 @@ const safeParseEvaluationData = (evaluationData: any) => {
 };
 
 /**
- * FIXED: More permissive validation that handles all data types correctly
+ * ENHANCED: More permissive validation that handles wrapped data types correctly
  */
 const isValidAnswer = (value: any): boolean => {
-  // Handle null and undefined
-  if (value === null || value === undefined) {
+  // First unwrap the value
+  const unwrapped = safeUnwrapValue(value);
+  
+  // Handle null and undefined after unwrapping
+  if (unwrapped === null || unwrapped === undefined) {
     return false;
   }
   
   // Handle arrays
-  if (Array.isArray(value)) {
-    return value.length > 0;
+  if (Array.isArray(unwrapped)) {
+    return unwrapped.length > 0;
   }
   
   // Handle objects
-  if (typeof value === 'object') {
-    // Special handling for wrapper objects with _type property
-    if (value._type === 'undefined' || value.value === 'undefined' || value.value === null) {
-      return false;
-    }
-    
-    // If it has a value property, validate the inner value
-    if ('value' in value) {
-      return isValidAnswer(value.value);
-    }
-    
-    // For regular objects, check if they have meaningful content
-    const keys = Object.keys(value);
+  if (typeof unwrapped === 'object') {
+    const keys = Object.keys(unwrapped);
     return keys.length > 0;
   }
   
   // Handle primitives (strings, numbers, booleans)
-  const stringValue = String(value).trim();
+  const stringValue = String(unwrapped).trim();
   
   // Only exclude truly empty or meaningless values
   return stringValue !== '' && 
@@ -221,26 +249,22 @@ const isValidAnswer = (value: any): boolean => {
 };
 
 /**
- * FIXED: Extract display value with better handling for complex objects
+ * ENHANCED: Extract display value with better handling for wrapped and complex objects
  */
 const extractValue = (value: any): string => {
-  if (value === null || value === undefined) {
+  const unwrapped = safeUnwrapValue(value);
+  
+  if (unwrapped === null || unwrapped === undefined) {
     return 'Not provided';
   }
   
-  if (Array.isArray(value)) {
-    return value.map(item => extractValue(item)).join(', ');
+  if (Array.isArray(unwrapped)) {
+    return unwrapped.map(item => extractValue(item)).join(', ');
   }
   
-  if (typeof value === 'object') {
-    // Handle wrapper objects with value property
-    if ('value' in value && value.value !== undefined && value.value !== null) {
-      return extractValue(value.value);
-    }
-    
-    // For regular objects, create readable representation
+  if (typeof unwrapped === 'object') {
     try {
-      const entries = Object.entries(value)
+      const entries = Object.entries(unwrapped)
         .filter(([key, val]) => isValidAnswer(val))
         .map(([key, val]) => `${key}: ${extractValue(val)}`);
       
@@ -251,10 +275,10 @@ const extractValue = (value: any): string => {
       // Fallback for complex objects
     }
     
-    return JSON.stringify(value, null, 2);
+    return JSON.stringify(unwrapped, null, 2);
   }
   
-  return String(value).trim();
+  return String(unwrapped).trim();
 };
 
 /**
@@ -349,20 +373,21 @@ const getEvaluationKey = (questionKey: string): string => {
 };
 
 /**
- * Get team registration data with ultra permissive validation
+ * ENHANCED: Get team registration data with ultra permissive validation and proper unwrapping
  */
 const getTeamRegistrationValue = (data: any, key: string): { value: string; hasAnswer: boolean } => {
-  console.log(`🔍 Getting team registration value for ${key}:`, data?.[key]);
+  console.log(`🔍 ENHANCED getting team registration value for ${key}:`, data?.[key]);
   
   if (!data) {
     return { value: 'No data available', hasAnswer: false };
   }
-  
+
   const rawValue = data[key];
-  const hasAnswer = isValidAnswer(rawValue);
-  const extractedValue = hasAnswer ? extractValue(rawValue) : 'Not provided';
+  const unwrappedValue = safeUnwrapValue(rawValue);
+  const hasAnswer = isValidAnswer(unwrappedValue);
+  const extractedValue = hasAnswer ? extractValue(unwrappedValue) : 'Not provided';
   
-  console.log(`📋 Team field ${key}: hasAnswer=${hasAnswer}, value="${extractedValue}"`);
+  console.log(`📋 ENHANCED team field ${key}: unwrapped=${JSON.stringify(unwrappedValue)}, hasAnswer=${hasAnswer}, value="${extractedValue}"`);
   
   return {
     value: extractedValue,
@@ -381,29 +406,36 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange || setInternalOpen;
 
-  // Safe parsing of application data
+  // ENHANCED: Safe parsing of application data with better unwrapping
   const parsedAnswers = useMemo(() => {
-    console.log('🔧 Processing application answers for:', application.application_id);
+    console.log('🔧 ENHANCED processing application answers for:', application.application_id);
+    console.log('🔧 Raw application.answers:', application.answers);
     return safeParseAnswers(application.answers);
   }, [application.answers, application.application_id]);
 
   const evaluationData = useMemo(() => {
-    console.log('🔧 Processing evaluation data for:', application.application_id);
+    console.log('🔧 ENHANCED processing evaluation data for:', application.application_id);
+    console.log('🔧 Raw evaluation_data:', application.evaluation_data);
     return safeParseEvaluationData(application.evaluation_data);
   }, [application.evaluation_data, application.application_id]);
   
   const teamAnswers = parsedAnswers.team || {};
   
-  // FIXED: Parse questionnaire answers with proper extraction
+  // ENHANCED: Parse questionnaire answers with proper extraction and unwrapping
   const questionnaireAnswers = useMemo(() => {
-    console.log('🔧 PROCESSING questionnaire parsing for application:', application.application_id);
-    console.log('🔧 Team registration data:', application.yff_team_registrations);
+    console.log('🔧 ENHANCED PROCESSING questionnaire parsing for application:', application.application_id);
+    console.log('🔧 Raw team registration data:', application.yff_team_registrations);
     
-    // First try to get from team registration data
+    // First try to get from team registration data with unwrapping
     if (application.yff_team_registrations) {
-      const parsed = parseQuestionnaireAnswers(application.yff_team_registrations);
-      if (Object.keys(parsed).length > 0) {
-        return parsed;
+      const unwrappedTeamReg = safeUnwrapValue(application.yff_team_registrations);
+      console.log('🔧 Unwrapped team registration:', unwrappedTeamReg);
+      
+      if (unwrappedTeamReg) {
+        const parsed = parseQuestionnaireAnswers(unwrappedTeamReg);
+        if (Object.keys(parsed).length > 0) {
+          return parsed;
+        }
       }
     }
     
@@ -413,8 +445,8 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     return fallback;
   }, [application.yff_team_registrations, parsedAnswers.questionnaire_answers, application.application_id]);
   
-  console.log('📝 FINAL questionnaire answers:', questionnaireAnswers);
-  console.log('📊 Final evaluation scores:', evaluationData.scores);
+  console.log('📝 ENHANCED FINAL questionnaire answers:', questionnaireAnswers);
+  console.log('📊 ENHANCED Final evaluation scores:', evaluationData.scores);
 
   /**
    * FIXED: Process questionnaire answers with proper iteration
@@ -474,10 +506,10 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   }, [questionnaireAnswers, evaluationData.scores]);
 
   /**
-   * Process team registration data with ultra permissive validation
+   * ENHANCED: Process team registration data with ultra permissive validation and proper unwrapping
    */
   const teamRegistrationData = useMemo(() => {
-    console.log('🗂️ ULTRA PERMISSIVE team registration processing...');
+    console.log('🗂️ ENHANCED ULTRA PERMISSIVE team registration processing...');
     console.log('🔍 Team registration source data:', application.yff_team_registrations);
     console.log('🔍 Fallback team answers:', teamAnswers);
     
@@ -488,14 +520,18 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       hasAnswer: boolean;
     }> = [];
 
-    // Use team registration data from the application object with fallback to teamAnswers
-    const teamRegData = application.yff_team_registrations || teamAnswers;
-    console.log('🔍 Final team data source:', teamRegData);
+    // ENHANCED: Unwrap the team registration data properly
+    const unwrappedTeamReg = safeUnwrapValue(application.yff_team_registrations);
+    console.log('🔍 ENHANCED unwrapped team registration:', unwrappedTeamReg);
+    
+    // Use unwrapped team registration data with fallback to teamAnswers
+    const teamRegData = unwrappedTeamReg || teamAnswers;
+    console.log('🔍 ENHANCED final team data source:', teamRegData);
 
     Object.entries(TEAM_REGISTRATION_QUESTIONS).forEach(([questionKey, questionText]) => {
       const { value, hasAnswer } = getTeamRegistrationValue(teamRegData, questionKey);
       
-      console.log(`📋 Team field ${questionKey}: hasAnswer=${hasAnswer}, value="${value}"`);
+      console.log(`📋 ENHANCED team field ${questionKey}: hasAnswer=${hasAnswer}, value="${value}"`);
       
       teamData.push({
         questionKey,
@@ -506,7 +542,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     });
 
     const answeredCount = teamData.filter(item => item.hasAnswer).length;
-    console.log(`✅ Team registration: ${answeredCount}/${teamData.length} fields have answers`);
+    console.log(`✅ ENHANCED team registration: ${answeredCount}/${teamData.length} fields have answers`);
     
     return teamData;
   }, [application.yff_team_registrations, teamAnswers]);

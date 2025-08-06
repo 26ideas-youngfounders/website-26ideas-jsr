@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Stage-Aware Question Parser
  * 
@@ -84,14 +83,16 @@ export interface StageAwareParsingResult {
 const detectUserStage = (application: ExtendedYffApplication): ApplicationStage | null => {
   console.log('🔍 DETECTING USER STAGE for application:', application.application_id);
   
-  // Check common stage fields
+  // Check common stage fields - using safe optional access
   const possibleStageFields = [
     application.stage,
     application.selected_stage,
     application.application_stage,
-    (application as any).user_stage,
+    application.user_stage,
     application.yff_team_registrations?.stage,
-    application.yff_team_registrations?.selected_stage
+    application.yff_team_registrations?.selected_stage,
+    application.yff_team_registrations?.application_stage,
+    application.yff_team_registrations?.user_stage
   ];
   
   for (const stageField of possibleStageFields) {

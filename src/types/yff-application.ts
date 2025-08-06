@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Extended YFF Application Types
  * 
@@ -50,6 +49,11 @@ export interface YffTeamRegistrationData {
   questionnaire_completed_at?: string;
   created_at?: string;
   updated_at?: string;
+  // Add stage-related properties
+  stage?: string;
+  selected_stage?: string;
+  application_stage?: string;
+  user_stage?: string;
 }
 
 // Extended types that include the missing timestamp columns and related data
@@ -66,6 +70,11 @@ export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evalua
     email?: string;
   } | null;
   yff_team_registrations?: YffTeamRegistrationData | null;
+  // Add stage-related properties
+  stage?: string;
+  selected_stage?: string;
+  application_stage?: string;
+  user_stage?: string;
 }
 
 export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {

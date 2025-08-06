@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import type { ExtendedYffApplication, QuestionScoringResult, AIEvaluationResult, QuestionEvaluation } from '@/types/yff-application';
+import type { ExtendedYffApplication, QuestionScoringResult, AIEvaluationResult } from '@/types/yff-application';
 import { normalizeQuestionId, getAIFeedbackStage } from '@/utils/ai-question-prompts';
 
 /**
@@ -299,20 +299,20 @@ export const triggerEvaluationOnSubmission = async (applicationId: string): Prom
     // Call the main evaluation function
     const result = await evaluateApplication(applicationId);
     
-    // Convert question_scores to JSON-compatible format with proper typing
-    const evaluationDataForDb: Record<string, any> = {};
-    
-    Object.entries(result.question_scores).forEach(([key, evaluation]) => {
-      const typedEvaluation = evaluation as QuestionEvaluation;
-      evaluationDataForDb[key] = {
-        score: typedEvaluation.score || 0,
-        strengths: typedEvaluation.strengths || [],
-        improvements: typedEvaluation.improvements || [],
-        questionText: typedEvaluation.questionText || '',
-        userAnswer: typedEvaluation.userAnswer || '',
-        raw_feedback: typedEvaluation.raw_feedback || ''
-      };
-    });
+    // Convert question_scores to JSON-compatible format
+    const evaluationDataForDb = Object.fromEntries(
+      Object.entries(result.question_scores).map(([key, evaluation]) => [
+        key,
+        {
+          score: evaluation.score,
+          strengths: evaluation.strengths,
+          improvements: evaluation.improvements,
+          questionText: evaluation.questionText,
+          userAnswer: evaluation.userAnswer,
+          raw_feedback: evaluation.raw_feedback
+        }
+      ])
+    );
     
     // Update the application with the evaluation results
     await supabase

@@ -1,57 +1,162 @@
 
 /**
- * @fileoverview YFF Application Types and Conversion Utilities
+ * @fileoverview Extended YFF Application Types
  * 
- * Handles conversion between form data formats and database storage
+ * Extends the auto-generated Supabase types to include columns that exist
+ * in the database but may not be reflected in the generated types.
+ * This resolves TypeScript errors when working with timestamp columns.
  */
 
-import { YffFormData } from './yff-form';
+import { Database } from '@/integrations/supabase/types';
+import type { YffFormData } from './yff-form';
 
-/**
- * Interface for YFF Application stored in database
- */
-export interface YffApplication {
-  application_id: string;
-  individual_id: string;
-  answers: Record<string, any>;
-  status: 'draft' | 'submitted' | 'reviewed' | 'accepted' | 'rejected';
-  evaluation_status: 'pending' | 'in_progress' | 'completed' | 'failed';
-  submitted_at?: string;
+// Define Json type to match Supabase's Json type structure
+type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
+
+// Base type from Supabase
+export type BaseYffApplication = Database['public']['Tables']['yff_applications']['Row'];
+export type BaseYffApplicationInsert = Database['public']['Tables']['yff_applications']['Insert'];
+export type BaseYffApplicationUpdate = Database['public']['Tables']['yff_applications']['Update'];
+
+// Team registration data type
+export interface YffTeamRegistrationData {
+  id?: string;
+  individual_id?: string;
+  full_name?: string;
+  email?: string;
+  phone_number?: string;
+  country_code?: string;
+  date_of_birth?: string;
+  linkedin_profile?: string;
+  social_media_handles?: string;
+  gender?: string;
+  institution_name?: string;
+  course_program?: string;
+  current_year_of_study?: string;
+  expected_graduation?: string;
+  current_city?: string;
+  state?: string;
+  pin_code?: string;
+  permanent_address?: string;
+  team_name?: string;
+  venture_name?: string;
+  number_of_team_members?: number;
+  team_members?: any[];
+  industry_sector?: string;
+  website?: string;
+  referral_id?: string;
+  questionnaire_answers?: Record<string, any>;
+  application_status?: string;
+  questionnaire_completed_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Extended types that include the missing timestamp columns and related data
+export interface ExtendedYffApplication extends Omit<BaseYffApplication, 'evaluation_completed_at'> {
   created_at: string;
   updated_at: string;
-}
-
-/**
- * Extended YFF Application with additional fields for evaluation
- */
-export interface ExtendedYffApplication extends YffApplication {
-  overall_score?: number;
-  evaluation_data?: EvaluationData | Record<string, any>;
-  evaluation_completed_at?: string;
+  evaluation_status: string; // Required field, not optional
+  overall_score: number; // Made required to match base type
+  evaluation_completed_at?: string | null;
+  evaluation_data: Record<string, any>; // Make required to match base type
   individuals?: {
     first_name: string;
     last_name: string;
-    email: string;
-  };
-  yff_team_registrations?: any[];
+    email?: string;
+  } | null;
+  yff_team_registrations?: YffTeamRegistrationData | null;
+}
+
+export interface ExtendedYffApplicationInsert extends BaseYffApplicationInsert {
+  created_at?: string;
+  updated_at?: string;
+  evaluation_status?: string;
+  overall_score?: number;
+  evaluation_completed_at?: string | null;
+  evaluation_data?: Record<string, any>;
+}
+
+export interface ExtendedYffApplicationUpdate extends BaseYffApplicationUpdate {
+  created_at?: string;
+  updated_at?: string;
+  evaluation_status?: string;
+  overall_score?: number;
+  evaluation_completed_at?: string | null;
+  evaluation_data?: Record<string, any>;
 }
 
 /**
- * YFF Application with individual data for admin views
+ * Type for applications with joined individual data (used in queries with joins)
  */
-export interface YffApplicationWithIndividual extends YffApplication {
-  overall_score?: number;
-  evaluation_data?: EvaluationData | Record<string, any>;
-  evaluation_completed_at?: string;
-  individuals?: {
+export interface YffApplicationWithIndividual extends ExtendedYffApplication {
+  individuals: {
     first_name: string;
     last_name: string;
-    email: string;
-  };
+    email?: string;
+  } | null;
 }
 
 /**
- * Question evaluation result interface
+ * Type for parsed application answers
+ */
+export interface ParsedApplicationAnswers {
+  questionnaire_answers?: Record<string, any>;
+  team?: Record<string, any>;
+  [key: string]: any;
+}
+
+/**
+ * Safely parse application answers from Json type
+ */
+export const parseApplicationAnswers = (answers: any): ParsedApplicationAnswers => {
+  if (typeof answers === 'string') {
+    try {
+      return JSON.parse(answers) as ParsedApplicationAnswers;
+    } catch {
+      return {};
+    }
+  }
+  
+  if (typeof answers === 'object' && answers !== null) {
+    return answers as ParsedApplicationAnswers;
+  }
+  
+  return {};
+};
+
+/**
+ * Safely parse evaluation data from Json type
+ */
+export const parseEvaluationData = (data: any): Record<string, any> => {
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data) as Record<string, any>;
+    } catch {
+      return {};
+    }
+  }
+  
+  if (typeof data === 'object' && data !== null) {
+    return data as Record<string, any>;
+  }
+  
+  return {};
+};
+
+/**
+ * Converts form data to JSON format compatible with Supabase
+ * @param formData - The form data to convert
+ * @returns JSON object compatible with Supabase Json type
+ */
+export const convertFormDataToJson = (formData: YffFormData): Record<string, any> => {
+  return Object.fromEntries(
+    Object.entries(formData).map(([key, value]) => [key, value])
+  );
+};
+
+/**
+ * Question evaluation interface for AI scoring - Enhanced version
  */
 export interface QuestionEvaluation {
   score: number;
@@ -63,47 +168,50 @@ export interface QuestionEvaluation {
 }
 
 /**
- * Question scoring result for AI evaluation
- */
-export interface QuestionScoringResult {
-  questionId: string;
-  originalQuestionId?: string;
-  questionText: string;
-  score: number;
-  strengths: string[];
-  areas_for_improvement: string[];
-  raw_feedback: string;
-  userAnswer: string;
-}
-
-/**
- * AI Evaluation result interface
+ * AI evaluation result interface - structured scoring results
  */
 export interface AIEvaluationResult {
   overall_score: number;
   question_scores: Record<string, QuestionEvaluation>;
   idea_summary?: string;
   evaluation_completed_at: string;
-  evaluation_status: 'completed' | 'failed';
+  evaluation_status: 'completed' | 'failed' | 'processing';
 }
 
 /**
- * Evaluation data structure for database storage
+ * Individual question scoring result from AI - Enhanced version
+ */
+export interface QuestionScoringResult {
+  questionId: string;
+  originalQuestionId?: string;
+  questionText?: string;
+  userAnswer?: string;
+  score: number;
+  strengths: string[];
+  areas_for_improvement: string[];
+  raw_feedback: string;
+}
+
+/**
+ * Comprehensive evaluation data structure stored in database
+ * Compatible with Supabase Json type
  */
 export interface EvaluationData {
+  [key: string]: Json; // Add index signature for Json compatibility
   scores: Record<string, {
     score: number;
     strengths: string[];
     areas_for_improvement: string[];
     raw_feedback: string;
-    question_text: string;
-    user_answer: string;
+    question_text?: string;
+    user_answer?: string;
     original_question_id?: string;
   }>;
   average_score: number;
+  evaluation_summary?: string;
   evaluation_completed_at: string;
-  evaluation_status: string;
-  evaluation_metadata?: {
+  evaluation_status: 'pending' | 'processing' | 'completed' | 'failed';
+  evaluation_metadata: {
     total_questions: number;
     questions_scored: number;
     model_used: string;
@@ -112,269 +220,82 @@ export interface EvaluationData {
 }
 
 /**
- * Parse application answers from various formats
+ * System prompt mapping for different application stages
  */
-export const parseApplicationAnswers = (answers: any): Record<string, any> => {
-  console.log('🔍 Parsing application answers:', {
-    type: typeof answers,
-    isString: typeof answers === 'string',
-    hasData: Boolean(answers)
-  });
+export interface StagePromptMapping {
+  [questionKey: string]: string;
+}
 
-  if (!answers) {
-    console.warn('⚠️ No answers provided to parseApplicationAnswers');
-    return {};
-  }
+/**
+ * Application stage types
+ */
+export type ApplicationStage = 'idea' | 'early_revenue';
 
-  if (typeof answers === 'string') {
-    try {
-      const parsed = JSON.parse(answers);
-      console.log('✅ Successfully parsed JSON answers');
-      return parsed || {};
-    } catch (error) {
-      console.error('❌ Failed to parse JSON answers:', error);
-      return {};
-    }
-  }
-
-  if (typeof answers === 'object' && answers !== null) {
-    console.log('✅ Answers already in object format');
-    return answers;
-  }
-
-  console.warn('⚠️ Unexpected answers format:', typeof answers);
+/**
+ * Get system prompts for a specific application stage
+ */
+export const getStagePrompts = (stage: ApplicationStage): StagePromptMapping => {
+  // This will be populated with the actual prompt mappings
+  // Based on the stage (idea vs early_revenue)
   return {};
 };
 
 /**
- * Parse evaluation data ensuring it's in proper format
+ * Safe type guard to ensure evaluation data is an object
  */
-export const parseEvaluationData = (evaluationData: any): EvaluationData => {
-  console.log('🔍 Parsing evaluation data:', {
-    type: typeof evaluationData,
-    hasData: Boolean(evaluationData)
-  });
-
-  if (!evaluationData) {
-    return {
-      scores: {},
-      average_score: 0,
-      evaluation_completed_at: '',
-      evaluation_status: 'pending'
-    };
+export const ensureEvaluationDataIsObject = (data: Json): Record<string, any> => {
+  if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+    return data as Record<string, any>;
   }
-
-  if (typeof evaluationData === 'string') {
-    try {
-      const parsed = JSON.parse(evaluationData);
-      return parsed as EvaluationData;
-    } catch (error) {
-      console.error('❌ Failed to parse evaluation data JSON:', error);
-      return {
-        scores: {},
-        average_score: 0,
-        evaluation_completed_at: '',
-        evaluation_status: 'failed'
-      };
-    }
-  }
-
-  if (typeof evaluationData === 'object' && evaluationData !== null) {
-    return evaluationData as EvaluationData;
-  }
-
-  return {
-    scores: {},
-    average_score: 0,
-    evaluation_completed_at: '',
-    evaluation_status: 'pending'
-  };
+  
+  // Fallback to empty object if data is not a proper object
+  return {};
 };
 
 /**
- * Get ordered questions from evaluation scores
+ * Question display order for Idea Stage applications
  */
-export const getOrderedQuestions = (scores: Record<string, any>): Array<{ key: string; data: any }> => {
-  const questionOrder = [
-    'tell_us_about_idea',
-    'problem_statement',
-    'whose_problem',
-    'how_solve_problem',
-    'how_make_money',
-    'acquire_customers',
-    'early_revenue_acquiring_customers',
-    'competitors',
-    'product_development',
-    'team_roles',
-    'when_proceed'
-  ];
+export const IDEA_STAGE_QUESTION_ORDER = [
+  'tell_us_about_idea',
+  'problem_statement',
+  'whose_problem',
+  'how_solve_problem',
+  'how_make_money',
+  'acquire_customers',
+  'competitors',
+  'product_development',
+  'team_roles',
+  'when_proceed'
+];
 
+/**
+ * Helper function to get ordered questions for display
+ */
+export const getOrderedQuestions = (evaluationData: Record<string, any>): Array<{
+  key: string;
+  data: any;
+}> => {
   const orderedQuestions: Array<{ key: string; data: any }> = [];
-  const remainingKeys = new Set(Object.keys(scores));
-
-  // Add questions in defined order
-  for (const questionId of questionOrder) {
-    if (scores[questionId]) {
+  
+  // First, add questions in the defined order
+  IDEA_STAGE_QUESTION_ORDER.forEach(questionKey => {
+    if (evaluationData[questionKey]) {
       orderedQuestions.push({
-        key: questionId,
-        data: scores[questionId]
+        key: questionKey,
+        data: evaluationData[questionKey]
       });
-      remainingKeys.delete(questionId);
     }
-  }
-
-  // Add any remaining questions
-  for (const key of remainingKeys) {
-    orderedQuestions.push({
-      key,
-      data: scores[key]
-    });
-  }
-
+  });
+  
+  // Then add any remaining questions not in the defined order
+  Object.entries(evaluationData).forEach(([key, data]) => {
+    if (!IDEA_STAGE_QUESTION_ORDER.includes(key)) {
+      orderedQuestions.push({
+        key,
+        data
+      });
+    }
+  });
+  
   return orderedQuestions;
-};
-
-/**
- * Ensure evaluation data is an object format
- */
-export const ensureEvaluationDataIsObject = (evaluationData: any): EvaluationData | Record<string, any> => {
-  if (!evaluationData) {
-    return {};
-  }
-
-  if (typeof evaluationData === 'string') {
-    try {
-      return JSON.parse(evaluationData);
-    } catch (error) {
-      console.error('❌ Failed to parse evaluation data as JSON:', error);
-      return {};
-    }
-  }
-
-  return evaluationData;
-};
-
-/**
- * Convert YffFormData to JSON format for database storage
- */
-export const convertFormDataToJson = (formData: YffFormData): Record<string, any> => {
-  console.log('🔄 Converting form data to JSON:', {
-    hasFormData: Boolean(formData),
-    hasAnswers: Boolean(formData?.answers),
-    formDataKeys: formData ? Object.keys(formData) : 'none'
-  });
-
-  if (!formData) {
-    console.warn('⚠️ No form data provided to convertFormDataToJson');
-    return {};
-  }
-
-  if (!formData.answers) {
-    console.warn('⚠️ No answers in form data');
-    return {};
-  }
-
-  const answers = formData.answers;
-  console.log('📋 Processing answers:', {
-    answerKeys: Object.keys(answers),
-    answerCount: Object.keys(answers).length
-  });
-
-  const result: Record<string, any> = {};
-
-  // Convert each answer, handling different data types
-  for (const [key, value] of Object.entries(answers)) {
-    console.log(`📝 Processing answer [${key}]:`, {
-      type: typeof value,
-      value: value,
-      isNull: value === null,
-      isUndefined: value === undefined,
-      isEmpty: value === ''
-    });
-
-    if (value === null || value === undefined) {
-      console.log(`⚠️ Skipping null/undefined value for key: ${key}`);
-      continue;
-    }
-
-    // Handle different value types
-    if (typeof value === 'string') {
-      if (value.trim() === '') {
-        console.log(`⚠️ Skipping empty string for key: ${key}`);
-        continue;
-      }
-      result[key] = value.trim();
-    } else if (typeof value === 'object') {
-      // Handle arrays and objects
-      if (Array.isArray(value)) {
-        if (value.length > 0) {
-          result[key] = value;
-        } else {
-          console.log(`⚠️ Skipping empty array for key: ${key}`);
-        }
-      } else {
-        // Handle objects (like team member data)
-        const cleanedObject = cleanObject(value);
-        if (Object.keys(cleanedObject).length > 0) {
-          result[key] = cleanedObject;
-        } else {
-          console.log(`⚠️ Skipping empty object for key: ${key}`);
-        }
-      }
-    } else {
-      // Handle other types (numbers, booleans, etc.)
-      result[key] = value;
-    }
-  }
-
-  console.log('✅ Conversion complete:', {
-    originalKeys: Object.keys(answers),
-    resultKeys: Object.keys(result),
-    resultCount: Object.keys(result).length
-  });
-
-  return result;
-};
-
-/**
- * Clean an object by removing null, undefined, and empty string values
- */
-const cleanObject = (obj: any): Record<string, any> => {
-  if (!obj || typeof obj !== 'object') {
-    return {};
-  }
-
-  const cleaned: Record<string, any> = {};
-  
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === null || value === undefined || value === '') {
-      continue;
-    }
-    
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      const cleanedNested = cleanObject(value);
-      if (Object.keys(cleanedNested).length > 0) {
-        cleaned[key] = cleanedNested;
-      }
-    } else if (Array.isArray(value) && value.length > 0) {
-      cleaned[key] = value;
-    } else if (typeof value === 'string' && value.trim() !== '') {
-      cleaned[key] = value.trim();
-    } else if (typeof value !== 'string') {
-      cleaned[key] = value;
-    }
-  }
-  
-  return cleaned;
-};
-
-/**
- * Convert database JSON back to form data format
- */
-export const convertJsonToFormData = (jsonData: Record<string, any>): Partial<YffFormData> => {
-  console.log('🔄 Converting JSON to form data:', jsonData);
-  
-  return {
-    answers: jsonData
-  };
 };

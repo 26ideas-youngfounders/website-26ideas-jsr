@@ -27,23 +27,11 @@ export const handleApplicationSubmission = async (
 ): Promise<SubmissionResult> => {
   try {
     console.log('🚀 Starting application submission for individual:', individualId);
-    console.log('📋 Form data received:', {
-      keys: Object.keys(formData),
-      hasAnswers: Boolean(formData.answers),
-      answersKeys: formData.answers ? Object.keys(formData.answers) : 'none'
-    });
     
     // Convert form data to JSON
     const answersJson = convertFormDataToJson(formData);
-    console.log('📝 Converted answers JSON:', answersJson);
-    
-    // Validate that we have some data to submit
-    if (!answersJson || Object.keys(answersJson).length === 0) {
-      throw new Error('No form data to submit - form appears to be empty');
-    }
     
     // Submit application to database
-    console.log('💾 Attempting database insertion...');
     const { data: application, error: submitError } = await supabase
       .from('yff_applications')
       .insert({
@@ -59,12 +47,10 @@ export const handleApplicationSubmission = async (
       .single();
     
     if (submitError) {
-      console.error('❌ Database submission error:', submitError);
       throw new Error(`Database submission failed: ${submitError.message}`);
     }
     
     if (!application?.application_id) {
-      console.error('❌ No application ID returned:', application);
       throw new Error('No application ID returned from database');
     }
     
@@ -74,7 +60,6 @@ export const handleApplicationSubmission = async (
     // Trigger AI evaluation automatically
     let evaluationTriggered = false;
     try {
-      console.log('🤖 Triggering AI evaluation...');
       await triggerEvaluationOnSubmission(applicationId);
       evaluationTriggered = true;
       console.log('✅ AI evaluation triggered for:', applicationId);
@@ -96,7 +81,7 @@ export const handleApplicationSubmission = async (
     
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Submission failed'
+      error: error.message || 'Submission failed'
     };
   }
 };
@@ -136,7 +121,7 @@ export const triggerManualEvaluation = async (applicationId: string): Promise<Su
     return {
       success: false,
       applicationId,
-      error: error instanceof Error ? error.message : 'Manual AI evaluation trigger failed',
+      error: error.message || 'Manual AI evaluation trigger failed',
       evaluationTriggered: false
     };
   }

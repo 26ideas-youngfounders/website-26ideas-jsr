@@ -1,12 +1,10 @@
-
 /**
  * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
  * 
- * Displays comprehensive application details with separate sections for:
- * - Complete questionnaire answers (all questions rendered dynamically)
- * - Team registration data (all questions, including blank ones)
+ * Displays comprehensive application details with structured questionnaire answers
+ * using the new splitting logic to ensure each question appears individually.
  * 
- * @version 2.0.0
+ * @version 3.0.0
  * @author 26ideas Development Team
  */
 
@@ -16,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Eye, 
   Brain,
@@ -24,41 +21,17 @@ import {
   Users,
   ClipboardList,
   MessageSquare,
-  AlertTriangle,
-  CheckCircle,
-  Star,
-  User,
-  AlertCircle
+  CheckCircle
 } from 'lucide-react';
 import { ExtendedYffApplication } from '@/types/yff-application';
-import { parseQuestionnaireAnswers, getEvaluationKey, TEAM_REGISTRATION_QUESTIONS } from '@/utils/admin-question-parser';
-import { AdminAppQuestion } from '@/components/admin/AdminAppQuestion';
-import { QuestionnaireDebugDisplay } from '@/components/admin/QuestionnaireDebugDisplay';
+import { TEAM_REGISTRATION_QUESTIONS } from '@/utils/admin-question-parser';
+import { StructuredQuestionnaireDisplay } from './StructuredQuestionnaireDisplay';
 
 interface YffApplicationDetailsDialogEnhancedProps {
   application: ExtendedYffApplication;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
-
-/**
- * Safe parsing function for evaluation data
- */
-const safeParseEvaluationData = (evaluationData: any) => {
-  try {
-    if (!evaluationData) return { scores: {} };
-    if (typeof evaluationData === 'string') {
-      return JSON.parse(evaluationData);
-    }
-    if (typeof evaluationData === 'object') {
-      return evaluationData;
-    }
-    return { scores: {} };
-  } catch (error) {
-    console.error('❌ Error parsing evaluation data:', error);
-    return { scores: {} };
-  }
-};
 
 /**
  * Check if value is valid for team registration
@@ -92,36 +65,6 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   // Use controlled state if provided, otherwise use internal state
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange || setInternalOpen;
-
-  // Parse questionnaire answers using the enhanced parser with debugging
-  const questionnaireParsingResult = useMemo(() => {
-    console.log('🔧 Processing questionnaire parsing for application:', application.application_id);
-    return parseQuestionnaireAnswers(application);
-  }, [application]);
-
-  // Parse evaluation data
-  const evaluationData = useMemo(() => {
-    console.log('🔧 Processing evaluation data for application:', application.application_id);
-    return safeParseEvaluationData(application.evaluation_data);
-  }, [application.evaluation_data, application.application_id]);
-
-  // Process questions with AI scoring
-  const questionsWithScoring = useMemo(() => {
-    return questionnaireParsingResult.parsedQuestions.map(question => {
-      const evalKey = getEvaluationKey(question.questionKey);
-      const evaluationScore = evaluationData.scores?.[evalKey] || 
-                            evaluationData.scores?.[question.questionKey] ||
-                            evaluationData.scores?.[question.questionKey.toLowerCase()];
-
-      return {
-        ...question,
-        score: evaluationScore?.score,
-        strengths: evaluationScore?.strengths,
-        improvements: evaluationScore?.areas_for_improvement || evaluationScore?.improvements,
-        rawFeedback: evaluationScore?.raw_feedback
-      };
-    });
-  }, [questionnaireParsingResult.parsedQuestions, evaluationData.scores]);
 
   // Process team registration data
   const teamRegistrationData = useMemo(() => {
@@ -208,14 +151,6 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                       </Badge>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Questions Found:</span>
-                      <span className="ml-2 font-medium">{questionnaireParsingResult.totalFound}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Valid Answers:</span>
-                      <span className="ml-2 font-medium">{questionnaireParsingResult.validAnswers}</span>
-                    </div>
-                    <div>
                       <span className="text-muted-foreground">Submitted:</span>
                       <span className="ml-2 font-medium">
                         {application.submitted_at ? 
@@ -230,23 +165,23 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* Enhanced Questionnaire Display with Debug */}
+          {/* Structured Questionnaire Display */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
                 Complete Questionnaire with AI Scoring
                 <Badge variant="secondary" className="ml-2 text-xs">
-                  Enhanced Debug Mode
+                  Structured Display
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                All Early Revenue Stage questionnaire questions with comprehensive debugging
+                All questionnaire questions displayed individually with proper splitting and AI evaluation
               </p>
             </CardHeader>
-            <CardContent className="max-h-none">
+            <CardContent>
               <div className="max-h-[60vh] overflow-y-auto">
-                <QuestionnaireDebugDisplay application={application} />
+                <StructuredQuestionnaireDisplay application={application} />
               </div>
             </CardContent>
           </Card>

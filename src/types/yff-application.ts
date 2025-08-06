@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Extended YFF Application Types
  * 
@@ -19,11 +20,12 @@ export type BaseYffApplicationUpdate = Database['public']['Tables']['yff_applica
 
 /**
  * Standardized individuals interface - consistent across all application types
+ * Making email required to match component expectations
  */
 export interface YffApplicationIndividuals {
   first_name: string;
   last_name: string;
-  email?: string; // Optional to handle cases where email might not be present
+  email: string; // Made required to match component expectations
   phone_number?: string;
   country_code?: string;
   country_iso_code?: string;

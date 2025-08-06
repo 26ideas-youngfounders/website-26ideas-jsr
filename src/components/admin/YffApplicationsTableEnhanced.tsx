@@ -194,10 +194,17 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                   const answers = parseApplicationAnswers(app.answers);
                   const evaluationData = parseEvaluationData(app.evaluation_data);
                   
-                  // Convert to YffApplication type for dialog components
+                  // Convert to YffApplication type for dialog components with safe email fallback
                   const applicationForDialog: YffApplication = {
                     ...app,
-                    individuals: app.individuals
+                    individuals: app.individuals ? {
+                      first_name: app.individuals.first_name,
+                      last_name: app.individuals.last_name,
+                      email: app.individuals.email || '', // Provide fallback empty string
+                      phone_number: app.individuals.phone_number,
+                      country_code: app.individuals.country_code,
+                      country_iso_code: app.individuals.country_iso_code,
+                    } : null
                   };
 
                   // Create a properly typed application for scoring dialog

@@ -450,7 +450,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     return fallback;
   }, [application.yff_team_registrations, parsedAnswers.questionnaire_answers, application.application_id]);
 
-  // NEW: Extract team registration data with comprehensive debugging
+  // FIXED: Safe extraction of team registration data with proper type handling
   const teamRegistrationData = useMemo(() => {
     console.log("=== TEAM REGISTRATION DATA EXTRACTION ===");
     
@@ -464,9 +464,10 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
       registration = registration[0];
     }
     
-    // Handle wrapped values
-    if (registration && typeof registration === 'object' && registration._type) {
-      console.log("Registration has _type wrapper:", registration._type);
+    // Handle wrapped values by casting to any to access _type property
+    const registrationAsAny = registration as any;
+    if (registration && typeof registration === 'object' && registrationAsAny._type) {
+      console.log("Registration has _type wrapper:", registrationAsAny._type);
       registration = safeUnwrapValue(registration);
       console.log("Unwrapped registration:", registration);
     }
@@ -676,7 +677,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* NEW: Team Registration Information Section */}
+          {/* RESTORED: Team Registration Information Section */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -690,60 +691,11 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             <CardContent>
               {teamRegistrationData && Object.keys(teamRegistrationData).length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <strong>Full Name:</strong> {teamRegistrationData.full_name || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Email Address:</strong> {teamRegistrationData.email || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Phone Number:</strong> {teamRegistrationData.phone_number || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Date of Birth:</strong> {teamRegistrationData.date_of_birth || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Current City:</strong> {teamRegistrationData.current_city || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>State/Province:</strong> {teamRegistrationData.state || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Institution Name:</strong> {teamRegistrationData.institution_name || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Course/Program:</strong> {teamRegistrationData.course_program || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Current Year of Study:</strong> {teamRegistrationData.current_year_of_study || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Expected Graduation:</strong> {teamRegistrationData.expected_graduation || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Venture Name:</strong> {teamRegistrationData.venture_name || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Team Name:</strong> {teamRegistrationData.team_name || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Industry Sector:</strong> {teamRegistrationData.industry_sector || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Number of Team Members:</strong> {teamRegistrationData.number_of_team_members || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Website URL:</strong> {teamRegistrationData.website || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>LinkedIn Profile:</strong> {teamRegistrationData.linkedin_profile || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Gender:</strong> {teamRegistrationData.gender || 'Not provided'}
-                  </div>
-                  <div>
-                    <strong>Pin Code:</strong> {teamRegistrationData.pin_code || 'Not provided'}
-                  </div>
+                  {Object.entries(TEAM_REGISTRATION_QUESTIONS).map(([key, label]) => (
+                    <div key={key}>
+                      <strong>{label}:</strong> {teamRegistrationData[key] || 'Not provided'}
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div>

@@ -36,6 +36,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { ExtendedYffApplication } from '@/types/yff-application';
+import { TeamRegistrationSection } from './TeamRegistrationSection';
 
 interface YffApplicationDetailsDialogEnhancedProps {
   application: ExtendedYffApplication;
@@ -524,8 +525,19 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     const unwrappedTeamReg = safeUnwrapValue(application.yff_team_registrations);
     console.log('🔍 ENHANCED unwrapped team registration:', unwrappedTeamReg);
     
-    // Use unwrapped team registration data with fallback to teamAnswers
-    const teamRegData = unwrappedTeamReg || teamAnswers;
+    // Handle array of registrations (from SQL joins) - take the first one
+    let teamRegData;
+    if (Array.isArray(unwrappedTeamReg) && unwrappedTeamReg.length > 0) {
+      teamRegData = unwrappedTeamReg[0];
+      console.log('🔍 ENHANCED using first array element:', teamRegData);
+    } else if (unwrappedTeamReg && typeof unwrappedTeamReg === 'object') {
+      teamRegData = unwrappedTeamReg;
+      console.log('🔍 ENHANCED using direct object:', teamRegData);
+    } else {
+      teamRegData = teamAnswers;
+      console.log('🔍 ENHANCED using fallback teamAnswers:', teamRegData);
+    }
+    
     console.log('🔍 ENHANCED final team data source:', teamRegData);
 
     Object.entries(TEAM_REGISTRATION_QUESTIONS).forEach(([questionKey, questionText]) => {
@@ -758,44 +770,8 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
-          {/* Team Registration Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                Team Registration Information
-                <Badge variant="outline" className="ml-2 text-xs">
-                  {teamRegistrationData.filter(item => item.hasAnswer).length} of {teamRegistrationData.length} completed
-                </Badge>
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                All team registration fields
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {teamRegistrationData.map((item) => (
-                  <div key={item.questionKey} className={`p-3 rounded border ${item.hasAnswer ? 'bg-green-50/50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="text-sm font-medium text-gray-700">{item.questionText}:</span>
-                      {item.hasAnswer ? (
-                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
-                          Provided
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs text-gray-500">
-                          Not Provided
-                        </Badge>
-                      )}
-                    </div>
-                    <p className={`text-sm break-words ${item.hasAnswer ? 'text-gray-800' : 'text-gray-500 italic'}`}>
-                      {item.userAnswer}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Team Registration Information - New Robust Component */}
+          <TeamRegistrationSection application={application} />
 
           {/* Team Members */}
           {((application.yff_team_registrations?.team_members && Array.isArray(application.yff_team_registrations.team_members) && application.yff_team_registrations.team_members.length > 0) ||

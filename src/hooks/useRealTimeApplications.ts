@@ -71,6 +71,33 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
               first_name,
               last_name,
               email
+            ),
+            yff_team_registrations(
+              full_name,
+              email,
+              phone_number,
+              date_of_birth,
+              current_city,
+              state,
+              pin_code,
+              permanent_address,
+              institution_name,
+              course_program,
+              current_year_of_study,
+              expected_graduation,
+              team_name,
+              number_of_team_members,
+              venture_name,
+              industry_sector,
+              website,
+              linkedin_profile,
+              social_media_handles,
+              gender,
+              country_code,
+              referral_id,
+              questionnaire_answers,
+              created_at,
+              updated_at
             )
           `)
           .order('created_at', { ascending: false });
@@ -81,6 +108,20 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
         }
 
         console.log(`✅ Fetched ${data?.length || 0} applications`);
+        
+        // Debug: Log full application data structure for first application
+        if (data && data.length > 0) {
+          console.log('🔍 FULL APPLICATION OBJECT (first application):', JSON.stringify(data[0], null, 2));
+          console.log('🔍 YFF_TEAM_REGISTRATIONS RAW:', data[0].yff_team_registrations);
+          console.log('🔍 YFF_TEAM_REGISTRATIONS TYPE:', typeof data[0].yff_team_registrations);
+          if (Array.isArray(data[0].yff_team_registrations)) {
+            console.log('🔍 YFF_TEAM_REGISTRATIONS ARRAY LENGTH:', data[0].yff_team_registrations.length);
+            if (data[0].yff_team_registrations.length > 0) {
+              console.log('🔍 FIRST TEAM REGISTRATION ITEM:', data[0].yff_team_registrations[0]);
+            }
+          }
+        }
+        
         setLastUpdate(new Date());
         
         return (data as YffApplicationWithIndividual[]) || [];

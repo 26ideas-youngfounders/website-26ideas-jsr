@@ -32,58 +32,82 @@ const countWords = (text: string | null | undefined) => {
 };
 
 // Define form schema with conditional validation
-const questionnaireSchema = z.object({
-  ideaDescription: z.string()
-    .refine(text => countWords(text) >= 50, 'Please provide a detailed description (at least 50 words)')
-    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
-  productStage: z.enum(['Idea Stage / MLP / Working Prototype', 'Early Revenue'], {
-    required_error: 'Please select a product stage',
-  }),
-  problemSolved: z.string()
-    .refine(text => countWords(text) >= 20, 'Please describe the problem (at least 20 words)')
-    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
-  targetAudience: z.string()
-    .refine(text => countWords(text) >= 20, 'Please describe your target audience (at least 20 words)')
-    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
-  solutionApproach: z.string()
-    .refine(text => countWords(text) >= 20, 'Please describe your solution approach (at least 20 words)')
-    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
-  monetizationStrategy: z.string()
-    .refine(text => countWords(text) >= 20, 'Please describe your monetization strategy (at least 20 words)')
-    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
-  customerAcquisition: z.string()
-    .refine(text => countWords(text) >= 20, 'Please describe your customer acquisition plan (at least 20 words)')
-    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
-  competitors: z.string()
-    .refine(text => countWords(text) >= 20, 'Please list your competitors (at least 20 words)')
-    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
-  developmentApproach: z.string()
-    .refine(text => countWords(text) >= 20, 'Please describe your development approach (at least 20 words)')
-    .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
-  teamInfo: z.string()
-  .refine(text => countWords(text) >= 20, 'Please provide information about your team (at least 20 words)')
-  .refine(text => countWords(text) <= 300, 'Description must not exceed 300 words'),
-  timeline: z.string()
-    .refine(text => countWords(text) >= 20, 'Please provide a timeline (at least 20 words)')
-    .refine(text => countWords(text) <= 300, 'Timeline must not exceed 300 words'),
-  // Additional fields for Early Revenue stage - make them optional
-  payingCustomers: z.string().optional(),
-  workingDuration: z.string().optional(),
-}).refine((data) => {
-  // Only validate Early Revenue fields if product stage is Early Revenue
-  if (data.productStage === 'Early Revenue') {
-    if (!data.payingCustomers || countWords(data.payingCustomers) < 20) {
-      return false;
+const questionnaireSchema = z
+  .object({
+    ideaDescription: z
+      .string()
+      .refine((text) => countWords(text) >= 50, 'Please provide a detailed description (at least 50 words)')
+      .refine((text) => countWords(text) <= 300, 'Description must not exceed 300 words'),
+    productStage: z.enum(['Idea Stage / MLP / Working Prototype', 'Early Revenue'], {
+      required_error: 'Please select a product stage',
+    }),
+
+    // Idea Stage fields (kept for backward compatibility and Idea flow)
+    problemSolved: z
+      .string()
+      .refine((text) => countWords(text) >= 20, 'Please describe the problem (at least 20 words)')
+      .refine((text) => countWords(text) <= 300, 'Description must not exceed 300 words'),
+    targetAudience: z
+      .string()
+      .refine((text) => countWords(text) >= 20, 'Please describe your target audience (at least 20 words)')
+      .refine((text) => countWords(text) <= 300, 'Description must not exceed 300 words'),
+    solutionApproach: z
+      .string()
+      .refine((text) => countWords(text) >= 20, 'Please describe your solution approach (at least 20 words)')
+      .refine((text) => countWords(text) <= 300, 'Description must not exceed 300 words'),
+    monetizationStrategy: z
+      .string()
+      .refine((text) => countWords(text) >= 20, 'Please describe your monetization strategy (at least 20 words)')
+      .refine((text) => countWords(text) <= 300, 'Description must not exceed 300 words'),
+    customerAcquisition: z
+      .string()
+      .refine((text) => countWords(text) >= 20, 'Please describe your customer acquisition plan (at least 20 words)')
+      .refine((text) => countWords(text) <= 300, 'Description must not exceed 300 words'),
+    competitors: z
+      .string()
+      .refine((text) => countWords(text) >= 20, 'Please list your competitors (at least 20 words)')
+      .refine((text) => countWords(text) <= 300, 'Description must not exceed 300 words'),
+    developmentApproach: z
+      .string()
+      .refine((text) => countWords(text) >= 20, 'Please describe your development approach (at least 20 words)')
+      .refine((text) => countWords(text) <= 300, 'Description must not exceed 300 words'),
+    teamInfo: z
+      .string()
+      .refine((text) => countWords(text) >= 20, 'Please provide information about your team (at least 20 words)')
+      .refine((text) => countWords(text) <= 300, 'Description must not exceed 300 words'),
+    timeline: z
+      .string()
+      .refine((text) => countWords(text) >= 20, 'Please provide a timeline (at least 20 words)')
+      .refine((text) => countWords(text) <= 300, 'Timeline must not exceed 300 words'),
+
+    // Early Revenue fields (saved with explicit keys for admin compatibility)
+    early_revenue_problem: z.string().optional(),
+    early_revenue_target: z.string().optional(),
+    early_revenue_how_solve: z.string().optional(),
+    early_revenue_monetization: z.string().optional(),
+    early_revenue_customers: z.string().optional(),
+    early_revenue_existing_customers: z.string().optional(),
+    early_revenue_competitors: z.string().optional(),
+    early_revenue_development: z.string().optional(),
+    early_revenue_team: z.string().optional(),
+    early_revenue_timeline: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.productStage === 'Early Revenue') {
+      const check = (val?: string) => !!val && countWords(val) >= 20 && countWords(val) <= 300;
+
+      if (!check(data.early_revenue_problem)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please answer the problem statement (20-300 words).', path: ['early_revenue_problem'] });
+      if (!check(data.early_revenue_target)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please describe whose problem you solve (20-300 words).', path: ['early_revenue_target'] });
+      if (!check(data.early_revenue_how_solve)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please describe how you solve the problem (20-300 words).', path: ['early_revenue_how_solve'] });
+      if (!check(data.early_revenue_monetization)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please explain how you make money (20-300 words).', path: ['early_revenue_monetization'] });
+      if (!check(data.early_revenue_customers)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please describe how you acquire first paying customers (20-300 words).', path: ['early_revenue_customers'] });
+      if (!check(data.early_revenue_existing_customers)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please describe existing paying customers (20-300 words).', path: ['early_revenue_existing_customers'] });
+      if (!check(data.early_revenue_competitors)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please list competitors (20-300 words).', path: ['early_revenue_competitors'] });
+      if (!check(data.early_revenue_development)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please describe product development (20-300 words).', path: ['early_revenue_development'] });
+      if (!check(data.early_revenue_team)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please describe your team (20-300 words).', path: ['early_revenue_team'] });
+      if (!check(data.early_revenue_timeline)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please provide timeline (20-300 words).', path: ['early_revenue_timeline'] });
     }
-    if (!data.workingDuration || countWords(data.workingDuration) < 20) {
-      return false;
-    }
-  }
-  return true;
-}, {
-  message: "Early Revenue fields are required when product stage is 'Early Revenue' (minimum 20 words each)",
-  path: ["payingCustomers", "workingDuration"]
-});
+  });
 
 type QuestionnaireFormData = z.infer<typeof questionnaireSchema>;
 
@@ -166,8 +190,16 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
       developmentApproach: '',
       teamInfo: '',
       timeline: '',
-      payingCustomers: undefined,
-      workingDuration: undefined,
+      early_revenue_problem: '',
+      early_revenue_target: '',
+      early_revenue_how_solve: '',
+      early_revenue_monetization: '',
+      early_revenue_customers: '',
+      early_revenue_existing_customers: '',
+      early_revenue_competitors: '',
+      early_revenue_development: '',
+      early_revenue_team: '',
+      early_revenue_timeline: '',
     },
   });
 

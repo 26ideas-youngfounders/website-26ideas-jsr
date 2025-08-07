@@ -406,11 +406,6 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange || setInternalOpen;
 
-  // DEBUG LOGGING for team registration data
-  console.log("DEBUG – YFF_TEAM_REGISTRATIONS:", application.yff_team_registrations);
-  console.log("DEBUG – YFF_TEAM_REGISTRATIONS TYPE:", typeof application.yff_team_registrations);
-  console.log("DEBUG – YFF_TEAM_REGISTRATIONS IS_ARRAY:", Array.isArray(application.yff_team_registrations));
-
   // ENHANCED: Safe parsing of application data with better unwrapping
   const parsedAnswers = useMemo(() => {
     console.log('🔧 ENHANCED processing application answers for:', application.application_id);
@@ -449,40 +444,6 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     console.log('🔧 Using fallback questionnaire answers:', fallback);
     return fallback;
   }, [application.yff_team_registrations, parsedAnswers.questionnaire_answers, application.application_id]);
-
-  // FIXED: Safe extraction of team registration data with proper type handling
-  const teamRegistrationData = useMemo(() => {
-    console.log("=== TEAM REGISTRATION DATA EXTRACTION ===");
-    
-    // Start with the raw registration data
-    let registration = application.yff_team_registrations;
-    console.log("RAW registration:", registration);
-    
-    // Handle array case (common with joins)
-    if (Array.isArray(registration)) {
-      console.log("Registration is array, taking first element");
-      registration = registration[0];
-    }
-    
-    // Handle wrapped values by casting to any to access _type property
-    const registrationAsAny = registration as any;
-    if (registration && typeof registration === 'object' && registrationAsAny._type) {
-      console.log("Registration has _type wrapper:", registrationAsAny._type);
-      registration = safeUnwrapValue(registration);
-      console.log("Unwrapped registration:", registration);
-    }
-    
-    // Fallback to parsed answers if registration is not valid
-    if (!registration || typeof registration !== 'object' || registration === null) {
-      console.log("Registration invalid, using teamAnswers fallback:", teamAnswers);
-      registration = teamAnswers;
-    }
-    
-    console.log("FINAL registration data:", registration);
-    console.log("=== END TEAM REGISTRATION DATA EXTRACTION ===");
-    
-    return registration || {};
-  }, [application.yff_team_registrations, teamAnswers]);
   
   console.log('📝 ENHANCED FINAL questionnaire answers:', questionnaireAnswers);
   console.log('📊 ENHANCED Final evaluation scores:', evaluationData.scores);
@@ -547,7 +508,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   /**
    * ENHANCED: Process team registration data with ultra permissive validation and proper unwrapping
    */
-  const teamRegistrationDataForDisplay = useMemo(() => {
+  const teamRegistrationData = useMemo(() => {
     console.log('🗂️ ENHANCED ULTRA PERMISSIVE team registration processing...');
     console.log('🔍 Team registration source data:', application.yff_team_registrations);
     console.log('🔍 Fallback team answers:', teamAnswers);
@@ -612,7 +573,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 Application Details with AI Scoring
               </DialogTitle>
               <DialogDescription id="dialog-description" className="text-sm text-muted-foreground mt-1">
-                {teamRegistrationData.venture_name || teamRegistrationData.team_name || teamAnswers.ventureName || 'Unnamed Venture'} • {teamRegistrationData.full_name || teamAnswers.fullName || application.individuals?.first_name + ' ' + application.individuals?.last_name || 'Unknown Applicant'}
+                {application.yff_team_registrations?.venture_name || teamAnswers.ventureName || 'Unnamed Venture'} • {application.yff_team_registrations?.full_name || teamAnswers.fullName || application.individuals?.first_name + ' ' + application.individuals?.last_name || 'Unknown Applicant'}
               </DialogDescription>
             </div>
           </div>
@@ -674,44 +635,6 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* RESTORED: Team Registration Information Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                Team Registration Information
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Basic registration details for the team/individual
-              </p>
-            </CardHeader>
-            <CardContent>
-              {teamRegistrationData && Object.keys(teamRegistrationData).length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(TEAM_REGISTRATION_QUESTIONS).map(([key, label]) => (
-                    <div key={key}>
-                      <strong>{label}:</strong> {teamRegistrationData[key] || 'Not provided'}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div>
-                  <p className="text-gray-500 mb-4">No registration information available for this application</p>
-                  <details className="bg-gray-100 p-4 rounded">
-                    <summary className="cursor-pointer font-medium">Debug Information</summary>
-                    <pre className="mt-2 text-xs overflow-auto">
-                      {JSON.stringify({
-                        raw_yff_team_registrations: application.yff_team_registrations,
-                        teamAnswers: teamAnswers,
-                        application_id: application.application_id
-                      }, null, 2)}
-                    </pre>
-                  </details>
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -842,7 +765,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 <ClipboardList className="h-5 w-5" />
                 Team Registration Information
                 <Badge variant="outline" className="ml-2 text-xs">
-                  {teamRegistrationDataForDisplay.filter(item => item.hasAnswer).length} of {teamRegistrationDataForDisplay.length} completed
+                  {teamRegistrationData.filter(item => item.hasAnswer).length} of {teamRegistrationData.length} completed
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground">
@@ -851,7 +774,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {teamRegistrationDataForDisplay.map((item) => (
+                {teamRegistrationData.map((item) => (
                   <div key={item.questionKey} className={`p-3 rounded border ${item.hasAnswer ? 'bg-green-50/50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-sm font-medium text-gray-700">{item.questionText}:</span>

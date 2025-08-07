@@ -240,14 +240,16 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
     return () => subscription.unsubscribe();
   }, [form]);
 
-  // Ensure productStage aligns with currentStage for validation and saving
+  // Initialize productStage from currentStage only if not set, so user can switch freely
   useEffect(() => {
-    form.setValue(
-      'productStage',
-      currentStage === 'early_revenue'
+    const currentValue = form.getValues('productStage');
+    if (!currentValue) {
+      const initial = currentStage === 'early_revenue'
         ? 'Early Revenue'
-        : 'Idea Stage / MLP / Working Prototype'
-    );
+        : 'Idea Stage / MLP / Working Prototype';
+      form.setValue('productStage', initial);
+      setProductStage(initial);
+    }
   }, [currentStage, form]);
 
   // Auto-save functionality - save directly to the registration record
@@ -326,8 +328,12 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
     }
   };
 
-  // Use currentStage prop instead of local productStage state for AI feedback
-  const isEarlyRevenue = currentStage === 'early_revenue';
+  // Determine effective stage from form value (productStage) with fallback to prop
+  const effectiveStage: 'idea' | 'early_revenue' =
+    productStage === 'Early Revenue'
+      ? 'early_revenue'
+      : (currentStage ?? 'idea');
+  const isEarlyRevenue = effectiveStage === 'early_revenue';
 
   // Enhanced retry handler for all questions
   const handleRetryFeedback = (questionId: string) => {
@@ -408,6 +414,40 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
             </div>
           )}
 
+          {/* Stage switcher visible when Early Revenue is selected to allow switching back */}
+          {isEarlyRevenue && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Change Stage</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="productStage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stage</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select your current stage" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Idea Stage / MLP / Working Prototype">
+                            Idea Stage / MLP / Working Prototype
+                          </SelectItem>
+                          <SelectItem value="Early Revenue">Early Revenue</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           {/* Common Questions - hide for Early Revenue to keep only specified list */}
           {!isEarlyRevenue && (
             <Card>
@@ -435,7 +475,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                         questionId="ideaDescription"
                         questionText="Tell us about your idea"
                         userAnswer={field.value || ''}
-                        stage={currentStage}
+                        stage={effectiveStage}
                         onFeedbackReceived={ideaDescriptionFeedback.handleFeedbackReceived}
                         disabled={isSubmitting}
                       />
@@ -507,7 +547,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="early_revenue_problem"
                             questionText="What problem does your idea solve?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -530,7 +570,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="early_revenue_target"
                             questionText="Whose problem does your idea solve for?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={targetAudienceFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -553,7 +593,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="early_revenue_how_solve"
                             questionText="How does your idea solve this problem?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={solutionApproachFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -576,7 +616,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="early_revenue_monetization"
                             questionText="How is your idea making money by solving the problem?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={monetizationStrategyFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -599,7 +639,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="early_revenue_customers"
                             questionText="How are you acquiring first paying customers?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={customerAcquisitionFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -622,7 +662,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="early_revenue_existing_customers"
                             questionText="How many paying customers does your idea already have?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={payingCustomersFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -645,7 +685,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="early_revenue_competitors"
                             questionText="List 3 potential competitors in the similar space or attempting to solve a similar problem?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={competitorsFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -668,7 +708,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="early_revenue_development"
                             questionText="How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={developmentApproachFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -691,7 +731,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="early_revenue_team"
                             questionText="Who is on your team, and what are their roles?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={teamInfoFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -714,7 +754,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="early_revenue_timeline"
                             questionText="Since when have you been working on the idea?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={workingDurationFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -739,7 +779,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="problemSolved"
                             questionText="What problem does your idea solve?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -761,7 +801,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="targetAudience"
                             questionText="Whose problem does your idea solve for?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={targetAudienceFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -783,7 +823,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="solutionApproach"
                             questionText="How does your idea solve this problem?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={solutionApproachFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -805,7 +845,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="monetizationStrategy"
                             questionText="How does your idea plan to make money by solving this problem?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={monetizationStrategyFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -827,7 +867,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="customerAcquisition"
                             questionText="How do you plan to acquire first paying customers?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={customerAcquisitionFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -849,7 +889,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="competitors"
                             questionText="List 3 potential competitors in the similar space or attempting to solve a similar problem?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={competitorsFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -871,7 +911,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="developmentApproach"
                             questionText="How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={developmentApproachFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -893,7 +933,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="teamInfo"
                             questionText="Who is on your team, and what are their roles?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                             stage={effectiveStage}
                             onFeedbackReceived={teamInfoFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
@@ -915,7 +955,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="timeline"
                             questionText="When do you plan to proceed with the idea?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                            stage={effectiveStage}
                             onFeedbackReceived={timelineFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />

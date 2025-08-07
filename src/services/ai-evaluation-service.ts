@@ -4,8 +4,50 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import type { ExtendedYffApplication, QuestionScoringResult, AIEvaluationResult } from '@/types/yff-application';
 import { normalizeQuestionId, getAIFeedbackStage } from '@/utils/ai-question-prompts';
+
+// Define the interfaces locally since they were missing after the revert
+interface QuestionEvaluation {
+  score: number;
+  strengths: string[];
+  improvements: string[];
+  questionText?: string;
+  userAnswer?: string;
+  raw_feedback?: string;
+}
+
+interface AIEvaluationResult {
+  overall_score: number;
+  question_scores: Record<string, QuestionEvaluation>;
+  idea_summary?: string;
+  evaluation_completed_at: string;
+  evaluation_status: 'completed' | 'failed' | 'processing';
+}
+
+interface QuestionScoringResult {
+  questionId: string;
+  originalQuestionId?: string;
+  questionText?: string;
+  userAnswer?: string;
+  score: number;
+  strengths: string[];
+  areas_for_improvement: string[];
+  raw_feedback: string;
+}
+
+interface ExtendedYffApplication {
+  application_id: string;
+  answers: any;
+  evaluation_status: string;
+  overall_score: number;
+  evaluation_data: Record<string, any>;
+  individuals?: {
+    first_name: string;
+    last_name: string;
+    email?: string;
+  } | null;
+  yff_team_registrations?: any | null;
+}
 
 /**
  * Comprehensive question extraction for both idea and early revenue stages

@@ -1,393 +1,291 @@
 
 /**
- * @fileoverview Real-Time YFF Applications Hook with Enhanced Connection Management
+ * @fileoverview Enhanced Real-time Applications Hook
  * 
- * Provides real-time updates for YFF applications using robust WebSocket
- * connection management with comprehensive error handling and retry logic.
+ * Manages real-time YFF applications data with comprehensive error handling,
+ * connection management, and optimized queries using the new foreign key relationship.
  * 
- * @version 6.1.0
+ * @version 3.0.0
  * @author 26ideas Development Team
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { RealtimeSubscriptionManager } from '@/utils/realtime-subscription-manager';
-import type { YffApplicationWithIndividual } from '@/types/yff-application';
+import type { YffApplicationWithRegistration, EnhancedYffApplication } from '@/types/yff-application';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
-interface UseRealTimeApplicationsReturn {
-  applications: YffApplicationWithIndividual[];
+export interface UseRealTimeApplicationsReturn {
+  applications: EnhancedYffApplication[];
   isLoading: boolean;
   error: Error | null;
   isConnected: boolean;
-  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error' | 'fallback';
   retryCount: number;
   lastUpdate: Date | null;
+  refetch: () => Promise<void>;
 }
 
-/**
- * Enhanced WebSocket state constants for better error handling
- */
-const CONNECTION_STATUS_MAP = {
-  disconnected: 'disconnected',
-  connecting: 'connecting',
-  connected: 'connected',
-  error: 'error',
-  reconnecting: 'connecting',
-} as const;
-
-/**
- * Hook for real-time YFF applications with enhanced connection management
- */
 export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
+  const [applications, setApplications] = useState<EnhancedYffApplication[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error' | 'fallback'>('disconnected');
   const [retryCount, setRetryCount] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [isFallbackMode, setIsFallbackMode] = useState(false);
   
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
-  // Refs for managing subscription lifecycle
   const subscriptionManagerRef = useRef<RealtimeSubscriptionManager | null>(null);
-  const fallbackIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isInitializedRef = useRef<boolean>(false);
-  const setupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
-  // Primary data query
-  const { data: applications = [], isLoading, error } = useQuery({
-    queryKey: ['yff-applications-realtime'],
-    queryFn: async (): Promise<YffApplicationWithIndividual[]> => {
-      try {
-        console.log('🔄 Fetching YFF applications...');
-        
-        const { data, error } = await supabase
-          .from('yff_applications')
-          .select(`
-            *,
-            individuals(
-              first_name,
-              last_name,
-              email
-            )
-          `)
-          .order('created_at', { ascending: false });
+  /**
+   * Fetch applications with enhanced query using the new foreign key relationship
+   */
+  const fetchApplications = useCallback(async (): Promise<void> => {
+    try {
+      console.log('🔄 Fetching applications with enhanced relationships...');
+      setIsLoading(true);
+      setError(null);
 
-        if (error) {
-          console.error('❌ Supabase query error:', error);
-          throw new Error(`Database query failed: ${error.message}`);
-        }
+      const { data, error: fetchError } = await supabase
+        .from('yff_applications')
+        .select(`
+          *,
+          individuals:individual_id (
+            individual_id,
+            first_name,
+            last_name,
+            email,
+            phone_number,
+            country_code,
+            country_iso_code,
+            is_active,
+            privacy_consent,
+            data_processing_consent,
+            typeform_registered,
+            email_verified,
+            created_at,
+            updated_at
+          ),
+          yff_team_registrations!application_id (
+            id,
+            individual_id,
+            application_id,
+            venture_name,
+            team_name,
+            number_of_team_members,
+            team_members,
+            industry_sector,
+            website,
+            full_name,
+            email,
+            phone_number,
+            country_code,
+            linkedin_profile,
+            social_media_handles,
+            date_of_birth,
+            gender,
+            institution_name,
+            course_program,
+            current_year_of_study,
+            expected_graduation,
+            current_city,
+            state,
+            pin_code,
+            permanent_address,
+            referral_id,
+            application_status,
+            questionnaire_answers,
+            questionnaire_completed_at,
+            created_at,
+            updated_at
+          ),
+          yff_evaluations:application_id (
+            id,
+            application_id,
+            overall_score,
+            question_scores,
+            evaluation_metadata,
+            idea_summary,
+            evaluation_completed_at,
+            created_at,
+            updated_at
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-        console.log(`✅ Fetched ${data?.length || 0} applications`);
-        setLastUpdate(new Date());
-        
-        return (data as YffApplicationWithIndividual[]) || [];
-        
-      } catch (error) {
-        console.error('❌ Application fetch error:', error);
-        throw error;
+      if (fetchError) {
+        throw new Error(`Failed to fetch applications: ${fetchError.message}`);
       }
-    },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    staleTime: 30000,
-  });
 
-  /**
-   * Start fallback polling when real-time fails
-   */
-  const startFallbackMode = useCallback(() => {
-    if (isFallbackMode) {
-      console.log('⚠️ Fallback mode already active');
-      return;
-    }
-    
-    console.log('🔄 Starting fallback polling mode...');
-    setConnectionStatus('fallback');
-    setIsConnected(false);
-    setIsFallbackMode(true);
-    
-    // Clear any existing polling
-    if (fallbackIntervalRef.current) {
-      clearInterval(fallbackIntervalRef.current);
-    }
-    
-    fallbackIntervalRef.current = setInterval(() => {
-      console.log('🔄 Fallback polling for updates...');
-      queryClient.invalidateQueries({ queryKey: ['yff-applications-realtime'] });
-    }, 15000);
-    
-    toast({
-      title: "Real-time Updates Unavailable",
-      description: "Using periodic refresh instead.",
-      variant: "default"
-    });
-  }, [queryClient, toast, isFallbackMode]);
+      // Transform the data to match our enhanced interface
+      const enhancedApplications: EnhancedYffApplication[] = (data || []).map(app => ({
+        application_id: app.application_id,
+        individual_id: app.individual_id,
+        status: app.status,
+        evaluation_status: app.evaluation_status || 'pending',
+        answers: app.answers || {},
+        cumulative_score: app.cumulative_score,
+        overall_score: app.overall_score,
+        evaluation_data: app.evaluation_data || {},
+        reviewer_scores: app.reviewer_scores || {},
+        application_round: app.application_round || 'current',
+        evaluation_completed_at: app.evaluation_completed_at,
+        created_at: app.created_at,
+        updated_at: app.updated_at,
+        submitted_at: app.submitted_at,
+        // Transform related data
+        individual: Array.isArray(app.individuals) ? app.individuals[0] : app.individuals,
+        teamRegistration: Array.isArray(app.yff_team_registrations) 
+          ? app.yff_team_registrations[0] 
+          : app.yff_team_registrations,
+        evaluations: Array.isArray(app.yff_evaluations) ? app.yff_evaluations : []
+      }));
 
-  /**
-   * Stop fallback polling
-   */
-  const stopFallbackMode = useCallback(() => {
-    if (fallbackIntervalRef.current) {
-      clearInterval(fallbackIntervalRef.current);
-      fallbackIntervalRef.current = null;
-      setIsFallbackMode(false);
-      console.log('⏹️ Stopped fallback polling');
+      if (isMountedRef.current) {
+        setApplications(enhancedApplications);
+        setLastUpdate(new Date());
+        setRetryCount(0);
+        console.log(`✅ Successfully fetched ${enhancedApplications.length} applications`);
+      }
+
+    } catch (err) {
+      console.error('❌ Error fetching applications:', err);
+      if (isMountedRef.current) {
+        setError(err as Error);
+        setRetryCount(prev => prev + 1);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   /**
-   * Handle database change events
+   * Handle real-time application changes
    */
-  const handleDatabaseChange = useCallback((payload: any) => {
-    try {
-      const applicationId = payload.new?.application_id || payload.old?.application_id;
-      
-      console.log('📨 Real-time update received:', {
-        eventType: payload.eventType,
-        applicationId: applicationId ? applicationId.slice(0, 8) + '...' : 'unknown',
-        timestamp: new Date().toISOString()
-      });
-      
-      // Invalidate and refetch applications
-      queryClient.invalidateQueries({ 
-        queryKey: ['yff-applications-realtime'] 
-      });
-      
-      setLastUpdate(new Date());
-      
-      // Show appropriate notifications
-      if (payload.eventType === 'INSERT') {
-        toast({
-          title: "New Application",
-          description: "A new YFF application has been submitted.",
-        });
-      } else if (payload.eventType === 'UPDATE') {
-        const newRecord = payload.new;
-        if (newRecord && typeof newRecord === 'object' && 'evaluation_status' in newRecord) {
-          const displayId = applicationId ? applicationId.slice(0, 8) + '...' : 'Unknown';
-          
-          if (newRecord.evaluation_status === 'completed') {
-            toast({
-              title: "Evaluation Completed",
-              description: `Application ${displayId} has been evaluated.`,
-            });
-          } else if (newRecord.evaluation_status === 'processing') {
-            toast({
-              title: "Evaluation Started",
-              description: `Application ${displayId} is being evaluated.`,
-            });
-          }
-        }
-      }
-    } catch (eventError) {
-      console.error('❌ Error handling real-time event:', eventError);
-    }
-  }, [queryClient, toast]);
+  const handleApplicationChange = useCallback((payload: RealtimePostgresChangesPayload<any>) => {
+    console.log('📨 Real-time application change:', {
+      eventType: payload.eventType,
+      table: payload.table,
+      applicationId: payload.new?.application_id || payload.old?.application_id
+    });
+
+    if (!isMountedRef.current) return;
+
+    // For now, refetch all data when changes occur
+    // In a production app, you might want to handle individual updates more efficiently
+    fetchApplications();
+    setLastUpdate(new Date());
+  }, [fetchApplications]);
 
   /**
-   * Setup real-time subscription with simplified approach
+   * Handle real-time team registration changes
    */
-  const setupRealtimeSubscription = useCallback(async (): Promise<boolean> => {
+  const handleRegistrationChange = useCallback((payload: RealtimePostgresChangesPayload<any>) => {
+    console.log('📨 Real-time registration change:', {
+      eventType: payload.eventType,
+      table: payload.table,
+      registrationId: payload.new?.id || payload.old?.id
+    });
+
+    if (!isMountedRef.current) return;
+
+    // Refetch when registrations change as they affect applications
+    fetchApplications();
+    setLastUpdate(new Date());
+  }, [fetchApplications]);
+
+  /**
+   * Initialize real-time subscriptions
+   */
+  const setupRealTimeSubscriptions = useCallback(async () => {
     try {
-      console.log('🔗 Setting up real-time subscription...');
+      console.log('🔄 Setting up real-time subscriptions...');
       
-      // Clear any existing setup timeout
-      if (setupTimeoutRef.current) {
-        clearTimeout(setupTimeoutRef.current);
-        setupTimeoutRef.current = null;
-      }
-      
-      // Create subscription manager if not exists
-      if (!subscriptionManagerRef.current) {
-        subscriptionManagerRef.current = new RealtimeSubscriptionManager();
-        
-        // Add connection state listener
-        subscriptionManagerRef.current.addListener((subscriptionState) => {
-          const connectionState = subscriptionManagerRef.current?.getConnectionState();
-          if (!connectionState) return;
+      subscriptionManagerRef.current = new RealtimeSubscriptionManager();
 
-          console.log('📊 Subscription state updated:', {
-            connection: connectionState.status,
-            subscriptions: subscriptionState.subscriptionCount,
-            isActive: subscriptionState.isActive,
-            eventCount: subscriptionState.eventCount,
-            retryCount: connectionState.retryCount
-          });
-
-          // Map connection status
-          const mappedStatus = CONNECTION_STATUS_MAP[connectionState.status] || 'error';
-          setConnectionStatus(mappedStatus);
-          setIsConnected(connectionState.status === 'connected');
-          setRetryCount(connectionState.retryCount);
-
-          // Handle connection errors with fallback
-          if (connectionState.status === 'error' && connectionState.retryCount >= 3) {
-            console.error('💀 Max retries reached, switching to fallback mode');
-            startFallbackMode();
-          } else if (connectionState.status === 'connected') {
-            // Connection successful, stop fallback if running
-            stopFallbackMode();
-          }
-        });
-      }
-
-      // Start subscription manager with shorter timeout
-      console.log('🚀 Starting subscription manager...');
-      
-      const startPromise = subscriptionManagerRef.current.start();
-      const timeoutPromise = new Promise<boolean>((resolve) => {
-        setupTimeoutRef.current = setTimeout(() => {
-          console.error('⏰ Subscription manager start timeout');
-          resolve(false);
-        }, 20000); // Reduced to 20 seconds
+      // Listen to subscription state changes
+      subscriptionManagerRef.current.addListener((state) => {
+        setIsConnected(state.isActive);
+        if (state.lastError) {
+          console.warn('⚠️ Subscription error:', state.lastError);
+        }
       });
-      
-      const started = await Promise.race([startPromise, timeoutPromise]);
-      
-      if (setupTimeoutRef.current) {
-        clearTimeout(setupTimeoutRef.current);
-        setupTimeoutRef.current = null;
-      }
-      
+
+      // Start the subscription manager
+      const started = await subscriptionManagerRef.current.start();
       if (!started) {
-        console.error('❌ Failed to start subscription manager');
-        startFallbackMode();
-        return false;
+        throw new Error('Failed to start subscription manager');
       }
 
-      // Subscribe to YFF applications changes
-      console.log('📡 Creating subscription...');
-      const subscribed = subscriptionManagerRef.current.subscribe(
-        'yff-applications',
+      // Subscribe to applications changes
+      subscriptionManagerRef.current.subscribe(
+        'yff_applications',
         {
           table: 'yff_applications',
-          schema: 'public',
-          event: '*'
+          event: '*',
         },
-        handleDatabaseChange
+        handleApplicationChange
       );
 
-      if (!subscribed) {
-        console.error('❌ Failed to subscribe to YFF applications');
-        startFallbackMode();
-        return false;
-      }
+      // Subscribe to team registrations changes
+      subscriptionManagerRef.current.subscribe(
+        'yff_team_registrations',
+        {
+          table: 'yff_team_registrations',
+          event: '*',
+        },
+        handleRegistrationChange
+      );
 
-      console.log('✅ Real-time subscription setup completed');
-      return true;
-      
-    } catch (error) {
-      console.error('❌ Failed to setup real-time subscription:', error);
-      startFallbackMode();
-      return false;
+      console.log('✅ Real-time subscriptions set up successfully');
+
+    } catch (err) {
+      console.error('❌ Error setting up real-time subscriptions:', err);
+      setError(err as Error);
     }
-  }, [handleDatabaseChange, startFallbackMode, stopFallbackMode]);
+  }, [handleApplicationChange, handleRegistrationChange]);
 
   /**
-   * Cleanup subscription
+   * Cleanup subscriptions
    */
-  const cleanupSubscription = useCallback(() => {
-    console.log('🧹 Cleaning up real-time subscription...');
-    
-    // Clear setup timeout
-    if (setupTimeoutRef.current) {
-      clearTimeout(setupTimeoutRef.current);
-      setupTimeoutRef.current = null;
-    }
-    
+  const cleanupSubscriptions = useCallback(() => {
     if (subscriptionManagerRef.current) {
+      console.log('🧹 Cleaning up real-time subscriptions...');
       subscriptionManagerRef.current.stop();
       subscriptionManagerRef.current = null;
     }
+  }, []);
 
-    stopFallbackMode();
-    
-    setIsConnected(false);
-    setConnectionStatus('disconnected');
-    setRetryCount(0);
-  }, [stopFallbackMode]);
-
-  // Initialize subscription on mount
+  // Initial setup
   useEffect(() => {
-    if (isInitializedRef.current) {
-      return;
-    }
+    isMountedRef.current = true;
     
-    console.log('🚀 Initializing real-time subscription hook');
-    isInitializedRef.current = true;
-    
-    // Delay setup to allow auth to settle
-    setTimeout(() => {
-      setupRealtimeSubscription();
-    }, 1000); // Reduced delay
-    
-    return () => {
-      console.log('🧹 Cleaning up real-time subscription on unmount');
-      isInitializedRef.current = false;
-      cleanupSubscription();
+    const initialize = async () => {
+      await fetchApplications();
+      await setupRealTimeSubscriptions();
     };
-  }, [setupRealtimeSubscription, cleanupSubscription]);
 
-  // Handle authentication state changes
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔐 Auth state changed:', event, !!session);
-        
-        if (event === 'SIGNED_IN' && session) {
-          console.log('✅ User signed in, setting up real-time subscription');
-          
-          // Wait for auth to settle before setting up subscription
-          setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 1500); // Reduced delay
-          
-        } else if (event === 'SIGNED_OUT') {
-          console.log('❌ User signed out, cleaning up real-time subscription');
-          cleanupSubscription();
-        }
-      }
-    );
+    initialize();
 
     return () => {
-      subscription.unsubscribe();
+      isMountedRef.current = false;
+      cleanupSubscriptions();
     };
-  }, [setupRealtimeSubscription, cleanupSubscription]);
+  }, [fetchApplications, setupRealTimeSubscriptions, cleanupSubscriptions]);
 
-  // Handle visibility change for better resource management
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('👁️ Page became visible, checking connection status');
-        
-        if (!isConnected && connectionStatus !== 'connecting' && !isFallbackMode) {
-          console.log('🔄 Page visible and not connected, attempting reconnection...');
-          setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 500); // Quick reconnection
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isConnected, connectionStatus, isFallbackMode, setupRealtimeSubscription]);
+  // Refetch function for manual refresh
+  const refetch = useCallback(async () => {
+    await fetchApplications();
+  }, [fetchApplications]);
 
   return {
     applications,
     isLoading,
-    error: error as Error | null,
+    error,
     isConnected,
-    connectionStatus,
     retryCount,
-    lastUpdate
+    lastUpdate,
+    refetch,
   };
 };

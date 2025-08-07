@@ -1,302 +1,393 @@
 
 /**
- * @fileoverview Real-time YFF Applications Hook with Enhanced Data Fetching
+ * @fileoverview Real-Time YFF Applications Hook with Enhanced Connection Management
  * 
- * Custom React hook for real-time application data with Supabase subscriptions,
- * including comprehensive individual and team registration data relationships.
+ * Provides real-time updates for YFF applications using robust WebSocket
+ * connection management with comprehensive error handling and retry logic.
  * 
- * @version 2.2.0
+ * @version 6.1.0
  * @author 26ideas Development Team
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { 
-  EnhancedYffApplication,
-  parseApplicationAnswers,
-  parseEvaluationData
-} from '@/types/yff-application';
+import { useToast } from '@/hooks/use-toast';
+import { RealtimeSubscriptionManager } from '@/utils/realtime-subscription-manager';
+import type { YffApplicationWithIndividual } from '@/types/yff-application';
 
 interface UseRealTimeApplicationsReturn {
-  applications: EnhancedYffApplication[];
+  applications: YffApplicationWithIndividual[];
   isLoading: boolean;
   error: Error | null;
   isConnected: boolean;
+  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error' | 'fallback';
   retryCount: number;
   lastUpdate: Date | null;
 }
 
-const QUERY_KEY = ['yff-applications-enhanced'];
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 5000;
+/**
+ * Enhanced WebSocket state constants for better error handling
+ */
+const CONNECTION_STATUS_MAP = {
+  disconnected: 'disconnected',
+  connecting: 'connecting',
+  connected: 'connected',
+  error: 'error',
+  reconnecting: 'connecting',
+} as const;
 
 /**
- * Custom hook for real-time YFF application data with enhanced relationships
+ * Hook for real-time YFF applications with enhanced connection management
  */
 export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error' | 'fallback'>('disconnected');
   const [retryCount, setRetryCount] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [isFallbackMode, setIsFallbackMode] = useState(false);
+  
+  const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Refs for managing subscription lifecycle
+  const subscriptionManagerRef = useRef<RealtimeSubscriptionManager | null>(null);
+  const fallbackIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitializedRef = useRef<boolean>(false);
+  const setupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  /**
-   * Fetch enhanced application data with joins
-   */
-  const fetchEnhancedApplications = useCallback(async (): Promise<EnhancedYffApplication[]> => {
-    const { data: applications, error } = await supabase
-      .from('yff_applications')
-      .select(`
-        *,
-        individuals:individual_id (
-          individual_id,
-          first_name,
-          last_name,
-          email,
-          phone_number,
-          country_code,
-          country_iso_code,
-          is_active,
-          privacy_consent,
-          data_processing_consent,
-          typeform_registered,
-          email_verified,
-          created_at,
-          updated_at
-        ),
-        yff_team_registrations:yff_team_registrations!application_id (
-          id,
-          individual_id,
-          application_id,
-          venture_name,
-          team_name,
-          number_of_team_members,
-          team_members,
-          industry_sector,
-          website,
-          full_name,
-          email,
-          phone_number,
-          country_code,
-          linkedin_profile,
-          social_media_handles,
-          date_of_birth,
-          gender,
-          institution_name,
-          course_program,
-          current_year_of_study,
-          expected_graduation,
-          current_city,
-          state,
-          pin_code,
-          permanent_address,
-          referral_id,
-          application_status,
-          questionnaire_answers,
-          questionnaire_completed_at,
-          created_at,
-          updated_at
-        ),
-        yff_evaluations:yff_evaluations!application_id (
-          id,
-          application_id,
-          overall_score,
-          question_scores,
-          evaluation_metadata,
-          idea_summary,
-          evaluation_completed_at,
-          created_at,
-          updated_at
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(`Failed to fetch applications: ${error.message}`);
-    }
-
-    // Transform the data to match our enhanced type structure
-    const enhancedApplications: EnhancedYffApplication[] = (applications || []).map(app => {
-      // Parse JSON fields safely
-      const parsedAnswers = typeof app.answers === 'string' 
-        ? (() => { try { return JSON.parse(app.answers); } catch { return {}; } })()
-        : (app.answers as Record<string, any>) || {};
-
-      const parsedEvaluationData = typeof app.evaluation_data === 'string'
-        ? (() => { try { return JSON.parse(app.evaluation_data); } catch { return {}; } })()
-        : (app.evaluation_data as Record<string, any>) || {};
-
-      const parsedReviewerScores = typeof app.reviewer_scores === 'string'
-        ? (() => { try { return JSON.parse(app.reviewer_scores); } catch { return {}; } })()
-        : (app.reviewer_scores as Record<string, any>) || {};
-
-      return {
-        application_id: app.application_id,
-        individual_id: app.individual_id,
-        status: app.status,
-        evaluation_status: app.evaluation_status,
-        answers: parsedAnswers,
-        cumulative_score: app.cumulative_score,
-        overall_score: app.overall_score,
-        evaluation_data: parsedEvaluationData,
-        reviewer_scores: parsedReviewerScores,
-        application_round: app.application_round,
-        evaluation_completed_at: app.evaluation_completed_at,
-        created_at: app.created_at,
-        updated_at: app.updated_at,
-        submitted_at: app.submitted_at,
-        // Related data
-        individual: Array.isArray(app.individuals) ? app.individuals[0] : app.individuals,
-        teamRegistration: Array.isArray(app.yff_team_registrations) 
-          ? app.yff_team_registrations[0] 
-          : app.yff_team_registrations,
-        evaluations: Array.isArray(app.yff_evaluations) ? app.yff_evaluations : []
-      };
-    });
-
-    return enhancedApplications;
-  }, []);
-
-  // Main query for applications data
+  // Primary data query
   const { data: applications = [], isLoading, error } = useQuery({
-    queryKey: QUERY_KEY,
-    queryFn: fetchEnhancedApplications,
-    staleTime: 30000, // 30 seconds
-    refetchInterval: 60000, // 1 minute
-    retry: (failureCount, error) => {
-      console.error('Query failed:', error);
-      return failureCount < MAX_RETRIES;
+    queryKey: ['yff-applications-realtime'],
+    queryFn: async (): Promise<YffApplicationWithIndividual[]> => {
+      try {
+        console.log('🔄 Fetching YFF applications...');
+        
+        const { data, error } = await supabase
+          .from('yff_applications')
+          .select(`
+            *,
+            individuals(
+              first_name,
+              last_name,
+              email
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('❌ Supabase query error:', error);
+          throw new Error(`Database query failed: ${error.message}`);
+        }
+
+        console.log(`✅ Fetched ${data?.length || 0} applications`);
+        setLastUpdate(new Date());
+        
+        return (data as YffApplicationWithIndividual[]) || [];
+        
+      } catch (error) {
+        console.error('❌ Application fetch error:', error);
+        throw error;
+      }
     },
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    staleTime: 30000,
   });
 
   /**
-   * Set up real-time subscriptions
+   * Start fallback polling when real-time fails
    */
-  useEffect(() => {
-    const setupRealtimeSubscriptions = () => {
-      // Subscribe to applications table changes
-      const applicationsSubscription = supabase
-        .channel('yff_applications_changes')
-        .on(
-          'postgres_changes',
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'yff_applications' 
-          },
-          (payload) => {
-            console.log('Applications change detected:', payload);
-            setLastUpdate(new Date());
-            
-            // Invalidate and refetch the query
-            queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-            
-            // Handle specific change types if needed
-            if (payload.eventType === 'UPDATE' && payload.new?.application_id) {
-              const applicationId = payload.new.application_id;
-              console.log(`Application ${applicationId} updated`);
-            }
-          }
-        )
-        .subscribe((status) => {
-          console.log('Applications subscription status:', status);
-          setIsConnected(status === 'SUBSCRIBED');
-          
-          if (status === 'SUBSCRIBED') {
-            setRetryCount(0);
-          }
-        });
-
-      // Subscribe to team registrations changes
-      const teamRegistrationsSubscription = supabase
-        .channel('yff_team_registrations_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'yff_team_registrations'
-          },
-          (payload) => {
-            console.log('Team registration change detected:', payload);
-            setLastUpdate(new Date());
-            
-            // Invalidate and refetch when team data changes
-            queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-            
-            if (payload.eventType === 'UPDATE' && payload.new?.id) {
-              const registrationId = payload.new.id;
-              console.log(`Team registration ${registrationId} updated`);
-            }
-          }
-        )
-        .subscribe((status) => {
-          console.log('Team registrations subscription status:', status);
-        });
-
-      // Subscribe to evaluations changes
-      const evaluationsSubscription = supabase
-        .channel('yff_evaluations_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'yff_evaluations'
-          },
-          (payload) => {
-            console.log('Evaluation change detected:', payload);
-            setLastUpdate(new Date());
-            
-            // Invalidate and refetch when evaluation data changes
-            queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-            
-            if (payload.eventType === 'INSERT' && payload.new?.id) {
-              const evaluationId = payload.new.id;
-              console.log(`New evaluation ${evaluationId} created`);
-            }
-          }
-        )
-        .subscribe((status) => {
-          console.log('Evaluations subscription status:', status);
-        });
-
-      return [applicationsSubscription, teamRegistrationsSubscription, evaluationsSubscription];
-    };
-
-    const subscriptions = setupRealtimeSubscriptions();
+  const startFallbackMode = useCallback(() => {
+    if (isFallbackMode) {
+      console.log('⚠️ Fallback mode already active');
+      return;
+    }
     
-    // Cleanup function
-    return () => {
-      subscriptions.forEach(subscription => {
-        supabase.removeChannel(subscription);
-      });
-    };
-  }, [queryClient]);
+    console.log('🔄 Starting fallback polling mode...');
+    setConnectionStatus('fallback');
+    setIsConnected(false);
+    setIsFallbackMode(true);
+    
+    // Clear any existing polling
+    if (fallbackIntervalRef.current) {
+      clearInterval(fallbackIntervalRef.current);
+    }
+    
+    fallbackIntervalRef.current = setInterval(() => {
+      console.log('🔄 Fallback polling for updates...');
+      queryClient.invalidateQueries({ queryKey: ['yff-applications-realtime'] });
+    }, 15000);
+    
+    toast({
+      title: "Real-time Updates Unavailable",
+      description: "Using periodic refresh instead.",
+      variant: "default"
+    });
+  }, [queryClient, toast, isFallbackMode]);
 
   /**
-   * Handle connection retry logic
+   * Stop fallback polling
    */
-  useEffect(() => {
-    if (!isConnected && retryCount < MAX_RETRIES) {
-      const timer = setTimeout(() => {
-        setRetryCount(prev => prev + 1);
-        console.log(`Retrying connection... (${retryCount + 1}/${MAX_RETRIES})`);
-        
-        // Force refetch on retry
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-      }, RETRY_DELAY);
-
-      return () => clearTimeout(timer);
+  const stopFallbackMode = useCallback(() => {
+    if (fallbackIntervalRef.current) {
+      clearInterval(fallbackIntervalRef.current);
+      fallbackIntervalRef.current = null;
+      setIsFallbackMode(false);
+      console.log('⏹️ Stopped fallback polling');
     }
-  }, [isConnected, retryCount, queryClient]);
+  }, []);
+
+  /**
+   * Handle database change events
+   */
+  const handleDatabaseChange = useCallback((payload: any) => {
+    try {
+      const applicationId = payload.new?.application_id || payload.old?.application_id;
+      
+      console.log('📨 Real-time update received:', {
+        eventType: payload.eventType,
+        applicationId: applicationId ? applicationId.slice(0, 8) + '...' : 'unknown',
+        timestamp: new Date().toISOString()
+      });
+      
+      // Invalidate and refetch applications
+      queryClient.invalidateQueries({ 
+        queryKey: ['yff-applications-realtime'] 
+      });
+      
+      setLastUpdate(new Date());
+      
+      // Show appropriate notifications
+      if (payload.eventType === 'INSERT') {
+        toast({
+          title: "New Application",
+          description: "A new YFF application has been submitted.",
+        });
+      } else if (payload.eventType === 'UPDATE') {
+        const newRecord = payload.new;
+        if (newRecord && typeof newRecord === 'object' && 'evaluation_status' in newRecord) {
+          const displayId = applicationId ? applicationId.slice(0, 8) + '...' : 'Unknown';
+          
+          if (newRecord.evaluation_status === 'completed') {
+            toast({
+              title: "Evaluation Completed",
+              description: `Application ${displayId} has been evaluated.`,
+            });
+          } else if (newRecord.evaluation_status === 'processing') {
+            toast({
+              title: "Evaluation Started",
+              description: `Application ${displayId} is being evaluated.`,
+            });
+          }
+        }
+      }
+    } catch (eventError) {
+      console.error('❌ Error handling real-time event:', eventError);
+    }
+  }, [queryClient, toast]);
+
+  /**
+   * Setup real-time subscription with simplified approach
+   */
+  const setupRealtimeSubscription = useCallback(async (): Promise<boolean> => {
+    try {
+      console.log('🔗 Setting up real-time subscription...');
+      
+      // Clear any existing setup timeout
+      if (setupTimeoutRef.current) {
+        clearTimeout(setupTimeoutRef.current);
+        setupTimeoutRef.current = null;
+      }
+      
+      // Create subscription manager if not exists
+      if (!subscriptionManagerRef.current) {
+        subscriptionManagerRef.current = new RealtimeSubscriptionManager();
+        
+        // Add connection state listener
+        subscriptionManagerRef.current.addListener((subscriptionState) => {
+          const connectionState = subscriptionManagerRef.current?.getConnectionState();
+          if (!connectionState) return;
+
+          console.log('📊 Subscription state updated:', {
+            connection: connectionState.status,
+            subscriptions: subscriptionState.subscriptionCount,
+            isActive: subscriptionState.isActive,
+            eventCount: subscriptionState.eventCount,
+            retryCount: connectionState.retryCount
+          });
+
+          // Map connection status
+          const mappedStatus = CONNECTION_STATUS_MAP[connectionState.status] || 'error';
+          setConnectionStatus(mappedStatus);
+          setIsConnected(connectionState.status === 'connected');
+          setRetryCount(connectionState.retryCount);
+
+          // Handle connection errors with fallback
+          if (connectionState.status === 'error' && connectionState.retryCount >= 3) {
+            console.error('💀 Max retries reached, switching to fallback mode');
+            startFallbackMode();
+          } else if (connectionState.status === 'connected') {
+            // Connection successful, stop fallback if running
+            stopFallbackMode();
+          }
+        });
+      }
+
+      // Start subscription manager with shorter timeout
+      console.log('🚀 Starting subscription manager...');
+      
+      const startPromise = subscriptionManagerRef.current.start();
+      const timeoutPromise = new Promise<boolean>((resolve) => {
+        setupTimeoutRef.current = setTimeout(() => {
+          console.error('⏰ Subscription manager start timeout');
+          resolve(false);
+        }, 20000); // Reduced to 20 seconds
+      });
+      
+      const started = await Promise.race([startPromise, timeoutPromise]);
+      
+      if (setupTimeoutRef.current) {
+        clearTimeout(setupTimeoutRef.current);
+        setupTimeoutRef.current = null;
+      }
+      
+      if (!started) {
+        console.error('❌ Failed to start subscription manager');
+        startFallbackMode();
+        return false;
+      }
+
+      // Subscribe to YFF applications changes
+      console.log('📡 Creating subscription...');
+      const subscribed = subscriptionManagerRef.current.subscribe(
+        'yff-applications',
+        {
+          table: 'yff_applications',
+          schema: 'public',
+          event: '*'
+        },
+        handleDatabaseChange
+      );
+
+      if (!subscribed) {
+        console.error('❌ Failed to subscribe to YFF applications');
+        startFallbackMode();
+        return false;
+      }
+
+      console.log('✅ Real-time subscription setup completed');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Failed to setup real-time subscription:', error);
+      startFallbackMode();
+      return false;
+    }
+  }, [handleDatabaseChange, startFallbackMode, stopFallbackMode]);
+
+  /**
+   * Cleanup subscription
+   */
+  const cleanupSubscription = useCallback(() => {
+    console.log('🧹 Cleaning up real-time subscription...');
+    
+    // Clear setup timeout
+    if (setupTimeoutRef.current) {
+      clearTimeout(setupTimeoutRef.current);
+      setupTimeoutRef.current = null;
+    }
+    
+    if (subscriptionManagerRef.current) {
+      subscriptionManagerRef.current.stop();
+      subscriptionManagerRef.current = null;
+    }
+
+    stopFallbackMode();
+    
+    setIsConnected(false);
+    setConnectionStatus('disconnected');
+    setRetryCount(0);
+  }, [stopFallbackMode]);
+
+  // Initialize subscription on mount
+  useEffect(() => {
+    if (isInitializedRef.current) {
+      return;
+    }
+    
+    console.log('🚀 Initializing real-time subscription hook');
+    isInitializedRef.current = true;
+    
+    // Delay setup to allow auth to settle
+    setTimeout(() => {
+      setupRealtimeSubscription();
+    }, 1000); // Reduced delay
+    
+    return () => {
+      console.log('🧹 Cleaning up real-time subscription on unmount');
+      isInitializedRef.current = false;
+      cleanupSubscription();
+    };
+  }, [setupRealtimeSubscription, cleanupSubscription]);
+
+  // Handle authentication state changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔐 Auth state changed:', event, !!session);
+        
+        if (event === 'SIGNED_IN' && session) {
+          console.log('✅ User signed in, setting up real-time subscription');
+          
+          // Wait for auth to settle before setting up subscription
+          setTimeout(() => {
+            setupRealtimeSubscription();
+          }, 1500); // Reduced delay
+          
+        } else if (event === 'SIGNED_OUT') {
+          console.log('❌ User signed out, cleaning up real-time subscription');
+          cleanupSubscription();
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [setupRealtimeSubscription, cleanupSubscription]);
+
+  // Handle visibility change for better resource management
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👁️ Page became visible, checking connection status');
+        
+        if (!isConnected && connectionStatus !== 'connecting' && !isFallbackMode) {
+          console.log('🔄 Page visible and not connected, attempting reconnection...');
+          setTimeout(() => {
+            setupRealtimeSubscription();
+          }, 500); // Quick reconnection
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isConnected, connectionStatus, isFallbackMode, setupRealtimeSubscription]);
 
   return {
     applications,
     isLoading,
     error: error as Error | null,
     isConnected,
+    connectionStatus,
     retryCount,
-    lastUpdate,
+    lastUpdate
   };
 };

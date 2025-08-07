@@ -1,108 +1,210 @@
 /**
- * @fileoverview Enhanced YFF Applications Table Component
+ * @fileoverview Enhanced YFF Applications Admin Table with AI Scoring Integration
  * 
- * Advanced table component with comprehensive application management features,
- * utilizing the new foreign key relationship for improved data access.
+ * Displays YFF applications with comprehensive AI evaluation results,
+ * real-time updates, and advanced filtering capabilities.
  * 
- * @version 2.3.0
+ * @version 2.1.0
  * @author 26ideas Development Team
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import {
+import { Badge } from '@/components/ui/badge';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { YffApplicationDetailsDialogEnhanced } from './YffApplicationDetailsDialogEnhanced';
-import ApplicationScoringDialog from './ApplicationScoringDialog';
-import { ApplicationStatusIndicator } from './ApplicationStatusIndicator';
+import { Card } from '@/components/ui/card';
 import { 
-  Eye, 
-  Star, 
   Search, 
-  Filter,
-  ArrowUpDown,
+  RefreshCw,
+  Star,
+  Clock,
+  CheckCircle,
+  AlertCircle,
   Users,
-  Building,
   Calendar,
-  Mail,
-  Phone
+  TrendingUp,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
-import { format } from 'date-fns';
-import type { EnhancedYffApplication } from '@/types/yff-application';
+import { YffApplicationEvaluationDialog } from './YffApplicationEvaluationDialog';
+import { YffApplicationDetailsDialogEnhanced } from './YffApplicationDetailsDialogEnhanced';
+import { useBackgroundScoring } from '@/hooks/useBackgroundScoring';
+import type { YffApplicationWithIndividual } from '@/types/yff-application';
+import { parseApplicationAnswers, parseEvaluationData } from '@/types/yff-application';
+import { useToast } from '@/hooks/use-toast';
 
-interface YffApplicationsTableEnhancedProps {
-  applications: EnhancedYffApplication[];
+export interface YffApplicationsTableEnhancedProps {
+  applications: YffApplicationWithIndividual[];
   isLoading: boolean;
 }
 
-type SortField = 'created_at' | 'name' | 'score' | 'status' | 'evaluation_status';
-type SortDirection = 'asc' | 'desc';
+type SortField = 'date' | 'score' | 'status' | 'name';
+type SortOrder = 'asc' | 'desc';
 
-export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhancedProps> = ({
-  applications,
-  isLoading,
+/**
+ * Get status color for badges
+ */
+const getStatusColor = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  switch (status.toLowerCase()) {
+    case 'submitted':
+      return 'default';
+    case 'under_review':
+      return 'secondary';
+    case 'accepted':
+      return 'default';
+    case 'rejected':
+      return 'destructive';
+    default:
+      return 'outline';
+  }
+};
+
+/**
+ * Get evaluation status color
+ */
+const getEvaluationStatusColor = (status?: string): "default" | "secondary" | "destructive" | "outline" => {
+  switch (status?.toLowerCase()) {
+    case 'completed':
+      return 'default';
+    case 'processing':
+      return 'secondary';
+    case 'pending':
+      return 'outline';
+    case 'failed':
+      return 'destructive';
+    default:
+      return 'outline';
+  }
+};
+
+/**
+ * Get score color based on value
+ */
+const getScoreColor = (score?: number): string => {
+  if (!score) return 'text-gray-400';
+  if (score >= 8) return 'text-green-600';
+  if (score >= 6) return 'text-yellow-600';
+  if (score >= 4) return 'text-orange-600';
+  return 'text-red-600';
+};
+
+export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhancedProps> = ({ 
+  applications, 
+  isLoading 
 }) => {
-  const [selectedApplication, setSelectedApplication] = useState<EnhancedYffApplication | null>(null);
-  const [scoringApplication, setScoringApplication] = useState<EnhancedYffApplication | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [evaluationFilter, setEvaluationFilter] = useState<string>('all');
-  const [sortField, setSortField] = useState<SortField>('created_at');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const { triggerScoring } = useBackgroundScoring();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   /**
-   * Filter and sort applications based on current filters
+   * Auto-refresh mechanism
+   */
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['yff-applications'] });
+    }, 15000); // Refresh every 15 seconds
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, queryClient]);
+
+  /**
+   * Handle manual refresh
+   */
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['yff-applications'] });
+    toast({
+      title: "Refreshed",
+      description: "Application data has been updated.",
+    });
+  };
+
+  /**
+   * Handle sort field change
+   */
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
+
+  /**
+   * Handle manual evaluation trigger
+   */
+  const handleTriggerEvaluation = async (applicationId: string) => {
+    try {
+      await triggerScoring(applicationId);
+      toast({
+        title: "Evaluation Started",
+        description: "AI evaluation has been triggered for this application.",
+      });
+    } catch (error) {
+      console.error('Failed to trigger evaluation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to trigger evaluation. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  /**
+   * Filter and sort applications
    */
   const filteredAndSortedApplications = useMemo(() => {
-    let filtered = [...applications];
+    let filtered = applications.filter(app => {
+      // Search filter
+      const searchMatch = searchTerm === '' || 
+        `${app.individuals?.first_name} ${app.individuals?.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        app.application_id.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Apply search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(app => 
-        app.individual?.first_name?.toLowerCase().includes(searchLower) ||
-        app.individual?.last_name?.toLowerCase().includes(searchLower) ||
-        app.individual?.email?.toLowerCase().includes(searchLower) ||
-        app.teamRegistration?.venture_name?.toLowerCase().includes(searchLower) ||
-        app.teamRegistration?.team_name?.toLowerCase().includes(searchLower)
-      );
-    }
+      // Status filter
+      const statusMatch = statusFilter === 'all' || app.status === statusFilter;
 
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(app => app.status === statusFilter);
-    }
+      // Evaluation filter
+      const evaluationMatch = evaluationFilter === 'all' || app.evaluation_status === evaluationFilter;
 
-    // Apply evaluation filter
-    if (evaluationFilter !== 'all') {
-      filtered = filtered.filter(app => app.evaluation_status === evaluationFilter);
-    }
+      return searchMatch && statusMatch && evaluationMatch;
+    });
 
-    // Apply sorting
+    // Sort applications
     filtered.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
+      let aValue: string | number;
+      let bValue: string | number;
 
       switch (sortField) {
-        case 'name':
-          aValue = `${a.individual?.first_name || ''} ${a.individual?.last_name || ''}`.trim();
-          bValue = `${b.individual?.first_name || ''} ${b.individual?.last_name || ''}`.trim();
+        case 'date':
+          aValue = new Date(a.created_at).getTime();
+          bValue = new Date(b.created_at).getTime();
           break;
         case 'score':
           aValue = a.overall_score || 0;
@@ -112,331 +214,300 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
           aValue = a.status;
           bValue = b.status;
           break;
-        case 'evaluation_status':
-          aValue = a.evaluation_status;
-          bValue = b.evaluation_status;
+        case 'name':
+          aValue = `${a.individuals?.first_name} ${a.individuals?.last_name}`.toLowerCase();
+          bValue = `${b.individuals?.first_name} ${b.individuals?.last_name}`.toLowerCase();
           break;
         default:
-          aValue = new Date(a.created_at);
-          bValue = new Date(b.created_at);
+          aValue = new Date(a.created_at).getTime();
+          bValue = new Date(b.created_at).getTime();
       }
 
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
     });
 
     return filtered;
-  }, [applications, searchTerm, statusFilter, evaluationFilter, sortField, sortDirection]);
+  }, [applications, searchTerm, statusFilter, evaluationFilter, sortField, sortOrder]);
 
   /**
-   * Handle sort field change
+   * Calculate summary statistics
    */
-  const handleSort = useCallback((field: SortField) => {
-    if (field === sortField) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  }, [sortField, sortDirection]);
+  const stats = useMemo(() => {
+    const total = applications.length;
+    const submitted = applications.filter(app => app.status === 'submitted').length;
+    const underReview = applications.filter(app => app.status === 'under_review').length;
+    const evaluated = applications.filter(app => app.evaluation_status === 'completed').length;
+    const evaluatedApps = applications.filter(app => app.evaluation_status === 'completed' && app.overall_score && app.overall_score > 0);
+    const avgScore = evaluatedApps.length > 0
+      ? evaluatedApps.reduce((acc, app) => acc + (app.overall_score || 0), 0) / evaluatedApps.length
+      : 0;
+
+    return { total, submitted, underReview, evaluated, avgScore: Math.round(avgScore * 10) / 10 };
+  }, [applications]);
 
   /**
-   * Get status badge variant
+   * Render sort icon
    */
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'submitted': return 'default';
-      case 'under_review': return 'secondary';
-      case 'approved': return 'default';
-      case 'rejected': return 'destructive';
-      default: return 'outline';
-    }
-  };
-
-  /**
-   * Get evaluation status badge variant
-   */
-  const getEvaluationVariant = (status: string) => {
-    switch (status) {
-      case 'completed': return 'default';
-      case 'in_progress': return 'secondary';
-      case 'pending': return 'outline';
-      default: return 'outline';
-    }
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
+    return sortOrder === 'asc' 
+      ? <ArrowUp className="h-4 w-4 text-blue-600" />
+      : <ArrowDown className="h-4 w-4 text-blue-600" />;
   };
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-center py-8">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading applications...</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded mb-4"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            YFF Applications ({filteredAndSortedApplications.length})
-          </CardTitle>
-          
-          {/* Filters and Search */}
-          <div className="flex flex-col sm:flex-row gap-4 mt-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search by name, email, or venture..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            <div className="flex gap-2">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="submitted">Submitted</SelectItem>
-                  <SelectItem value="under_review">Under Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={evaluationFilter} onValueChange={setEvaluationFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Evaluation" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Evaluations</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <div className="space-y-6">
+      {/* Summary Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Users className="h-4 w-4 text-gray-600" />
+            <span className="text-sm font-medium">Total Applications</span>
           </div>
-        </CardHeader>
+          <div className="text-2xl font-bold">{stats.total}</div>
+        </Card>
 
-        <CardContent>
-          {filteredAndSortedApplications.length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-lg font-medium mb-2">No applications found</p>
-              <p className="text-muted-foreground">
-                {searchTerm || statusFilter !== 'all' || evaluationFilter !== 'all'
-                  ? 'Try adjusting your search or filters.'
-                  : 'Applications will appear here once submitted.'}
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-md border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort('name')}
-                        className="h-auto p-0 font-medium flex items-center gap-1"
-                      >
-                        Applicant
-                        <ArrowUpDown className="h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead>
-                      <div className="flex items-center gap-1">
-                        <Building className="h-4 w-4" />
-                        Venture Details
-                      </div>
-                    </TableHead>
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort('status')}
-                        className="h-auto p-0 font-medium flex items-center gap-1"
-                      >
-                        Status
-                        <ArrowUpDown className="h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort('evaluation_status')}
-                        className="h-auto p-0 font-medium flex items-center gap-1"
-                      >
-                        Evaluation
-                        <ArrowUpDown className="h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort('score')}
-                        className="h-auto p-0 font-medium flex items-center gap-1"
-                      >
-                        Score
-                        <ArrowUpDown className="h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort('created_at')}
-                        className="h-auto p-0 font-medium flex items-center gap-1"
-                      >
-                        <Calendar className="h-4 w-4" />
-                        Submitted
-                        <ArrowUpDown className="h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAndSortedApplications.map((application) => (
-                    <TableRow key={application.application_id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium">
-                            {application.individual?.first_name} {application.individual?.last_name}
-                          </div>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Mail className="h-3 w-3" />
-                            {application.individual?.email}
-                          </div>
-                          {application.individual?.phone_number && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Phone className="h-3 w-3" />
-                              {application.individual.country_code} {application.individual.phone_number}
-                            </div>
-                          )}
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-medium">Submitted</span>
+          </div>
+          <div className="text-2xl font-bold text-blue-600">{stats.submitted}</div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+            <span className="text-sm font-medium">Under Review</span>
+          </div>
+          <div className="text-2xl font-bold text-orange-600">{stats.underReview}</div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <span className="text-sm font-medium">AI Evaluated</span>
+          </div>
+          <div className="text-2xl font-bold text-green-600">{stats.evaluated}</div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="h-4 w-4 text-purple-600" />
+            <span className="text-sm font-medium">Avg Score</span>
+          </div>
+          <div className={`text-2xl font-bold ${getScoreColor(stats.avgScore)}`}>
+            {stats.avgScore || '—'}/10
+          </div>
+        </Card>
+      </div>
+
+      {/* Controls */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-4 items-center flex-1">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search by name or ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="submitted">Submitted</SelectItem>
+              <SelectItem value="under_review">Under Review</SelectItem>
+              <SelectItem value="accepted">Accepted</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={evaluationFilter} onValueChange={setEvaluationFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by evaluation" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Evaluations</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={autoRefresh ? 'bg-green-50 border-green-200' : ''}
+          >
+            {autoRefresh ? 'Auto-refresh On' : 'Auto-refresh Off'}
+          </Button>
+          
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Applications Table */}
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead 
+                className="cursor-pointer hover:bg-gray-50"
+                onClick={() => handleSort('date')}
+              >
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Submitted
+                  {renderSortIcon('date')}
+                </div>
+              </TableHead>
+              
+              <TableHead 
+                className="cursor-pointer hover:bg-gray-50"
+                onClick={() => handleSort('name')}
+              >
+                <div className="flex items-center gap-2">
+                  Applicant
+                  {renderSortIcon('name')}
+                </div>
+              </TableHead>
+              
+              <TableHead>Application ID</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Stage</TableHead>
+              
+              <TableHead 
+                className="cursor-pointer hover:bg-gray-50"
+                onClick={() => handleSort('score')}
+              >
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4" />
+                  AI Score
+                  {renderSortIcon('score')}
+                </div>
+              </TableHead>
+              
+              <TableHead>Evaluation</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredAndSortedApplications.map((application) => {
+              const parsedAnswers = parseApplicationAnswers(application.answers);
+              const stage = parsedAnswers.questionnaire_answers?.productStage || 'Unknown';
+              
+              return (
+                <TableRow key={application.application_id} className="hover:bg-gray-50">
+                  <TableCell className="text-sm text-gray-600">
+                    {new Date(application.created_at).toLocaleDateString()}
+                  </TableCell>
+                  
+                  <TableCell>
+                    <div className="font-medium">
+                      {application.individuals?.first_name} {application.individuals?.last_name}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {parsedAnswers.team?.ventureName || 'No venture name'}
+                    </div>
+                  </TableCell>
+                  
+                  <TableCell className="font-mono text-sm">
+                    {application.application_id.slice(0, 8)}...
+                  </TableCell>
+                  
+                  <TableCell>
+                    <Badge variant={getStatusColor(application.status)}>
+                      {application.status.replace('_', ' ')}
+                    </Badge>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <Badge variant="outline">
+                      {stage.replace('_', ' ')}
+                    </Badge>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {application.overall_score ? (
+                        <div className={`font-semibold ${getScoreColor(application.overall_score)}`}>
+                          {application.overall_score}/10
                         </div>
-                      </TableCell>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                       
-                      <TableCell>
-                        <div className="space-y-1">
-                          {application.teamRegistration?.venture_name && (
-                            <div className="font-medium">{application.teamRegistration.venture_name}</div>
-                          )}
-                          {application.teamRegistration?.team_name && (
-                            <div className="text-sm text-muted-foreground">
-                              Team: {application.teamRegistration.team_name}
-                            </div>
-                          )}
-                          {application.teamRegistration?.industry_sector && (
-                            <Badge variant="outline" className="text-xs">
-                              {application.teamRegistration.industry_sector}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
+                      {application.evaluation_status === 'processing' && (
+                        <RefreshCw className="h-3 w-3 animate-spin text-blue-500" />
+                      )}
+                    </div>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <Badge variant={getEvaluationStatusColor(application.evaluation_status)}>
+                      {application.evaluation_status || 'pending'}
+                    </Badge>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {/* Single View Details button with enhanced dialog */}
+                      <YffApplicationDetailsDialogEnhanced
+                        application={application}
+                      />
                       
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <ApplicationStatusIndicator status={application.status} />
-                          <Badge variant={getStatusVariant(application.status)}>
-                            {application.status.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Badge variant={getEvaluationVariant(application.evaluation_status)}>
-                          {application.evaluation_status.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {application.overall_score !== null && application.overall_score !== undefined ? (
-                            <>
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span className="font-medium">
-                                {application.overall_score.toFixed(1)}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-muted-foreground">Not scored</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="text-sm">
-                          {format(new Date(application.created_at), 'MMM d, yyyy')}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {format(new Date(application.created_at), 'HH:mm')}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell className="text-right">
-                        <div className="flex items-center gap-2 justify-end">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedApplication(application)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setScoringApplication(application)}
-                          >
-                            <Star className="h-4 w-4 mr-1" />
-                            Score
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
+                      {(!application.evaluation_status || application.evaluation_status === 'pending' || application.evaluation_status === 'failed') && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleTriggerEvaluation(application.application_id)}
+                        >
+                          <Star className="h-3 w-3 mr-1" />
+                          Evaluate
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+
+        {filteredAndSortedApplications.length === 0 && (
+          <div className="text-center py-8">
+            <div className="text-gray-500">No applications found matching your criteria.</div>
+          </div>
+        )}
       </Card>
-
-      {/* Application Details Dialog */}
-      {selectedApplication && (
-        <YffApplicationDetailsDialogEnhanced
-          application={selectedApplication}
-          open={!!selectedApplication}
-          onOpenChange={(open) => !open && setSelectedApplication(null)}
-        />
-      )}
-
-      {/* Application Scoring Dialog */}
-      {scoringApplication && (
-        <ApplicationScoringDialog
-          application={{
-            application_id: scoringApplication.application_id,
-            answers: scoringApplication.answers,
-            cumulative_score: scoringApplication.overall_score || 0,
-            individuals: {
-              first_name: scoringApplication.individual?.first_name || '',
-              last_name: scoringApplication.individual?.last_name || ''
-            }
-          }}
-        />
-      )}
-    </>
+    </div>
   );
 };

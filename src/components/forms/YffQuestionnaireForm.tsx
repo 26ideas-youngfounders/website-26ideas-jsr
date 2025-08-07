@@ -278,8 +278,9 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
     }
   };
 
-  // Use currentStage prop instead of local productStage state for AI feedback
-  const isEarlyRevenue = currentStage === 'early_revenue';
+  // Use the form's productStage value to determine current flow, not the prop
+  // Determine effective stage for AI feedback based on form selection
+  const effectiveStage = isEarlyRevenue ? 'early_revenue' : 'idea';
 
   // Enhanced retry handler for all questions
   const handleRetryFeedback = (questionId: string) => {
@@ -492,7 +493,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                             questionId="early_revenue_problem"
                             questionText="What problem does your idea solve?"
                             userAnswer={field.value || ''}
-                            stage={currentStage}
+                            stage={effectiveStage}
                             onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />

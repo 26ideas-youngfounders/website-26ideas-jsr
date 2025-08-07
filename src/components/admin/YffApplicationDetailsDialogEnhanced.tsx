@@ -1,400 +1,943 @@
+/**
+ * @fileoverview Enhanced YFF Application Details Dialog with AI Scoring
+ * 
+ * Displays comprehensive application details with separate sections for:
+ * - Questionnaire answers (from yff_team_registrations.questionnaire_answers)
+ * - Team registration data (all questions, including blank ones)
+ * 
+ * @version 1.18.0
+ * @author 26ideas Development Team
+ */
 
-
-import React, { useState, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import React, { useMemo } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { 
+  Eye, 
   User, 
-  Calendar, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Building, 
-  Users, 
-  Briefcase,
-  Star,
-  MessageSquare,
+  MessageSquare, 
+  CheckCircle, 
+  AlertCircle,
+  Brain,
   FileText,
+  Users,
+  BookOpen,
+  Calendar,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
   Award,
   TrendingUp,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  XCircle
+  ClipboardList
 } from 'lucide-react';
-import { YffApplicationWithIndividual } from '@/types/yff-application';
-import { TeamRegistrationSection } from './TeamRegistrationSection';
-
-interface IndividualDetailsProps {
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
-  phoneNumber: string | null;
-  countryCode: string | null;
-  countryIsoCode: string | null;
-}
-
-const IndividualDetails: React.FC<IndividualDetailsProps> = ({
-  firstName,
-  lastName,
-  email,
-  phoneNumber,
-  countryCode,
-  countryIsoCode,
-}) => {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <User className="h-5 w-5" />
-          Individual Details
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <strong>First Name:</strong> {firstName || 'Not provided'}
-          </div>
-          <div>
-            <strong>Last Name:</strong> {lastName || 'Not provided'}
-          </div>
-          <div>
-            <strong>Email:</strong> {email || 'Not provided'}
-          </div>
-          <div>
-            <strong>Phone Number:</strong> {phoneNumber || 'Not provided'}
-          </div>
-          <div>
-            <strong>Country Code:</strong> {countryCode || 'Not provided'}
-          </div>
-          <div>
-            <strong>Country ISO Code:</strong> {countryIsoCode || 'Not provided'}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+import { ExtendedYffApplication } from '@/types/yff-application';
 
 interface YffApplicationDetailsDialogEnhancedProps {
-  application: YffApplicationWithIndividual;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  application: ExtendedYffApplication;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-const STAGE_QUESTIONS = {
-  idea: {
-    'idea-description': 'Idea Description',
-    'problem-statement': 'Problem Statement',
-    'target-audience': 'Target Audience',
-    'unique-value-proposition': 'Unique Value Proposition',
-    'market-research': 'Market Research',
-    'competitive-landscape': 'Competitive Landscape',
-    'business-model': 'Business Model',
-    'revenue-streams': 'Revenue Streams',
-    'go-to-market-strategy': 'Go-to-Market Strategy',
-    'team-composition': 'Team Composition',
-    'skills-expertise': 'Skills & Expertise',
-    'funding-requirements': 'Funding Requirements',
-    'milestones-timeline': 'Milestones & Timeline',
-    'risks-challenges': 'Risks & Challenges',
-    'success-metrics': 'Success Metrics'
-  }
+/**
+ * Map questionnaire keys to human-readable questions (FIXED: removed duplicates)
+ */
+const QUESTIONNAIRE_KEY_TO_QUESTION: Record<string, string> = {
+  'ideaDescription': 'Tell us about your idea',
+  'problemSolved': 'What problem does your idea solve?',
+  'targetAudience': 'Whose problem does your idea solve for?',
+  'solutionApproach': 'How does your idea solve this problem?',
+  'monetizationStrategy': 'How do you plan to make money from this idea?',
+  'customerAcquisition': 'How do you plan to acquire customers?',
+  'competitors': 'List 3 potential competitors for your idea',
+  'developmentApproach': 'What is your approach to product development?',
+  'teamInfo': 'Who is on your team, and what are their roles?',
+  'timeline': 'When do you plan to proceed with the idea?',
+  'productStage': 'What stage is your product currently in?',
+  'teaminfo': 'Who is on your team, and what are their roles?',
+  'problemStatement': 'What problem does your idea solve?',
+  'whoseProblem': 'Whose problem does your idea solve for?',
+  'howSolveProblem': 'How does your idea solve this problem?',
+  'howMakeMoney': 'How do you plan to make money from this idea?',
+  'acquireCustomers': 'How do you plan to acquire customers?',
+  'productDevelopment': 'What is your approach to product development?',
+  'whenProceed': 'When do you plan to proceed with the idea?',
+  'tell_us_about_idea': 'Tell us about your idea',
+  'product_stage': 'What stage is your product/service currently at?',
+  'problem_statement': 'What problem does your idea solve?',
+  'whose_problem': 'Whose problem does your idea solve for?',
+  'how_solve_problem': 'How does your idea solve this problem?',
+  'how_make_money': 'How do you plan to make money from this idea?',
+  'acquire_customers': 'How do you plan to acquire first paying customers?',
+  'product_development': 'How are you developing the product?',
+  'team_roles': 'Who is on your team and their roles?',
+  'when_proceed': 'When/Since when have you been working on the idea?'
 };
 
-const TEAM_REGISTRATION_QUESTIONS = {
-  full_name: 'Full Name',
-  email: 'Email Address',
-  phone_number: 'Phone Number',
-  date_of_birth: 'Date of Birth',
-  current_city: 'Current City',
-  state: 'State/Province',
-  pin_code: 'Pin Code',
-  permanent_address: 'Permanent Address',
-  institution_name: 'Institution Name',
-  course_program: 'Course/Program',
-  current_year_of_study: 'Current Year of Study',
-  expected_graduation: 'Expected Graduation',
-  venture_name: 'Venture Name',
-  team_name: 'Team Name',
-  industry_sector: 'Industry Sector',
-  number_of_team_members: 'Number of Team Members',
-  website: 'Website URL',
-  linkedin_profile: 'LinkedIn Profile',
-  gender: 'Gender'
+/**
+ * Team registration questions that should always show (with placeholders for blank answers)
+ */
+const TEAM_REGISTRATION_QUESTIONS: Record<string, string> = {
+  'full_name': 'Full Name',
+  'email': 'Email Address',
+  'phone_number': 'Phone Number',
+  'date_of_birth': 'Date of Birth',
+  'current_city': 'Current City',
+  'state': 'State/Province',
+  'institution_name': 'Institution Name',
+  'course_program': 'Course/Program',
+  'current_year_of_study': 'Current Year of Study',
+  'expected_graduation': 'Expected Graduation',
+  'venture_name': 'Venture Name',
+  'industry_sector': 'Industry Sector',
+  'number_of_team_members': 'Number of Team Members',
+  'website': 'Website URL',
+  'linkedin_profile': 'LinkedIn Profile',
+  'social_media_handles': 'Social Media Handles',
+  'gender': 'Gender',
+  'pin_code': 'Pin Code',
+  'permanent_address': 'Permanent Address',
+  'country_code': 'Country Code',
+  'team_name': 'Team Name',
+  'referral_id': 'Referral ID'
 };
 
+/**
+ * Get score color based on value
+ */
+const getScoreColor = (score?: number): string => {
+  if (!score) return 'text-gray-400';
+  if (score >= 8) return 'text-green-600';
+  if (score >= 6) return 'text-yellow-600';
+  if (score >= 4) return 'text-orange-600';
+  return 'text-red-600';
+};
+
+/**
+ * Get score background color for badges
+ */
+const getScoreBadgeColor = (score?: number): "default" | "secondary" | "destructive" | "outline" => {
+  if (!score) return 'outline';
+  if (score >= 8) return 'default';
+  if (score >= 6) return 'secondary';
+  if (score >= 4) return 'secondary';
+  return 'destructive';
+};
+
+/**
+ * ENHANCED: Safe unwrapping function for wrapped data values
+ */
 const safeUnwrapValue = (value: any): any => {
-  if (value && typeof value === 'object' && value._type === 'undefined') {
-    return undefined;
+  console.log('🔧 Unwrapping value:', value, 'Type:', typeof value);
+  
+  // Handle null/undefined
+  if (value === null || value === undefined) {
+    return null;
   }
-  if (value && typeof value === 'object' && value.value !== undefined) {
-    return value.value;
+  
+  // Handle wrapped values with _type property
+  if (typeof value === 'object' && value !== null) {
+    if ('_type' in value) {
+      console.log('🔧 Found _type wrapper:', value._type, 'Value:', value.value);
+      // If the wrapper indicates undefined/null, return null
+      if (value._type === 'undefined' || value.value === 'undefined' || value.value === null) {
+        return null;
+      }
+      // Otherwise return the wrapped value
+      return value.value !== undefined ? value.value : value;
+    }
   }
+  
   return value;
+};
+
+/**
+ * ENHANCED: Safe parsing function for application answers with better unwrapping
+ */
+const safeParseAnswers = (answers: any) => {
+  try {
+    console.log('🔍 ENHANCED parsing application answers:', answers);
+    
+    // First unwrap if needed
+    const unwrappedAnswers = safeUnwrapValue(answers);
+    console.log('🔍 Unwrapped answers:', unwrappedAnswers);
+    
+    if (!unwrappedAnswers) return { team: {}, questionnaire_answers: {} };
+    
+    if (typeof unwrappedAnswers === 'string') {
+      const parsed = JSON.parse(unwrappedAnswers);
+      console.log('📋 Parsed JSON answers:', parsed);
+      return parsed;
+    }
+    
+    if (typeof unwrappedAnswers === 'object') {
+      console.log('📋 Direct object answers:', unwrappedAnswers);
+      return unwrappedAnswers;
+    }
+    
+    return { team: {}, questionnaire_answers: {} };
+  } catch (error) {
+    console.error('❌ Error parsing answers:', error);
+    return { team: {}, questionnaire_answers: {} };
+  }
+};
+
+/**
+ * ENHANCED: Safe parsing function for evaluation data with unwrapping
+ */
+const safeParseEvaluationData = (evaluationData: any) => {
+  try {
+    console.log('🔍 ENHANCED parsing evaluation data:', evaluationData);
+    
+    const unwrappedData = safeUnwrapValue(evaluationData);
+    console.log('🔍 Unwrapped evaluation data:', unwrappedData);
+    
+    if (!unwrappedData) return { scores: {} };
+    
+    if (typeof unwrappedData === 'string') {
+      const parsed = JSON.parse(unwrappedData);
+      console.log('📊 Parsed evaluation data:', parsed);
+      return parsed;
+    }
+    
+    if (typeof unwrappedData === 'object') {
+      console.log('📊 Direct object evaluation data:', unwrappedData);
+      return unwrappedData;
+    }
+    
+    return { scores: {} };
+  } catch (error) {
+    console.error('❌ Error parsing evaluation data:', error);
+    return { scores: {} };
+  }
+};
+
+/**
+ * ENHANCED: More permissive validation that handles wrapped data types correctly
+ */
+const isValidAnswer = (value: any): boolean => {
+  // First unwrap the value
+  const unwrapped = safeUnwrapValue(value);
+  
+  // Handle null and undefined after unwrapping
+  if (unwrapped === null || unwrapped === undefined) {
+    return false;
+  }
+  
+  // Handle arrays
+  if (Array.isArray(unwrapped)) {
+    return unwrapped.length > 0;
+  }
+  
+  // Handle objects
+  if (typeof unwrapped === 'object') {
+    const keys = Object.keys(unwrapped);
+    return keys.length > 0;
+  }
+  
+  // Handle primitives (strings, numbers, booleans)
+  const stringValue = String(unwrapped).trim();
+  
+  // Only exclude truly empty or meaningless values
+  return stringValue !== '' && 
+         stringValue !== 'undefined' && 
+         stringValue !== 'null';
+};
+
+/**
+ * ENHANCED: Extract display value with better handling for wrapped and complex objects
+ */
+const extractValue = (value: any): string => {
+  const unwrapped = safeUnwrapValue(value);
+  
+  if (unwrapped === null || unwrapped === undefined) {
+    return 'Not provided';
+  }
+  
+  if (Array.isArray(unwrapped)) {
+    return unwrapped.map(item => extractValue(item)).join(', ');
+  }
+  
+  if (typeof unwrapped === 'object') {
+    try {
+      const entries = Object.entries(unwrapped)
+        .filter(([key, val]) => isValidAnswer(val))
+        .map(([key, val]) => `${key}: ${extractValue(val)}`);
+      
+      if (entries.length > 0) {
+        return entries.join('; ');
+      }
+    } catch (error) {
+      // Fallback for complex objects
+    }
+    
+    return JSON.stringify(unwrapped, null, 2);
+  }
+  
+  return String(unwrapped).trim();
+};
+
+/**
+ * COMPLETELY REWRITTEN: Extract all individual questions from questionnaire answers
+ */
+const parseQuestionnaireAnswers = (teamRegistrationData: any): Record<string, any> => {
+  console.log('🔍 PARSING questionnaire answers from:', teamRegistrationData);
+  
+  if (!teamRegistrationData) {
+    console.log('❌ No team registration data provided');
+    return {};
+  }
+  
+  const results: Record<string, any> = {};
+  
+  // Function to extract questions from any object structure
+  const extractQuestions = (obj: any, depth = 0) => {
+    if (!obj || typeof obj !== 'object' || depth > 5) return;
+    
+    // Check for direct questionnaire_answers field
+    if (obj.questionnaire_answers) {
+      console.log(`📝 Found questionnaire_answers at depth ${depth}:`, obj.questionnaire_answers);
+      
+      let questionnaireData = obj.questionnaire_answers;
+      
+      // Parse if it's a string
+      if (typeof questionnaireData === 'string') {
+        try {
+          questionnaireData = JSON.parse(questionnaireData);
+          console.log(`📝 Parsed questionnaire JSON:`, questionnaireData);
+        } catch (e) {
+          console.error(`❌ Failed to parse questionnaire JSON:`, e);
+          return;
+        }
+      }
+      
+      // Extract individual questions
+      if (typeof questionnaireData === 'object' && questionnaireData !== null) {
+        Object.entries(questionnaireData).forEach(([questionKey, answer]) => {
+          if (isValidAnswer(answer)) {
+            results[questionKey] = answer;
+            console.log(`✅ Added question: ${questionKey}`);
+          }
+        });
+      }
+    }
+    
+    // Look for known question keys directly in the object
+    const knownQuestionKeys = Object.keys(QUESTIONNAIRE_KEY_TO_QUESTION);
+    knownQuestionKeys.forEach(key => {
+      if (obj[key] && isValidAnswer(obj[key]) && !results[key]) {
+        results[key] = obj[key];
+        console.log(`✅ Found direct question: ${key}`);
+      }
+    });
+    
+    // Recursively search nested objects
+    Object.entries(obj).forEach(([key, value]) => {
+      if (typeof value === 'object' && value !== null && key !== 'questionnaire_answers') {
+        extractQuestions(value, depth + 1);
+      }
+    });
+  };
+  
+  extractQuestions(teamRegistrationData);
+  
+  console.log(`🎉 FINAL: Found ${Object.keys(results).length} questionnaire answers`);
+  console.log(`📋 Questions found:`, Object.keys(results));
+  
+  return results;
+};
+
+/**
+ * Map question keys to evaluation keys for scoring lookup
+ */
+const getEvaluationKey = (questionKey: string): string => {
+  const keyMapping: Record<string, string> = {
+    'ideaDescription': 'tell_us_about_idea',
+    'problemSolved': 'problem_statement',
+    'targetAudience': 'whose_problem',
+    'solutionApproach': 'how_solve_problem',
+    'monetizationStrategy': 'how_make_money',
+    'customerAcquisition': 'acquire_customers',
+    'developmentApproach': 'product_development',
+    'teamInfo': 'team_roles',
+    'timeline': 'when_proceed',
+    'competitors': 'competitors',
+    'productStage': 'product_development'
+  };
+  
+  return keyMapping[questionKey] || questionKey;
+};
+
+/**
+ * ENHANCED: Get team registration data with ultra permissive validation and proper unwrapping
+ */
+const getTeamRegistrationValue = (data: any, key: string): { value: string; hasAnswer: boolean } => {
+  console.log(`🔍 ENHANCED getting team registration value for ${key}:`, data?.[key]);
+  
+  if (!data) {
+    return { value: 'No data available', hasAnswer: false };
+  }
+
+  const rawValue = data[key];
+  const unwrappedValue = safeUnwrapValue(rawValue);
+  const hasAnswer = isValidAnswer(unwrappedValue);
+  const extractedValue = hasAnswer ? extractValue(unwrappedValue) : 'Not provided';
+  
+  console.log(`📋 ENHANCED team field ${key}: unwrapped=${JSON.stringify(unwrappedValue)}, hasAnswer=${hasAnswer}, value="${extractedValue}"`);
+  
+  return {
+    value: extractedValue,
+    hasAnswer
+  };
 };
 
 export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetailsDialogEnhancedProps> = ({
   application,
-  open,
-  onOpenChange,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }) => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [internalOpen, setInternalOpen] = React.useState(false);
 
+  // Use controlled state if provided, otherwise use internal state
+  const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = controlledOnOpenChange || setInternalOpen;
+
+  // DEBUG LOGGING for team registration data
+  console.log("DEBUG – YFF_TEAM_REGISTRATIONS:", application.yff_team_registrations);
+  console.log("DEBUG – YFF_TEAM_REGISTRATIONS TYPE:", typeof application.yff_team_registrations);
+  console.log("DEBUG – YFF_TEAM_REGISTRATIONS IS_ARRAY:", Array.isArray(application.yff_team_registrations));
+
+  // ENHANCED: Safe parsing of application data with better unwrapping
   const parsedAnswers = useMemo(() => {
-    console.log("=== PARSING APPLICATION ANSWERS ===");
+    console.log('🔧 ENHANCED processing application answers for:', application.application_id);
+    console.log('🔧 Raw application.answers:', application.answers);
+    return safeParseAnswers(application.answers);
+  }, [application.answers, application.application_id]);
+
+  const evaluationData = useMemo(() => {
+    console.log('🔧 ENHANCED processing evaluation data for:', application.application_id);
+    console.log('🔧 Raw evaluation_data:', application.evaluation_data);
+    return safeParseEvaluationData(application.evaluation_data);
+  }, [application.evaluation_data, application.application_id]);
+  
+  const teamAnswers = parsedAnswers.team || {};
+  
+  // ENHANCED: Parse questionnaire answers with proper extraction and unwrapping
+  const questionnaireAnswers = useMemo(() => {
+    console.log('🔧 ENHANCED PROCESSING questionnaire parsing for application:', application.application_id);
+    console.log('🔧 Raw team registration data:', application.yff_team_registrations);
     
-    let questionnaire_answers = {};
-    let stage = 'idea';
-    
-    try {
-      const rawAnswers = application.answers;
-      console.log("Raw answers:", rawAnswers);
+    // First try to get from team registration data with unwrapping
+    if (application.yff_team_registrations) {
+      const unwrappedTeamReg = safeUnwrapValue(application.yff_team_registrations);
+      console.log('🔧 Unwrapped team registration:', unwrappedTeamReg);
       
-      if (rawAnswers && typeof rawAnswers === 'object') {
-        if ('questionnaire_answers' in rawAnswers && rawAnswers.questionnaire_answers) {
-          questionnaire_answers = rawAnswers.questionnaire_answers as Record<string, any>;
-        }
-        
-        if ('stage' in rawAnswers && rawAnswers.stage) {
-          stage = rawAnswers.stage as string;
+      if (unwrappedTeamReg) {
+        const parsed = parseQuestionnaireAnswers(unwrappedTeamReg);
+        if (Object.keys(parsed).length > 0) {
+          return parsed;
         }
       }
-    } catch (error) {
-      console.error("Error parsing answers:", error);
     }
     
-    const fallback = {
-      questionnaire_answers,
-      stage: stage || 'idea'
-    };
-    
-    console.log("Final parsed answers:", fallback);
+    // Fallback to parsed answers structure
+    const fallback = parsedAnswers.questionnaire_answers || {};
+    console.log('🔧 Using fallback questionnaire answers:', fallback);
     return fallback;
-  }, [application.yff_team_registrations, application.answers, application.application_id]);
+  }, [application.yff_team_registrations, parsedAnswers.questionnaire_answers, application.application_id]);
 
-  const formatAnswerValue = (value: any): string => {
-    if (value === null || value === undefined) return 'Not provided';
-    if (typeof value === 'string') return value;
-    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-    if (Array.isArray(value)) return value.join(', ');
-    if (typeof value === 'object') return JSON.stringify(value, null, 2);
-    return String(value);
-  };
-
-  const getStageQuestions = (stage: string) => {
-    return STAGE_QUESTIONS[stage as keyof typeof STAGE_QUESTIONS] || STAGE_QUESTIONS.idea;
-  };
-
-  const renderQuestionnaireAnswers = () => {
-    const stageQuestions = getStageQuestions(parsedAnswers.stage);
-    const answers = parsedAnswers.questionnaire_answers;
+  // FIXED: Safe extraction of team registration data with proper type handling
+  const teamRegistrationData = useMemo(() => {
+    console.log("=== TEAM REGISTRATION DATA EXTRACTION ===");
     
-    if (!answers || Object.keys(answers).length === 0) {
-      return (
-        <div className="text-center py-8 text-gray-500">
-          <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>No questionnaire answers available for this application.</p>
-        </div>
-      );
+    // Start with the raw registration data
+    let registration = application.yff_team_registrations;
+    console.log("RAW registration:", registration);
+    
+    // Handle array case (common with joins)
+    if (Array.isArray(registration)) {
+      console.log("Registration is array, taking first element");
+      registration = registration[0];
     }
     
-    return (
-      <div className="space-y-6">
-        {Object.entries(stageQuestions).map(([key, label]) => {
-          const answer = answers[key];
-          if (!answer) return null;
-          
-          return (
-            <div key={key} className="space-y-2">
-              <h4 className="font-semibold text-gray-900">{label}</h4>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <pre className="whitespace-pre-wrap font-sans text-sm text-gray-700">
-                  {formatAnswerValue(answer)}
-                </pre>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+    // Handle wrapped values by casting to any to access _type property
+    const registrationAsAny = registration as any;
+    if (registration && typeof registration === 'object' && registrationAsAny._type) {
+      console.log("Registration has _type wrapper:", registrationAsAny._type);
+      registration = safeUnwrapValue(registration);
+      console.log("Unwrapped registration:", registration);
+    }
+    
+    // Fallback to parsed answers if registration is not valid
+    if (!registration || typeof registration !== 'object' || registration === null) {
+      console.log("Registration invalid, using teamAnswers fallback:", teamAnswers);
+      registration = teamAnswers;
+    }
+    
+    console.log("FINAL registration data:", registration);
+    console.log("=== END TEAM REGISTRATION DATA EXTRACTION ===");
+    
+    return registration || {};
+  }, [application.yff_team_registrations, teamAnswers]);
+  
+  console.log('📝 ENHANCED FINAL questionnaire answers:', questionnaireAnswers);
+  console.log('📊 ENHANCED Final evaluation scores:', evaluationData.scores);
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      submitted: { variant: 'default' as const, icon: Clock, label: 'Submitted' },
-      under_review: { variant: 'secondary' as const, icon: AlertCircle, label: 'Under Review' },
-      accepted: { variant: 'default' as const, icon: CheckCircle, label: 'Accepted' },
-      rejected: { variant: 'destructive' as const, icon: XCircle, label: 'Rejected' },
-      waitlisted: { variant: 'outline' as const, icon: Clock, label: 'Waitlisted' }
-    };
+  /**
+   * FIXED: Process questionnaire answers with proper iteration
+   */
+  const answeredQuestionnaireQuestions = useMemo(() => {
+    console.log('🗂️ Processing questionnaire questions...');
+    console.log('🔍 Questionnaire answers to process:', questionnaireAnswers);
     
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.submitted;
-    const Icon = config.icon;
-    
-    return (
-      <Badge 
-        variant={config.variant} 
-        className={status === 'accepted' ? 'bg-green-100 text-green-800 border-green-200' : ''}
-      >
-        <Icon className="h-3 w-3 mr-1" />
-        {config.label}
-      </Badge>
-    );
-  };
+    const answeredQuestions: Array<{
+      questionKey: string;
+      questionText: string;
+      userAnswer: string;
+      score?: number;
+      strengths?: string[];
+      improvements?: string[];
+      rawFeedback?: string;
+    }> = [];
 
-  const getEvaluationStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: { variant: 'outline' as const, icon: Clock, label: 'Pending' },
-      in_progress: { variant: 'secondary' as const, icon: TrendingUp, label: 'In Progress' },
-      completed: { variant: 'default' as const, icon: CheckCircle, label: 'Completed' }
-    };
-    
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    const Icon = config.icon;
-    
-    return (
-      <Badge 
-        variant={config.variant} 
-        className={status === 'completed' ? 'bg-blue-100 text-blue-800 border-blue-200' : ''}
-      >
-        <Icon className="h-3 w-3 mr-1" />
-        {config.label}
-      </Badge>
-    );
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] p-0">
-        <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle className="text-xl font-semibold">
-            Application Details - {application.application_id}
-          </DialogTitle>
-        </DialogHeader>
+    // Process all entries in questionnaireAnswers
+    Object.entries(questionnaireAnswers || {}).forEach(([questionKey, userAnswer], index) => {
+      console.log(`\n🔍 [${index + 1}] Processing question: "${questionKey}"`);
+      console.log(`🔍 [${index + 1}] Raw answer:`, userAnswer);
+      
+      if (isValidAnswer(userAnswer)) {
+        const answerString = extractValue(userAnswer);
         
-        <div className="flex-1 overflow-hidden">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-            <TabsList className="mx-6 mt-4">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="questionnaire">Questionnaire</TabsTrigger>
-              <TabsTrigger value="evaluation">AI Evaluation</TabsTrigger>
-            </TabsList>
-            
-            <div className="flex-1 overflow-hidden px-6 pb-6">
-              <TabsContent value="overview" className="h-full mt-4">
-                <ScrollArea className="h-full">
-                  <div className="space-y-6 pr-4">
-                    {/* Application Status Card */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <FileText className="h-5 w-5" />
-                            Application Status
-                          </span>
-                          <div className="flex gap-2">
-                            {getStatusBadge(application.status)}
-                            {getEvaluationStatusBadge(application.evaluation_status)}
-                          </div>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <strong>Submitted:</strong> {new Date(application.created_at).toLocaleDateString()}
-                          </div>
-                          <div>
-                            <strong>Last Updated:</strong> {new Date(application.updated_at).toLocaleDateString()}
-                          </div>
-                          <div>
-                            <strong>Stage:</strong> {parsedAnswers.stage || 'Not specified'}
-                          </div>
-                          <div>
-                            <strong>Application ID:</strong> {application.application_id}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+        // Get human-readable question text
+        const questionText = QUESTIONNAIRE_KEY_TO_QUESTION[questionKey] || 
+          questionKey.charAt(0).toUpperCase() + questionKey.slice(1).replace(/([A-Z])/g, ' $1');
+        
+        // Look up evaluation score
+        const evalKey = getEvaluationKey(questionKey);
+        const evaluationScore = evaluationData.scores?.[evalKey] || 
+                              evaluationData.scores?.[questionKey] ||
+                              evaluationData.scores?.[questionKey.toLowerCase()];
+        
+        console.log(`✅ [${index + 1}] ADDING question: "${questionKey}" -> "${questionText}"`);
+        console.log(`📊 [${index + 1}] Score:`, evaluationScore?.score);
+        
+        answeredQuestions.push({
+          questionKey,
+          questionText,
+          userAnswer: answerString,
+          score: evaluationScore?.score,
+          strengths: evaluationScore?.strengths,
+          improvements: evaluationScore?.areas_for_improvement,
+          rawFeedback: evaluationScore?.raw_feedback
+        });
+      } else {
+        console.log(`❌ [${index + 1}] SKIPPED invalid answer: "${questionKey}"`);
+      }
+    });
 
-                    {/* Team Registration Information Section */}
-                    <TeamRegistrationSection application={application} />
+    console.log(`\n🎉 FINAL: ${answeredQuestions.length} questions will be displayed`);
+    
+    return answeredQuestions;
+  }, [questionnaireAnswers, evaluationData.scores]);
 
-                    {/* Quick Summary of Questionnaire */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <MessageSquare className="h-5 w-5" />
-                          Questionnaire Summary
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-sm text-gray-600">
-                          {Object.keys(parsedAnswers.questionnaire_answers).length > 0 ? (
-                            <>
-                              <p><strong>Questions Answered:</strong> {Object.keys(parsedAnswers.questionnaire_answers).length}</p>
-                              <p><strong>Stage:</strong> {parsedAnswers.stage}</p>
-                              <p className="mt-2">View the "Questionnaire" tab for detailed answers.</p>
-                            </>
-                          ) : (
-                            <p>No questionnaire data available.</p>
-                          )}
+  /**
+   * ENHANCED: Process team registration data with ultra permissive validation and proper unwrapping
+   */
+  const teamRegistrationDataForDisplay = useMemo(() => {
+    console.log('🗂️ ENHANCED ULTRA PERMISSIVE team registration processing...');
+    console.log('🔍 Team registration source data:', application.yff_team_registrations);
+    console.log('🔍 Fallback team answers:', teamAnswers);
+    
+    const teamData: Array<{
+      questionKey: string;
+      questionText: string;
+      userAnswer: string;
+      hasAnswer: boolean;
+    }> = [];
+
+    // ENHANCED: Unwrap the team registration data properly
+    const unwrappedTeamReg = safeUnwrapValue(application.yff_team_registrations);
+    console.log('🔍 ENHANCED unwrapped team registration:', unwrappedTeamReg);
+    
+    // Use unwrapped team registration data with fallback to teamAnswers
+    const teamRegData = unwrappedTeamReg || teamAnswers;
+    console.log('🔍 ENHANCED final team data source:', teamRegData);
+
+    Object.entries(TEAM_REGISTRATION_QUESTIONS).forEach(([questionKey, questionText]) => {
+      const { value, hasAnswer } = getTeamRegistrationValue(teamRegData, questionKey);
+      
+      console.log(`📋 ENHANCED team field ${questionKey}: hasAnswer=${hasAnswer}, value="${value}"`);
+      
+      teamData.push({
+        questionKey,
+        questionText,
+        userAnswer: value,
+        hasAnswer
+      });
+    });
+
+    const answeredCount = teamData.filter(item => item.hasAnswer).length;
+    console.log(`✅ ENHANCED team registration: ${answeredCount}/${teamData.length} fields have answers`);
+    
+    return teamData;
+  }, [application.yff_team_registrations, teamAnswers]);
+
+  /**
+   * Handle dialog trigger click
+   */
+  const handleDialogTrigger = () => {
+    console.log('👆 Dialog trigger clicked for application:', application.application_id);
+    setOpen(true);
+  };
+
+  const DialogButton = () => (
+    <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={handleDialogTrigger}>
+      <Eye className="h-3 w-3" />
+      View Details
+    </Button>
+  );
+
+  const dialogContent = (
+    <DialogContent className="max-w-7xl w-[95vw] h-[95vh] p-0 overflow-hidden" aria-describedby="dialog-description">
+      <DialogHeader className="px-6 py-4 border-b bg-white sticky top-0 z-10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FileText className="h-6 w-6 text-blue-600" />
+            <div>
+              <DialogTitle className="text-xl font-semibold">
+                Application Details with AI Scoring
+              </DialogTitle>
+              <DialogDescription id="dialog-description" className="text-sm text-muted-foreground mt-1">
+                {teamRegistrationData.venture_name || teamRegistrationData.team_name || teamAnswers.ventureName || 'Unnamed Venture'} • {teamRegistrationData.full_name || teamAnswers.fullName || application.individuals?.first_name + ' ' + application.individuals?.last_name || 'Unknown Applicant'}
+              </DialogDescription>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs">
+              ID: {application.application_id.slice(0, 8)}...
+            </Badge>
+            <Badge variant={application.evaluation_status === 'completed' ? 'default' : 'outline'}>
+              {application.evaluation_status || 'pending'}
+            </Badge>
+          </div>
+        </div>
+      </DialogHeader>
+
+      <ScrollArea className="flex-1 h-full">
+        <div className="p-6 space-y-6">
+          {/* Overall Score Summary */}
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-purple-600" />
+                AI Evaluation Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-6">
+                <div className="text-center">
+                  <div className={`text-3xl font-bold ${getScoreColor(application.overall_score)}`}>
+                    {application.overall_score?.toFixed(1) || '—'}
+                    <span className="text-lg text-muted-foreground">/10</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Overall Score</p>
+                </div>
+                <div className="flex-1">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Status:</span>
+                      <Badge variant={application.evaluation_status === 'completed' ? 'default' : 'secondary'} className="ml-2">
+                        {application.evaluation_status || 'pending'}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Answered Questions:</span>
+                      <span className="ml-2 font-medium">{answeredQuestionnaireQuestions.length}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Submitted:</span>
+                      <span className="ml-2 font-medium">
+                        {application.submitted_at ? 
+                          new Date(application.submitted_at).toLocaleDateString() : 
+                          new Date(application.created_at).toLocaleDateString()
+                        }
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Application Round:</span>
+                      <span className="ml-2 font-medium">{application.application_round || 'current'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* RESTORED: Team Registration Information Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Team Registration Information
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Basic registration details for the team/individual
+              </p>
+            </CardHeader>
+            <CardContent>
+              {teamRegistrationData && Object.keys(teamRegistrationData).length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.entries(TEAM_REGISTRATION_QUESTIONS).map(([key, label]) => (
+                    <div key={key}>
+                      <strong>{label}:</strong> {teamRegistrationData[key] || 'Not provided'}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div>
+                  <p className="text-gray-500 mb-4">No registration information available for this application</p>
+                  <details className="bg-gray-100 p-4 rounded">
+                    <summary className="cursor-pointer font-medium">Debug Information</summary>
+                    <pre className="mt-2 text-xs overflow-auto">
+                      {JSON.stringify({
+                        raw_yff_team_registrations: application.yff_team_registrations,
+                        teamAnswers: teamAnswers,
+                        application_id: application.application_id
+                      }, null, 2)}
+                    </pre>
+                  </details>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* FIXED: Questionnaire Answers - Now shows ALL questions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Questionnaire Answers with AI Scoring
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {answeredQuestionnaireQuestions.length} answered
+                </Badge>
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                All questions from the YFF questionnaire that the participant answered
+              </p>
+            </CardHeader>
+            <CardContent>
+              {answeredQuestionnaireQuestions.length > 0 ? (
+                <div className="space-y-6">
+                  {answeredQuestionnaireQuestions.map((item, index) => (
+                    <div key={item.questionKey} className="border rounded-lg p-4 bg-blue-50/30">
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <Badge variant="outline" className="text-xs">
+                              Q{index + 1}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                              Answered
+                            </Badge>
+                            {item.score !== undefined && (
+                              <Badge variant={getScoreBadgeColor(item.score)} className="text-xs">
+                                <Brain className="h-3 w-3 mr-1" />
+                                {item.score}/10
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {item.questionKey}
+                            </Badge>
+                          </div>
+                          <h4 className="font-medium text-gray-900 mb-2">
+                            {item.questionText}
+                          </h4>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-              
-              <TabsContent value="questionnaire" className="h-full mt-4">
-                <ScrollArea className="h-full">
-                  <div className="space-y-6 pr-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Questionnaire Responses</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {renderQuestionnaireAnswers()}
-                      </CardContent>
-                    </Card>
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-              
-              <TabsContent value="evaluation" className="h-full mt-4">
-                <ScrollArea className="h-full">
-                  <div className="space-y-6 pr-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Star className="h-5 w-5" />
-                          AI Evaluation & Feedback
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-center py-8 text-gray-500">
-                          <Star className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                          <p>AI evaluation functionality is being developed.</p>
-                          <p className="text-sm mt-2">
-                            Application ID: {application.application_id}<br/>
-                            Stage: {parsedAnswers.stage}<br/>
-                            Status: {application.evaluation_status}
+                      </div>
+
+                      {/* User's Answer */}
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <User className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-gray-700">Applicant's Answer</span>
+                        </div>
+                        <div className="p-3 rounded border bg-white border-blue-200">
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed text-gray-800">
+                            {item.userAnswer}
                           </p>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+
+                      {/* AI Feedback */}
+                      {(item.strengths || item.improvements || item.rawFeedback) && (
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {/* Strengths */}
+                          {item.strengths && item.strengths.length > 0 && (
+                            <div>
+                              <h5 className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
+                                <CheckCircle className="h-4 w-4" />
+                                Strengths
+                              </h5>
+                              <div className="bg-green-50 p-3 rounded border border-green-200">
+                                <ul className="space-y-1">
+                                  {item.strengths.map((strength: string, i: number) => (
+                                    <li key={i} className="text-sm text-green-800">
+                                      • {strength}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Areas for Improvement */}
+                          {item.improvements && item.improvements.length > 0 && (
+                            <div>
+                              <h5 className="text-sm font-medium text-orange-700 mb-2 flex items-center gap-1">
+                                <AlertCircle className="h-4 w-4" />
+                                Areas for Improvement
+                              </h5>
+                              <div className="bg-orange-50 p-3 rounded border border-orange-200">
+                                <ul className="space-y-1">
+                                  {item.improvements.map((improvement: string, i: number) => (
+                                    <li key={i} className="text-sm text-orange-800">
+                                      • {improvement}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {item.score === undefined && (
+                        <div className="text-center py-2">
+                          <p className="text-sm text-gray-500">AI evaluation pending for this answer</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No questionnaire answers found</p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    No valid questionnaire answers were found in the application data
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Team Registration Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Team Registration Information
+                <Badge variant="outline" className="ml-2 text-xs">
+                  {teamRegistrationDataForDisplay.filter(item => item.hasAnswer).length} of {teamRegistrationDataForDisplay.length} completed
+                </Badge>
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                All team registration fields
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {teamRegistrationDataForDisplay.map((item) => (
+                  <div key={item.questionKey} className={`p-3 rounded border ${item.hasAnswer ? 'bg-green-50/50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-sm font-medium text-gray-700">{item.questionText}:</span>
+                      {item.hasAnswer ? (
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                          Provided
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs text-gray-500">
+                          Not Provided
+                        </Badge>
+                      )}
+                    </div>
+                    <p className={`text-sm break-words ${item.hasAnswer ? 'text-gray-800' : 'text-gray-500 italic'}`}>
+                      {item.userAnswer}
+                    </p>
                   </div>
-                </ScrollArea>
-              </TabsContent>
-            </div>
-          </Tabs>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Team Members */}
+          {((application.yff_team_registrations?.team_members && Array.isArray(application.yff_team_registrations.team_members) && application.yff_team_registrations.team_members.length > 0) ||
+            (Array.isArray(teamAnswers.teamMembers) && teamAnswers.teamMembers.length > 0)) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Team Members ({(application.yff_team_registrations?.team_members?.length || teamAnswers.teamMembers?.length || 0)})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(application.yff_team_registrations?.team_members || teamAnswers.teamMembers || []).map((member: any, index: number) => (
+                    <div key={index} className="border rounded-lg p-4 bg-gray-50/50">
+                      <h4 className="font-semibold text-sm mb-3 text-gray-700">
+                        Team Member {index + 2}
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="font-medium text-muted-foreground">Name:</span>
+                          <span className="ml-2">{member.fullName || member.full_name || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-muted-foreground">Email:</span>
+                          <span className="ml-2 break-words">{member.email || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-muted-foreground">Institution:</span>
+                          <span className="ml-2">{member.institutionName || member.institution_name || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-muted-foreground">Course:</span>
+                          <span className="ml-2">{member.courseProgram || member.course_program || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
-      </DialogContent>
+      </ScrollArea>
+    </DialogContent>
+  );
+
+  // If controlled, render just the dialog content
+  if (controlledOpen !== undefined) {
+    return (
+      <Dialog open={isOpen} onOpenChange={setOpen}>
+        {dialogContent}
+      </Dialog>
+    );
+  }
+
+  // Otherwise render with trigger button
+  return (
+    <Dialog open={isOpen} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <DialogButton />
+      </DialogTrigger>
+      {dialogContent}
     </Dialog>
   );
 };
+
+export default YffApplicationDetailsDialogEnhanced;

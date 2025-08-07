@@ -378,7 +378,6 @@ export type Database = {
       }
       yff_team_registrations: {
         Row: {
-          application_id: string | null
           application_status: string | null
           country_code: string
           course_program: string
@@ -411,7 +410,6 @@ export type Database = {
           website: string | null
         }
         Insert: {
-          application_id?: string | null
           application_status?: string | null
           country_code?: string
           course_program: string
@@ -444,7 +442,6 @@ export type Database = {
           website?: string | null
         }
         Update: {
-          application_id?: string | null
           application_status?: string | null
           country_code?: string
           course_program?: string
@@ -477,13 +474,6 @@ export type Database = {
           website?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "yff_team_registrations_application_id_fkey"
-            columns: ["application_id"]
-            isOneToOne: false
-            referencedRelation: "yff_applications"
-            referencedColumns: ["application_id"]
-          },
           {
             foreignKeyName: "yff_team_registrations_individual_id_fkey"
             columns: ["individual_id"]

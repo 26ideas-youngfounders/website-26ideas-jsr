@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +28,6 @@ import {
   XCircle
 } from 'lucide-react';
 import { YffApplicationWithIndividual } from '@/types/yff-application';
-import { AIFeedbackDisplay } from '@/components/forms/AIFeedbackDisplay';
 import { TeamRegistrationSection } from './TeamRegistrationSection';
 
 interface IndividualDetailsProps {
@@ -322,7 +322,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                       </CardContent>
                     </Card>
 
-                    {/* Team Registration Information Section - NEW COMPONENT */}
+                    {/* Team Registration Information Section */}
                     <TeamRegistrationSection application={application} />
 
                     {/* Quick Summary of Questionnaire */}
@@ -377,10 +377,15 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <AIFeedbackDisplay 
-                          answers={parsedAnswers.questionnaire_answers}
-                          stage={parsedAnswers.stage}
-                        />
+                        <div className="text-center py-8 text-gray-500">
+                          <Star className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>AI evaluation functionality is being developed.</p>
+                          <p className="text-sm mt-2">
+                            Application ID: {application.application_id}<br/>
+                            Stage: {parsedAnswers.stage}<br/>
+                            Status: {application.evaluation_status}
+                          </p>
+                        </div>
                       </CardContent>
                     </Card>
                   </div>

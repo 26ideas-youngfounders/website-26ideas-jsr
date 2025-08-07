@@ -240,6 +240,16 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
     return () => subscription.unsubscribe();
   }, [form]);
 
+  // Ensure productStage aligns with currentStage for validation and saving
+  useEffect(() => {
+    form.setValue(
+      'productStage',
+      currentStage === 'early_revenue'
+        ? 'Early Revenue'
+        : 'Idea Stage / MLP / Working Prototype'
+    );
+  }, [currentStage, form]);
+
   // Auto-save functionality - save directly to the registration record
   useEffect(() => {
     if (!registration?.id) return;

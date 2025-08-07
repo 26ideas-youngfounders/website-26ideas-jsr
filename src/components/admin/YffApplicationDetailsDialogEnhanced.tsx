@@ -373,40 +373,26 @@ const getEvaluationKey = (questionKey: string): string => {
 };
 
 /**
- * Safe extraction of team registration data
+ * ENHANCED: Get team registration data with ultra permissive validation and proper unwrapping
  */
-const extractTeamRegistrationData = (application: ExtendedYffApplication) => {
-  let registration = application.yff_team_registrations;
+const getTeamRegistrationValue = (data: any, key: string): { value: string; hasAnswer: boolean } => {
+  console.log(`🔍 ENHANCED getting team registration value for ${key}:`, data?.[key]);
   
-  // If it's an array, take the first item
-  if (Array.isArray(registration)) {
-    registration = registration[0];
+  if (!data) {
+    return { value: 'No data available', hasAnswer: false };
   }
-  
-  // Unwrap if needed
-  const unwrapped = safeUnwrapValue(registration);
-  
-  console.log('📋 Team registration data extracted:', unwrapped);
-  
-  return unwrapped;
-};
 
-/**
- * Get team registration field value with safe extraction
- */
-const getTeamRegistrationFieldValue = (registration: any, fieldKey: string): string => {
-  if (!registration) {
-    return 'Not provided';
-  }
-  
-  const rawValue = registration[fieldKey];
+  const rawValue = data[key];
   const unwrappedValue = safeUnwrapValue(rawValue);
+  const hasAnswer = isValidAnswer(unwrappedValue);
+  const extractedValue = hasAnswer ? extractValue(unwrappedValue) : 'Not provided';
   
-  if (isValidAnswer(unwrappedValue)) {
-    return extractValue(unwrappedValue);
-  }
+  console.log(`📋 ENHANCED team field ${key}: unwrapped=${JSON.stringify(unwrappedValue)}, hasAnswer=${hasAnswer}, value="${extractedValue}"`);
   
-  return 'Not provided';
+  return {
+    value: extractedValue,
+    hasAnswer
+  };
 };
 
 export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetailsDialogEnhancedProps> = ({
@@ -458,11 +444,6 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     console.log('🔧 Using fallback questionnaire answers:', fallback);
     return fallback;
   }, [application.yff_team_registrations, parsedAnswers.questionnaire_answers, application.application_id]);
-  
-  // Extract team registration data safely
-  const teamRegistrationData = useMemo(() => {
-    return extractTeamRegistrationData(application);
-  }, [application]);
   
   console.log('📝 ENHANCED FINAL questionnaire answers:', questionnaireAnswers);
   console.log('📊 ENHANCED Final evaluation scores:', evaluationData.scores);
@@ -525,6 +506,48 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
   }, [questionnaireAnswers, evaluationData.scores]);
 
   /**
+   * ENHANCED: Process team registration data with ultra permissive validation and proper unwrapping
+   */
+  const teamRegistrationData = useMemo(() => {
+    console.log('🗂️ ENHANCED ULTRA PERMISSIVE team registration processing...');
+    console.log('🔍 Team registration source data:', application.yff_team_registrations);
+    console.log('🔍 Fallback team answers:', teamAnswers);
+    
+    const teamData: Array<{
+      questionKey: string;
+      questionText: string;
+      userAnswer: string;
+      hasAnswer: boolean;
+    }> = [];
+
+    // ENHANCED: Unwrap the team registration data properly
+    const unwrappedTeamReg = safeUnwrapValue(application.yff_team_registrations);
+    console.log('🔍 ENHANCED unwrapped team registration:', unwrappedTeamReg);
+    
+    // Use unwrapped team registration data with fallback to teamAnswers
+    const teamRegData = unwrappedTeamReg || teamAnswers;
+    console.log('🔍 ENHANCED final team data source:', teamRegData);
+
+    Object.entries(TEAM_REGISTRATION_QUESTIONS).forEach(([questionKey, questionText]) => {
+      const { value, hasAnswer } = getTeamRegistrationValue(teamRegData, questionKey);
+      
+      console.log(`📋 ENHANCED team field ${questionKey}: hasAnswer=${hasAnswer}, value="${value}"`);
+      
+      teamData.push({
+        questionKey,
+        questionText,
+        userAnswer: value,
+        hasAnswer
+      });
+    });
+
+    const answeredCount = teamData.filter(item => item.hasAnswer).length;
+    console.log(`✅ ENHANCED team registration: ${answeredCount}/${teamData.length} fields have answers`);
+    
+    return teamData;
+  }, [application.yff_team_registrations, teamAnswers]);
+
+  /**
    * Handle dialog trigger click
    */
   const handleDialogTrigger = () => {
@@ -550,7 +573,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                 Application Details with AI Scoring
               </DialogTitle>
               <DialogDescription id="dialog-description" className="text-sm text-muted-foreground mt-1">
-                {teamRegistrationData?.venture_name || teamAnswers.ventureName || 'Unnamed Venture'} • {teamRegistrationData?.full_name || teamAnswers.fullName || application.individuals?.first_name + ' ' + application.individuals?.last_name || 'Unknown Applicant'}
+                {application.yff_team_registrations?.venture_name || teamAnswers.ventureName || 'Unnamed Venture'} • {application.yff_team_registrations?.full_name || teamAnswers.fullName || application.individuals?.first_name + ' ' + application.individuals?.last_name || 'Unknown Applicant'}
               </DialogDescription>
             </div>
           </div>
@@ -612,66 +635,6 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Team Registration Information Section - RESTORED */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                Team Registration Information
-                <Badge variant="outline" className="ml-2 text-xs">
-                  {teamRegistrationData ? 'Data Available' : 'No Data'}
-                </Badge>
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Basic registration details from the team submission
-              </p>
-            </CardHeader>
-            <CardContent>
-              {teamRegistrationData ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(TEAM_REGISTRATION_QUESTIONS).map(([fieldKey, fieldLabel]) => {
-                    const fieldValue = getTeamRegistrationFieldValue(teamRegistrationData, fieldKey);
-                    const hasValue = fieldValue !== 'Not provided';
-                    
-                    return (
-                      <div key={fieldKey} className={`p-3 rounded border ${hasValue ? 'bg-green-50/50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-sm font-medium text-gray-700">{fieldLabel}:</span>
-                          {hasValue ? (
-                            <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
-                              Provided
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs text-gray-500">
-                              Not Provided
-                            </Badge>
-                          )}
-                        </div>
-                        <p className={`text-sm break-words ${hasValue ? 'text-gray-800' : 'text-gray-500 italic'}`}>
-                          {fieldValue}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <ClipboardList className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No team registration data found</p>
-                  <p className="text-sm text-gray-400 mt-2">
-                    Team registration information is not available for this application
-                  </p>
-                  <details className="mt-4 text-left">
-                    <summary className="text-sm text-gray-500 cursor-pointer">Debug Info</summary>
-                    <pre className="text-xs bg-gray-100 p-2 rounded mt-2 overflow-auto">
-                      {JSON.stringify(application.yff_team_registrations, null, 2)}
-                    </pre>
-                  </details>
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -795,19 +758,58 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
             </CardContent>
           </Card>
 
+          {/* Team Registration Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Team Registration Information
+                <Badge variant="outline" className="ml-2 text-xs">
+                  {teamRegistrationData.filter(item => item.hasAnswer).length} of {teamRegistrationData.length} completed
+                </Badge>
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                All team registration fields
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {teamRegistrationData.map((item) => (
+                  <div key={item.questionKey} className={`p-3 rounded border ${item.hasAnswer ? 'bg-green-50/50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-sm font-medium text-gray-700">{item.questionText}:</span>
+                      {item.hasAnswer ? (
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                          Provided
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs text-gray-500">
+                          Not Provided
+                        </Badge>
+                      )}
+                    </div>
+                    <p className={`text-sm break-words ${item.hasAnswer ? 'text-gray-800' : 'text-gray-500 italic'}`}>
+                      {item.userAnswer}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Team Members */}
-          {((teamRegistrationData?.team_members && Array.isArray(teamRegistrationData.team_members) && teamRegistrationData.team_members.length > 0) ||
+          {((application.yff_team_registrations?.team_members && Array.isArray(application.yff_team_registrations.team_members) && application.yff_team_registrations.team_members.length > 0) ||
             (Array.isArray(teamAnswers.teamMembers) && teamAnswers.teamMembers.length > 0)) && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  Team Members ({(teamRegistrationData?.team_members?.length || teamAnswers.teamMembers?.length || 0)})
+                  Team Members ({(application.yff_team_registrations?.team_members?.length || teamAnswers.teamMembers?.length || 0)})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(teamRegistrationData?.team_members || teamAnswers.teamMembers || []).map((member: any, index: number) => (
+                  {(application.yff_team_registrations?.team_members || teamAnswers.teamMembers || []).map((member: any, index: number) => (
                     <div key={index} className="border rounded-lg p-4 bg-gray-50/50">
                       <h4 className="font-semibold text-sm mb-3 text-gray-700">
                         Team Member {index + 2}

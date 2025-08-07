@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -228,7 +229,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     const statusConfig = {
       submitted: { variant: 'default' as const, icon: Clock, label: 'Submitted' },
       under_review: { variant: 'secondary' as const, icon: AlertCircle, label: 'Under Review' },
-      accepted: { variant: 'default' as const, icon: CheckCircle, label: 'Accepted', className: 'bg-green-100 text-green-800 border-green-200' },
+      accepted: { variant: 'default' as const, icon: CheckCircle, label: 'Accepted' },
       rejected: { variant: 'destructive' as const, icon: XCircle, label: 'Rejected' },
       waitlisted: { variant: 'outline' as const, icon: Clock, label: 'Waitlisted' }
     };
@@ -237,7 +238,10 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     const Icon = config.icon;
     
     return (
-      <Badge variant={config.variant} className={config.className || ''}>
+      <Badge 
+        variant={config.variant} 
+        className={status === 'accepted' ? 'bg-green-100 text-green-800 border-green-200' : ''}
+      >
         <Icon className="h-3 w-3 mr-1" />
         {config.label}
       </Badge>
@@ -248,14 +252,17 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
     const statusConfig = {
       pending: { variant: 'outline' as const, icon: Clock, label: 'Pending' },
       in_progress: { variant: 'secondary' as const, icon: TrendingUp, label: 'In Progress' },
-      completed: { variant: 'default' as const, icon: CheckCircle, label: 'Completed', className: 'bg-blue-100 text-blue-800 border-blue-200' }
+      completed: { variant: 'default' as const, icon: CheckCircle, label: 'Completed' }
     };
     
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     const Icon = config.icon;
     
     return (
-      <Badge variant={config.variant} className={config.className || ''}>
+      <Badge 
+        variant={config.variant} 
+        className={status === 'completed' ? 'bg-blue-100 text-blue-800 border-blue-200' : ''}
+      >
         <Icon className="h-3 w-3 mr-1" />
         {config.label}
       </Badge>
@@ -371,7 +378,6 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                       </CardHeader>
                       <CardContent>
                         <AIFeedbackDisplay 
-                          applicationId={application.application_id}
                           answers={parsedAnswers.questionnaire_answers}
                           stage={parsedAnswers.stage}
                         />

@@ -1,10 +1,11 @@
+
 /**
  * @fileoverview Team Registration Information Display Component
  * 
  * Displays comprehensive team registration details for YFF applications
  * with robust error handling for missing or malformed data.
  * 
- * @version 1.0.0
+ * @version 1.1.0
  * @author 26ideas Development Team
  */
 
@@ -30,37 +31,24 @@ interface TeamRegistrationSectionProps {
 }
 
 /**
- * Get team registration data from multiple possible sources
+ * Get team registration data from the application
  */
 const getTeamRegistrationData = (application: any) => {
-  console.log('🔍 TeamRegistrationSection: Getting team registration data');
-  console.log('🔍 Raw yff_team_registrations:', application.yff_team_registrations);
+  console.log('🔍 DEBUG – YFF_TEAM_REGISTRATIONS:', application.yff_team_registrations);
+  console.log('🔍 YFF_TEAM_REGISTRATIONS TYPE:', typeof application.yff_team_registrations);
   
-  // Try multiple possible data paths
-  const possibleSources = [
-    application.yff_team_registrations,
-    application.team_registration,
-    application.registration_data
-  ];
+  let registration = application.yff_team_registrations;
   
-  for (const source of possibleSources) {
-    if (source) {
-      // Handle array of registrations (from SQL joins)
-      if (Array.isArray(source) && source.length > 0) {
-        console.log('✅ Found array source with', source.length, 'items');
-        return source[0]; // Take the first registration
-      }
-      
-      // Handle direct object
-      if (source && typeof source === 'object') {
-        console.log('✅ Found object source');
-        return source;
-      }
-    }
+  // Handle array case (from SQL joins)
+  if (Array.isArray(registration)) {
+    console.log('🔍 YFF_TEAM_REGISTRATIONS ARRAY LENGTH:', registration.length);
+    registration = registration.length > 0 ? registration[0] : null;
   }
   
-  console.log('❌ No team registration data found');
-  return null;
+  // Log final registration data
+  console.log('🔍 FINAL REGISTRATION DATA:', registration);
+  
+  return registration;
 };
 
 /**

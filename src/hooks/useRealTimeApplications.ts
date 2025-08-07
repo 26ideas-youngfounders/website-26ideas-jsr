@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Real-Time YFF Applications Hook with Enhanced Connection Management
  * 
@@ -72,7 +71,8 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
               last_name,
               email
             ),
-            yff_team_registrations(
+            yff_team_registrations!yff_team_registrations_application_id_fkey(
+              id,
               full_name,
               email,
               phone_number,
@@ -96,6 +96,7 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
               country_code,
               referral_id,
               questionnaire_answers,
+              application_status,
               created_at,
               updated_at
             )

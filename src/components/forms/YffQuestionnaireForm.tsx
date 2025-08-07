@@ -398,75 +398,77 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
             </div>
           )}
 
-          {/* Common Questions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>General Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="ideaDescription"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tell us about your idea *</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        {...field}
-                        placeholder="Describe your business idea in detail..."
-                        className="h-[120px] resize-none"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                    
-                    {/* AI Feedback for ideaDescription */}
-                    <AIFeedbackButton
-                      questionId="ideaDescription"
-                      questionText="Tell us about your idea"
-                      userAnswer={field.value || ''}
-                      stage={currentStage}
-                      onFeedbackReceived={ideaDescriptionFeedback.handleFeedbackReceived}
-                      disabled={isSubmitting}
-                    />
-                    
-                    {ideaDescriptionFeedback.shouldShowFeedback && ideaDescriptionFeedback.feedback && (
-                      <AIFeedbackDisplay
-                        feedback={ideaDescriptionFeedback.feedback}
-                        onDismiss={ideaDescriptionFeedback.handleDismiss}
-                        onRetry={() => handleRetryFeedback('ideaDescription')}
-                      />
-                    )}
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="productStage"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>What stage is your product/service currently at? *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+          {/* Common Questions - hide for Early Revenue to keep only specified list */}
+          {!isEarlyRevenue && (
+            <Card>
+              <CardHeader>
+                <CardTitle>General Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="ideaDescription"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tell us about your idea *</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your current stage" />
-                        </SelectTrigger>
+                        <Textarea 
+                          {...field}
+                          placeholder="Describe your business idea in detail..."
+                          className="h-[120px] resize-none"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Idea Stage / MLP / Working Prototype">
-                          Idea Stage / MLP / Working Prototype
-                        </SelectItem>
-                        <SelectItem value="Early Revenue">
-                          Early Revenue
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
+                      <FormMessage />
+                      
+                      {/* AI Feedback for ideaDescription */}
+                      <AIFeedbackButton
+                        questionId="ideaDescription"
+                        questionText="Tell us about your idea"
+                        userAnswer={field.value || ''}
+                        stage={currentStage}
+                        onFeedbackReceived={ideaDescriptionFeedback.handleFeedbackReceived}
+                        disabled={isSubmitting}
+                      />
+                      
+                      {ideaDescriptionFeedback.shouldShowFeedback && ideaDescriptionFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={ideaDescriptionFeedback.feedback}
+                          onDismiss={ideaDescriptionFeedback.handleDismiss}
+                          onRetry={() => handleRetryFeedback('ideaDescription')}
+                        />
+                      )}
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="productStage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>What stage is your product/service currently at? *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select your current stage" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Idea Stage / MLP / Working Prototype">
+                            Idea Stage / MLP / Working Prototype
+                          </SelectItem>
+                          <SelectItem value="Early Revenue">
+                            Early Revenue
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Conditional Questions with AI Feedback */}
           {productStage && (
@@ -654,7 +656,7 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                   <>
                     <FormField
                       control={form.control}
-                      name="payingCustomers"
+                      name="early_revenue_existing_customers"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>How many paying customers does your idea already have? *</FormLabel>
@@ -663,9 +665,8 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                           </FormControl>
                           <FormMessage />
                           
-                          {/* CRITICAL: AI Feedback for payingCustomers - EARLY REVENUE MISSING */}
                           <AIFeedbackButton
-                            questionId="payingCustomers"
+                            questionId="early_revenue_existing_customers"
                             questionText="How many paying customers does your idea already have?"
                             userAnswer={field.value || ''}
                             stage={currentStage}
@@ -686,19 +687,18 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
 
                     <FormField
                       control={form.control}
-                      name="workingDuration"
+                      name="early_revenue_timeline"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>How long have you been working on this idea? *</FormLabel>
+                          <FormLabel>Since when have you been working on the idea? *</FormLabel>
                           <FormControl>
-                            <Textarea {...field} placeholder="Describe how long you've been working on this idea..." className="h-[120px] resize-none" />
+                            <Textarea {...field} placeholder="e.g., January 2024" className="h-[120px] resize-none" />
                           </FormControl>
                           <FormMessage />
                           
-                          {/* CRITICAL: AI Feedback for workingDuration - EARLY REVENUE MISSING */}
                           <AIFeedbackButton
-                            questionId="workingDuration"
-                            questionText="How long have you been working on this idea?"
+                            questionId="early_revenue_timeline"
+                            questionText="Since when have you been working on the idea?"
                             userAnswer={field.value || ''}
                             stage={currentStage}
                             onFeedbackReceived={workingDurationFeedback.handleFeedbackReceived}
@@ -811,44 +811,46 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="timeline"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {isEarlyRevenue 
-                          ? 'Since when have you been working on the idea? *' 
-                          : 'When do you plan to proceed with the idea? *'
-                        }
-                      </FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder={isEarlyRevenue ? "e.g., January 2024" : "e.g., Next month"} className="h-[120px] resize-none" />
-                      </FormControl>
-                      <FormMessage />
-                      
-                      <AIFeedbackButton
-                        questionId="timeline"
-                        questionText={isEarlyRevenue 
-                          ? "Since when have you been working on the idea?" 
-                          : "When do you plan to proceed with the idea?"
-                        }
-                        userAnswer={field.value || ''}
-                        stage={currentStage}
-                        onFeedbackReceived={timelineFeedback.handleFeedbackReceived}
-                        disabled={isSubmitting}
-                      />
-                      
-                      {timelineFeedback.shouldShowFeedback && timelineFeedback.feedback && (
-                        <AIFeedbackDisplay
-                          feedback={timelineFeedback.feedback}
-                          onDismiss={timelineFeedback.handleDismiss}
-                          onRetry={() => handleRetryFeedback('timeline')}
+                {!isEarlyRevenue && (
+                  <FormField
+                    control={form.control}
+                    name="timeline"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          {isEarlyRevenue 
+                            ? 'Since when have you been working on the idea? *' 
+                            : 'When do you plan to proceed with the idea? *'
+                          }
+                        </FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder={isEarlyRevenue ? "e.g., January 2024" : "e.g., Next month"} className="h-[120px] resize-none" />
+                        </FormControl>
+                        <FormMessage />
+                        
+                        <AIFeedbackButton
+                          questionId="timeline"
+                          questionText={isEarlyRevenue 
+                            ? "Since when have you been working on the idea?" 
+                            : "When do you plan to proceed with the idea?"
+                          }
+                          userAnswer={field.value || ''}
+                          stage={currentStage}
+                          onFeedbackReceived={timelineFeedback.handleFeedbackReceived}
+                          disabled={isSubmitting}
                         />
-                      )}
-                    </FormItem>
-                  )}
-                />
+                        
+                        {timelineFeedback.shouldShowFeedback && timelineFeedback.feedback && (
+                          <AIFeedbackDisplay
+                            feedback={timelineFeedback.feedback}
+                            onDismiss={timelineFeedback.handleDismiss}
+                            onRetry={() => handleRetryFeedback('timeline')}
+                          />
+                        )}
+                      </FormItem>
+                    )}
+                  />
+                )}
               </CardContent>
             </Card>
           )}

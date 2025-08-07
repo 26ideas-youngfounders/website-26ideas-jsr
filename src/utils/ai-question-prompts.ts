@@ -60,12 +60,14 @@ export const normalizeQuestionId = (questionId: string, questionText?: string, s
     "first_paying_customers": "early_revenue_acquiring_customers",
     "paying_customers": "early_revenue_acquiring_customers",
     "payingCustomers": "early_revenue_acquiring_customers",
+    "early_revenue_existing_customers": "early_revenue_acquiring_customers",
     
-    // Working duration (Early Revenue specific)
+    // Working duration / timeline (Early Revenue specific)
     "working_duration": "early_revenue_working_duration",
     "workingDuration": "early_revenue_working_duration",
     "since_when": "early_revenue_working_duration",
     "duration_working": "early_revenue_working_duration",
+    "early_revenue_timeline": "early_revenue_working_duration",
     
     // Team - stage-aware
     "team_roles": stage === "early_revenue" ? "early_revenue_team" : "team_roles",

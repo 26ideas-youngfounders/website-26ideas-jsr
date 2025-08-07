@@ -1,291 +1,302 @@
 
 /**
- * @fileoverview Enhanced Real-time Applications Hook
+ * @fileoverview Real-time YFF Applications Hook with Enhanced Data Fetching
  * 
- * Manages real-time YFF applications data with comprehensive error handling,
- * connection management, and optimized queries using the new foreign key relationship.
+ * Custom React hook for real-time application data with Supabase subscriptions,
+ * including comprehensive individual and team registration data relationships.
  * 
- * @version 3.0.0
+ * @version 2.2.0
  * @author 26ideas Development Team
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { RealtimeSubscriptionManager } from '@/utils/realtime-subscription-manager';
-import type { YffApplicationWithRegistration, EnhancedYffApplication } from '@/types/yff-application';
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import type { 
+  EnhancedYffApplication,
+  parseApplicationAnswers,
+  parseEvaluationData
+} from '@/types/yff-application';
 
-export interface UseRealTimeApplicationsReturn {
+interface UseRealTimeApplicationsReturn {
   applications: EnhancedYffApplication[];
   isLoading: boolean;
   error: Error | null;
   isConnected: boolean;
   retryCount: number;
   lastUpdate: Date | null;
-  refetch: () => Promise<void>;
 }
 
+const QUERY_KEY = ['yff-applications-enhanced'];
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 5000;
+
+/**
+ * Custom hook for real-time YFF application data with enhanced relationships
+ */
 export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
-  const [applications, setApplications] = useState<EnhancedYffApplication[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  
-  const subscriptionManagerRef = useRef<RealtimeSubscriptionManager | null>(null);
-  const isMountedRef = useRef(true);
+  const queryClient = useQueryClient();
 
   /**
-   * Fetch applications with enhanced query using the new foreign key relationship
+   * Fetch enhanced application data with joins
    */
-  const fetchApplications = useCallback(async (): Promise<void> => {
-    try {
-      console.log('🔄 Fetching applications with enhanced relationships...');
-      setIsLoading(true);
-      setError(null);
+  const fetchEnhancedApplications = useCallback(async (): Promise<EnhancedYffApplication[]> => {
+    const { data: applications, error } = await supabase
+      .from('yff_applications')
+      .select(`
+        *,
+        individuals:individual_id (
+          individual_id,
+          first_name,
+          last_name,
+          email,
+          phone_number,
+          country_code,
+          country_iso_code,
+          is_active,
+          privacy_consent,
+          data_processing_consent,
+          typeform_registered,
+          email_verified,
+          created_at,
+          updated_at
+        ),
+        yff_team_registrations:yff_team_registrations!application_id (
+          id,
+          individual_id,
+          application_id,
+          venture_name,
+          team_name,
+          number_of_team_members,
+          team_members,
+          industry_sector,
+          website,
+          full_name,
+          email,
+          phone_number,
+          country_code,
+          linkedin_profile,
+          social_media_handles,
+          date_of_birth,
+          gender,
+          institution_name,
+          course_program,
+          current_year_of_study,
+          expected_graduation,
+          current_city,
+          state,
+          pin_code,
+          permanent_address,
+          referral_id,
+          application_status,
+          questionnaire_answers,
+          questionnaire_completed_at,
+          created_at,
+          updated_at
+        ),
+        yff_evaluations:yff_evaluations!application_id (
+          id,
+          application_id,
+          overall_score,
+          question_scores,
+          evaluation_metadata,
+          idea_summary,
+          evaluation_completed_at,
+          created_at,
+          updated_at
+        )
+      `)
+      .order('created_at', { ascending: false });
 
-      const { data, error: fetchError } = await supabase
-        .from('yff_applications')
-        .select(`
-          *,
-          individuals:individual_id (
-            individual_id,
-            first_name,
-            last_name,
-            email,
-            phone_number,
-            country_code,
-            country_iso_code,
-            is_active,
-            privacy_consent,
-            data_processing_consent,
-            typeform_registered,
-            email_verified,
-            created_at,
-            updated_at
-          ),
-          yff_team_registrations!application_id (
-            id,
-            individual_id,
-            application_id,
-            venture_name,
-            team_name,
-            number_of_team_members,
-            team_members,
-            industry_sector,
-            website,
-            full_name,
-            email,
-            phone_number,
-            country_code,
-            linkedin_profile,
-            social_media_handles,
-            date_of_birth,
-            gender,
-            institution_name,
-            course_program,
-            current_year_of_study,
-            expected_graduation,
-            current_city,
-            state,
-            pin_code,
-            permanent_address,
-            referral_id,
-            application_status,
-            questionnaire_answers,
-            questionnaire_completed_at,
-            created_at,
-            updated_at
-          ),
-          yff_evaluations:application_id (
-            id,
-            application_id,
-            overall_score,
-            question_scores,
-            evaluation_metadata,
-            idea_summary,
-            evaluation_completed_at,
-            created_at,
-            updated_at
-          )
-        `)
-        .order('created_at', { ascending: false });
+    if (error) {
+      throw new Error(`Failed to fetch applications: ${error.message}`);
+    }
 
-      if (fetchError) {
-        throw new Error(`Failed to fetch applications: ${fetchError.message}`);
-      }
+    // Transform the data to match our enhanced type structure
+    const enhancedApplications: EnhancedYffApplication[] = (applications || []).map(app => {
+      // Parse JSON fields safely
+      const parsedAnswers = typeof app.answers === 'string' 
+        ? (() => { try { return JSON.parse(app.answers); } catch { return {}; } })()
+        : (app.answers as Record<string, any>) || {};
 
-      // Transform the data to match our enhanced interface
-      const enhancedApplications: EnhancedYffApplication[] = (data || []).map(app => ({
+      const parsedEvaluationData = typeof app.evaluation_data === 'string'
+        ? (() => { try { return JSON.parse(app.evaluation_data); } catch { return {}; } })()
+        : (app.evaluation_data as Record<string, any>) || {};
+
+      const parsedReviewerScores = typeof app.reviewer_scores === 'string'
+        ? (() => { try { return JSON.parse(app.reviewer_scores); } catch { return {}; } })()
+        : (app.reviewer_scores as Record<string, any>) || {};
+
+      return {
         application_id: app.application_id,
         individual_id: app.individual_id,
         status: app.status,
-        evaluation_status: app.evaluation_status || 'pending',
-        answers: app.answers || {},
+        evaluation_status: app.evaluation_status,
+        answers: parsedAnswers,
         cumulative_score: app.cumulative_score,
         overall_score: app.overall_score,
-        evaluation_data: app.evaluation_data || {},
-        reviewer_scores: app.reviewer_scores || {},
-        application_round: app.application_round || 'current',
+        evaluation_data: parsedEvaluationData,
+        reviewer_scores: parsedReviewerScores,
+        application_round: app.application_round,
         evaluation_completed_at: app.evaluation_completed_at,
         created_at: app.created_at,
         updated_at: app.updated_at,
         submitted_at: app.submitted_at,
-        // Transform related data
+        // Related data
         individual: Array.isArray(app.individuals) ? app.individuals[0] : app.individuals,
         teamRegistration: Array.isArray(app.yff_team_registrations) 
           ? app.yff_team_registrations[0] 
           : app.yff_team_registrations,
         evaluations: Array.isArray(app.yff_evaluations) ? app.yff_evaluations : []
-      }));
+      };
+    });
 
-      if (isMountedRef.current) {
-        setApplications(enhancedApplications);
-        setLastUpdate(new Date());
-        setRetryCount(0);
-        console.log(`✅ Successfully fetched ${enhancedApplications.length} applications`);
-      }
-
-    } catch (err) {
-      console.error('❌ Error fetching applications:', err);
-      if (isMountedRef.current) {
-        setError(err as Error);
-        setRetryCount(prev => prev + 1);
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-      }
-    }
+    return enhancedApplications;
   }, []);
 
-  /**
-   * Handle real-time application changes
-   */
-  const handleApplicationChange = useCallback((payload: RealtimePostgresChangesPayload<any>) => {
-    console.log('📨 Real-time application change:', {
-      eventType: payload.eventType,
-      table: payload.table,
-      applicationId: payload.new?.application_id || payload.old?.application_id
-    });
-
-    if (!isMountedRef.current) return;
-
-    // For now, refetch all data when changes occur
-    // In a production app, you might want to handle individual updates more efficiently
-    fetchApplications();
-    setLastUpdate(new Date());
-  }, [fetchApplications]);
+  // Main query for applications data
+  const { data: applications = [], isLoading, error } = useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: fetchEnhancedApplications,
+    staleTime: 30000, // 30 seconds
+    refetchInterval: 60000, // 1 minute
+    retry: (failureCount, error) => {
+      console.error('Query failed:', error);
+      return failureCount < MAX_RETRIES;
+    },
+  });
 
   /**
-   * Handle real-time team registration changes
+   * Set up real-time subscriptions
    */
-  const handleRegistrationChange = useCallback((payload: RealtimePostgresChangesPayload<any>) => {
-    console.log('📨 Real-time registration change:', {
-      eventType: payload.eventType,
-      table: payload.table,
-      registrationId: payload.new?.id || payload.old?.id
-    });
-
-    if (!isMountedRef.current) return;
-
-    // Refetch when registrations change as they affect applications
-    fetchApplications();
-    setLastUpdate(new Date());
-  }, [fetchApplications]);
-
-  /**
-   * Initialize real-time subscriptions
-   */
-  const setupRealTimeSubscriptions = useCallback(async () => {
-    try {
-      console.log('🔄 Setting up real-time subscriptions...');
-      
-      subscriptionManagerRef.current = new RealtimeSubscriptionManager();
-
-      // Listen to subscription state changes
-      subscriptionManagerRef.current.addListener((state) => {
-        setIsConnected(state.isActive);
-        if (state.lastError) {
-          console.warn('⚠️ Subscription error:', state.lastError);
-        }
-      });
-
-      // Start the subscription manager
-      const started = await subscriptionManagerRef.current.start();
-      if (!started) {
-        throw new Error('Failed to start subscription manager');
-      }
-
-      // Subscribe to applications changes
-      subscriptionManagerRef.current.subscribe(
-        'yff_applications',
-        {
-          table: 'yff_applications',
-          event: '*',
-        },
-        handleApplicationChange
-      );
+  useEffect(() => {
+    const setupRealtimeSubscriptions = () => {
+      // Subscribe to applications table changes
+      const applicationsSubscription = supabase
+        .channel('yff_applications_changes')
+        .on(
+          'postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'yff_applications' 
+          },
+          (payload) => {
+            console.log('Applications change detected:', payload);
+            setLastUpdate(new Date());
+            
+            // Invalidate and refetch the query
+            queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+            
+            // Handle specific change types if needed
+            if (payload.eventType === 'UPDATE' && payload.new?.application_id) {
+              const applicationId = payload.new.application_id;
+              console.log(`Application ${applicationId} updated`);
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('Applications subscription status:', status);
+          setIsConnected(status === 'SUBSCRIBED');
+          
+          if (status === 'SUBSCRIBED') {
+            setRetryCount(0);
+          }
+        });
 
       // Subscribe to team registrations changes
-      subscriptionManagerRef.current.subscribe(
-        'yff_team_registrations',
-        {
-          table: 'yff_team_registrations',
-          event: '*',
-        },
-        handleRegistrationChange
-      );
+      const teamRegistrationsSubscription = supabase
+        .channel('yff_team_registrations_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'yff_team_registrations'
+          },
+          (payload) => {
+            console.log('Team registration change detected:', payload);
+            setLastUpdate(new Date());
+            
+            // Invalidate and refetch when team data changes
+            queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+            
+            if (payload.eventType === 'UPDATE' && payload.new?.id) {
+              const registrationId = payload.new.id;
+              console.log(`Team registration ${registrationId} updated`);
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('Team registrations subscription status:', status);
+        });
 
-      console.log('✅ Real-time subscriptions set up successfully');
+      // Subscribe to evaluations changes
+      const evaluationsSubscription = supabase
+        .channel('yff_evaluations_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'yff_evaluations'
+          },
+          (payload) => {
+            console.log('Evaluation change detected:', payload);
+            setLastUpdate(new Date());
+            
+            // Invalidate and refetch when evaluation data changes
+            queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+            
+            if (payload.eventType === 'INSERT' && payload.new?.id) {
+              const evaluationId = payload.new.id;
+              console.log(`New evaluation ${evaluationId} created`);
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('Evaluations subscription status:', status);
+        });
 
-    } catch (err) {
-      console.error('❌ Error setting up real-time subscriptions:', err);
-      setError(err as Error);
-    }
-  }, [handleApplicationChange, handleRegistrationChange]);
+      return [applicationsSubscription, teamRegistrationsSubscription, evaluationsSubscription];
+    };
+
+    const subscriptions = setupRealtimeSubscriptions();
+    
+    // Cleanup function
+    return () => {
+      subscriptions.forEach(subscription => {
+        supabase.removeChannel(subscription);
+      });
+    };
+  }, [queryClient]);
 
   /**
-   * Cleanup subscriptions
+   * Handle connection retry logic
    */
-  const cleanupSubscriptions = useCallback(() => {
-    if (subscriptionManagerRef.current) {
-      console.log('🧹 Cleaning up real-time subscriptions...');
-      subscriptionManagerRef.current.stop();
-      subscriptionManagerRef.current = null;
-    }
-  }, []);
-
-  // Initial setup
   useEffect(() => {
-    isMountedRef.current = true;
-    
-    const initialize = async () => {
-      await fetchApplications();
-      await setupRealTimeSubscriptions();
-    };
+    if (!isConnected && retryCount < MAX_RETRIES) {
+      const timer = setTimeout(() => {
+        setRetryCount(prev => prev + 1);
+        console.log(`Retrying connection... (${retryCount + 1}/${MAX_RETRIES})`);
+        
+        // Force refetch on retry
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      }, RETRY_DELAY);
 
-    initialize();
-
-    return () => {
-      isMountedRef.current = false;
-      cleanupSubscriptions();
-    };
-  }, [fetchApplications, setupRealTimeSubscriptions, cleanupSubscriptions]);
-
-  // Refetch function for manual refresh
-  const refetch = useCallback(async () => {
-    await fetchApplications();
-  }, [fetchApplications]);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, retryCount, queryClient]);
 
   return {
     applications,
     isLoading,
-    error,
+    error: error as Error | null,
     isConnected,
     retryCount,
     lastUpdate,
-    refetch,
   };
 };

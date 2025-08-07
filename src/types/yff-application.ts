@@ -127,3 +127,77 @@ export interface EnhancedYffApplication {
   teamRegistration?: YffTeamRegistration;
   evaluations?: YffEvaluation[];
 }
+
+// Legacy alias for backward compatibility
+export type ExtendedYffApplication = EnhancedYffApplication;
+
+// Additional types for evaluation and scoring
+export interface EvaluationData {
+  overallScore?: number;
+  questionScores?: Record<string, any>;
+  metadata?: Record<string, any>;
+  summary?: string;
+}
+
+export interface QuestionScoringResult {
+  question: string;
+  score: number;
+  feedback?: string;
+  category?: string;
+}
+
+export interface AIEvaluationResult {
+  overallScore: number;
+  questionScores: QuestionScoringResult[];
+  summary?: string;
+  metadata?: Record<string, any>;
+}
+
+// Utility functions
+export const parseApplicationAnswers = (answers: any): Record<string, any> => {
+  if (typeof answers === 'string') {
+    try {
+      return JSON.parse(answers);
+    } catch {
+      return {};
+    }
+  }
+  return answers || {};
+};
+
+export const parseEvaluationData = (data: any): EvaluationData => {
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch {
+      return {};
+    }
+  }
+  return data || {};
+};
+
+export const getOrderedQuestions = (answers: Record<string, any>): string[] => {
+  return Object.keys(answers).sort();
+};
+
+export const ensureEvaluationDataIsObject = (data: any): Record<string, any> => {
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch {
+      return {};
+    }
+  }
+  return data || {};
+};
+
+export const convertFormDataToJson = (formData: any): Record<string, any> => {
+  if (typeof formData === 'object' && formData !== null) {
+    return formData;
+  }
+  try {
+    return JSON.parse(String(formData));
+  } catch {
+    return {};
+  }
+};

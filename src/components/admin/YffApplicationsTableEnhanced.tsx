@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Enhanced YFF Applications Table Component
  * 
@@ -30,7 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { YffApplicationDetailsDialogEnhanced } from './YffApplicationDetailsDialogEnhanced';
-import { ApplicationScoringDialog } from './ApplicationScoringDialog';
+import ApplicationScoringDialog from './ApplicationScoringDialog';
 import { ApplicationStatusIndicator } from './ApplicationStatusIndicator';
 import { 
   Eye, 
@@ -419,8 +418,8 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
       {selectedApplication && (
         <YffApplicationDetailsDialogEnhanced
           application={selectedApplication}
-          isOpen={!!selectedApplication}
-          onClose={() => setSelectedApplication(null)}
+          open={!!selectedApplication}
+          onOpenChange={(open) => !open && setSelectedApplication(null)}
         />
       )}
 
@@ -428,14 +427,14 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
       {scoringApplication && (
         <ApplicationScoringDialog
           application={{
-            applicationId: scoringApplication.application_id,
-            individualId: scoringApplication.individual_id,
+            application_id: scoringApplication.application_id,
             answers: scoringApplication.answers,
-            currentScore: scoringApplication.overall_score,
-            evaluationData: scoringApplication.evaluation_data,
+            cumulative_score: scoringApplication.overall_score || 0,
+            individuals: {
+              first_name: scoringApplication.individual?.first_name || '',
+              last_name: scoringApplication.individual?.last_name || ''
+            }
           }}
-          isOpen={!!scoringApplication}
-          onClose={() => setScoringApplication(null)}
         />
       )}
     </>

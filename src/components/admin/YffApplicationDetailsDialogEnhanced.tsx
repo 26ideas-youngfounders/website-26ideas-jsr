@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Enhanced YFF Application Details Dialog
  * 
@@ -127,9 +128,9 @@ const extractQuestionnaireAnswers = (application: YffApplicationWithIndividual) 
 
   // Try different possible answer storage patterns
   const possiblePaths = [
-    answers.questionnaire_answers,
-    answers.answers,
-    answers
+    Array.isArray(answers) ? null : (answers as Record<string, any>).questionnaire_answers,
+    Array.isArray(answers) ? null : (answers as Record<string, any>).answers,
+    Array.isArray(answers) ? null : answers
   ];
 
   let questionnaireAnswers = null;
@@ -173,9 +174,9 @@ const extractEvaluationData = (application: YffApplicationWithIndividual) => {
   return {
     overallScore: application.overall_score || 0,
     completedAt: application.evaluation_completed_at,
-    criteria: evaluationData.criteria || {},
-    feedback: evaluationData.feedback || {},
-    recommendations: evaluationData.recommendations || []
+    criteria: (evaluationData as Record<string, any>).criteria || {},
+    feedback: (evaluationData as Record<string, any>).feedback || {},
+    recommendations: (evaluationData as Record<string, any>).recommendations || []
   };
 };
 
@@ -298,7 +299,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                                   <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                                     {typeof qa.answer === 'object' ? 
                                       JSON.stringify(qa.answer, null, 2) : 
-                                      qa.answer
+                                      String(qa.answer)
                                     }
                                   </p>
                                 </div>
@@ -338,7 +339,7 @@ export const YffApplicationDetailsDialogEnhanced: React.FC<YffApplicationDetails
                                   <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                                     {typeof qa.answer === 'object' ? 
                                       JSON.stringify(qa.answer, null, 2) : 
-                                      qa.answer
+                                      String(qa.answer)
                                     }
                                   </p>
                                 </div>

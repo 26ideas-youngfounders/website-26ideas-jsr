@@ -45,7 +45,7 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { YffApplicationEvaluationDialog } from './YffApplicationEvaluationDialog';
-import { YffApplicationDetailsDialogEnhanced } from './YffApplicationDetailsDialogEnhanced';
+import { YffApplicationDetailsDialogButton } from './YffApplicationDetailsDialogButton';
 import { useBackgroundScoring } from '@/hooks/useBackgroundScoring';
 import type { YffApplicationWithIndividual } from '@/types/yff-application';
 import { parseApplicationAnswers, parseEvaluationData } from '@/types/yff-application';
@@ -479,10 +479,7 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                   
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {/* Single View Details button with enhanced dialog */}
-                      <YffApplicationDetailsDialogEnhanced
-                        application={application}
-                      />
+                      <YffApplicationDetailsDialogButton application={application} />
                       
                       {(!application.evaluation_status || application.evaluation_status === 'pending' || application.evaluation_status === 'failed') && (
                         <Button 

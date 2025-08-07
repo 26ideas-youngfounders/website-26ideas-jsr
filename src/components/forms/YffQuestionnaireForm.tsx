@@ -279,6 +279,9 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   };
 
   // Use the form's productStage value to determine current flow, not the prop
+  const selectedStage = form.watch('productStage');
+  const isEarlyRevenue = selectedStage === 'Early Revenue';
+  
   // Determine effective stage for AI feedback based on form selection
   const effectiveStage = isEarlyRevenue ? 'early_revenue' : 'idea';
 

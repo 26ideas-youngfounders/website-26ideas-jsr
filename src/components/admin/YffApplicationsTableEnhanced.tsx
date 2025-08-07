@@ -139,6 +139,7 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
    */
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['yff-applications'] });
+    queryClient.invalidateQueries({ queryKey: ['yff-applications-realtime'] });
     toast({
       title: "Refreshed",
       description: "Application data has been updated.",

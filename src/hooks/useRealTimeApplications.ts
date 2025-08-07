@@ -14,7 +14,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeSubscriptionManager } from '@/utils/realtime-subscription-manager';
-import type { YffApplicationWithIndividual } from '@/types/yff-application';
+import type { YffApplicationWithIndividual, YffTeamRegistrationData } from '@/types/yff-application';
 
 interface UseRealTimeApplicationsReturn {
   applications: YffApplicationWithIndividual[];
@@ -62,8 +62,9 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
     queryFn: async (): Promise<YffApplicationWithIndividual[]> => {
       try {
         console.log('🔄 Fetching YFF applications...');
-        
-        const { data, error } = await supabase
+
+        // 1) Load applications with individual info
+        const { data: appsData, error: appsError } = await supabase
           .from('yff_applications')
           .select(`
             *,
@@ -75,16 +76,61 @@ export const useRealTimeApplications = (): UseRealTimeApplicationsReturn => {
           `)
           .order('created_at', { ascending: false });
 
-        if (error) {
-          console.error('❌ Supabase query error:', error);
-          throw new Error(`Database query failed: ${error.message}`);
+        if (appsError) {
+          console.error('❌ Supabase query error:', appsError);
+          throw new Error(`Database query failed: ${appsError.message}`);
         }
 
-        console.log(`✅ Fetched ${data?.length || 0} applications`);
+        const apps = (appsData as YffApplicationWithIndividual[]) || [];
+        console.log(`✅ Fetched ${apps.length} applications`);
+
+        // 2) Load team registrations for those individuals (client-side join)
+        const individualIds = Array.from(new Set(apps.map(a => a.individual_id).filter(Boolean)));
+        let registrations: YffTeamRegistrationData[] = [];
+
+        if (individualIds.length > 0) {
+          const { data: regsData, error: regsError } = await supabase
+            .from('yff_team_registrations')
+            .select('*')
+            .in('individual_id', individualIds as string[]);
+
+          if (regsError) {
+            console.warn('⚠️ Could not load team registrations:', regsError.message);
+          } else if (regsData) {
+            registrations = regsData as unknown as YffTeamRegistrationData[];
+          }
+        }
+
+        // 3) Build lookup maps: by application_id and by individual_id (latest)
+        const regsByApplicationId = new Map<string, YffTeamRegistrationData>();
+        const regsByIndividualId = new Map<string, YffTeamRegistrationData>();
+
+        registrations.forEach((reg) => {
+          if (reg.application_id) {
+            regsByApplicationId.set(reg.application_id, reg);
+          }
+
+          if (reg.individual_id) {
+            const existing = regsByIndividualId.get(reg.individual_id);
+            const existingTs = existing?.created_at ? new Date(existing.created_at).getTime() : 0;
+            const currentTs = reg.created_at ? new Date(reg.created_at).getTime() : 0;
+            if (!existing || currentTs > existingTs) {
+              regsByIndividualId.set(reg.individual_id, reg);
+            }
+          }
+        });
+
+        // 4) Merge registration onto each application
+        const merged = apps.map((app) => ({
+          ...app,
+          yff_team_registrations:
+            (app.application_id && regsByApplicationId.get(app.application_id)) ||
+            regsByIndividualId.get(app.individual_id) ||
+            null,
+        }));
+
         setLastUpdate(new Date());
-        
-        return (data as YffApplicationWithIndividual[]) || [];
-        
+        return merged as YffApplicationWithIndividual[];
       } catch (error) {
         console.error('❌ Application fetch error:', error);
         throw error;

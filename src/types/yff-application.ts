@@ -40,6 +40,7 @@ export interface YffTeamRegistrationData {
   permanent_address?: string;
   team_name?: string;
   venture_name?: string;
+  application_id?: string;
   number_of_team_members?: number;
   team_members?: any[];
   industry_sector?: string;

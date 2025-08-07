@@ -248,3 +248,4 @@ const ApplicationScoringDialog: React.FC<ApplicationScoringDialogProps> = ({ app
 };
 
 export default ApplicationScoringDialog;
+export { ApplicationScoringDialog };

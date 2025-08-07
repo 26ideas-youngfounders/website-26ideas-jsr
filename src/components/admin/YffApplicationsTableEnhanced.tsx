@@ -42,10 +42,11 @@ import {
   TrendingUp,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Eye
 } from 'lucide-react';
 import { YffApplicationEvaluationDialog } from './YffApplicationEvaluationDialog';
-import { YffApplicationDetailsDialogButton } from './YffApplicationDetailsDialogButton';
+import { YffApplicationDetailsDialogEnhanced } from './YffApplicationDetailsDialogEnhanced';
 import { useBackgroundScoring } from '@/hooks/useBackgroundScoring';
 import type { YffApplicationWithIndividual } from '@/types/yff-application';
 import { parseApplicationAnswers, parseEvaluationData } from '@/types/yff-application';
@@ -116,6 +117,8 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [selectedApplication, setSelectedApplication] = useState<YffApplicationWithIndividual | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { triggerScoring } = useBackgroundScoring();
   const { toast } = useToast();
@@ -175,6 +178,14 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
         variant: "destructive",
       });
     }
+  };
+
+  /**
+   * Handle view details click
+   */
+  const handleViewDetails = (application: YffApplicationWithIndividual) => {
+    setSelectedApplication(application);
+    setDialogOpen(true);
   };
 
   /**
@@ -479,7 +490,14 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
                   
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <YffApplicationDetailsDialogButton application={application} />
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleViewDetails(application)}
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        View Details
+                      </Button>
                       
                       {(!application.evaluation_status || application.evaluation_status === 'pending' || application.evaluation_status === 'failed') && (
                         <Button 
@@ -505,6 +523,13 @@ export const YffApplicationsTableEnhanced: React.FC<YffApplicationsTableEnhanced
           </div>
         )}
       </Card>
+
+      {/* Details Dialog */}
+      <YffApplicationDetailsDialogEnhanced
+        application={selectedApplication}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   );
 };

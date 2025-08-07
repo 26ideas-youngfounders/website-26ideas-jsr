@@ -66,23 +66,19 @@ const questionnaireSchema = z.object({
   timeline: z.string()
     .refine(text => countWords(text) >= 20, 'Please provide a timeline (at least 20 words)')
     .refine(text => countWords(text) <= 300, 'Timeline must not exceed 300 words'),
-  // Additional fields for Early Revenue stage - make them optional
+  // Early Revenue specific field
   payingCustomers: z.string().optional(),
-  workingDuration: z.string().optional(),
 }).refine((data) => {
   // Only validate Early Revenue fields if product stage is Early Revenue
   if (data.productStage === 'Early Revenue') {
     if (!data.payingCustomers || countWords(data.payingCustomers) < 20) {
       return false;
     }
-    if (!data.workingDuration || countWords(data.workingDuration) < 20) {
-      return false;
-    }
   }
   return true;
 }, {
   message: "Early Revenue fields are required when product stage is 'Early Revenue' (minimum 20 words each)",
-  path: ["payingCustomers", "workingDuration"]
+  path: ["payingCustomers"]
 });
 
 type QuestionnaireFormData = z.infer<typeof questionnaireSchema>;
@@ -131,7 +127,6 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
   const teamInfoFeedback = useAIFeedback();
   const timelineFeedback = useAIFeedback();
   const payingCustomersFeedback = useAIFeedback();
-  const workingDurationFeedback = useAIFeedback();
 
   // Validate required props at runtime in development
   useEffect(() => {
@@ -167,7 +162,6 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
       teamInfo: '',
       timeline: '',
       payingCustomers: undefined,
-      workingDuration: undefined,
     },
   });
 
@@ -324,9 +318,6 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
       case 'payingCustomers':
         payingCustomersFeedback.setFeedback(null);
         break;
-      case 'workingDuration':
-        workingDurationFeedback.setFeedback(null);
-        break;
     }
   };
 
@@ -366,77 +357,78 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
             </div>
           )}
 
-          {/* Common Questions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>General Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="ideaDescription"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tell us about your idea *</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        {...field}
-                        placeholder="Describe your business idea in detail..."
-                        className="h-[120px] resize-none"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                    
-                    {/* AI Feedback for ideaDescription */}
-                    <AIFeedbackButton
-                      questionId="ideaDescription"
-                      questionText="Tell us about your idea"
-                      userAnswer={field.value || ''}
-                      stage={currentStage}
-                      onFeedbackReceived={ideaDescriptionFeedback.handleFeedbackReceived}
-                      disabled={isSubmitting}
-                    />
-                    
-                    {ideaDescriptionFeedback.shouldShowFeedback && ideaDescriptionFeedback.feedback && (
-                      <AIFeedbackDisplay
-                        feedback={ideaDescriptionFeedback.feedback}
-                        onDismiss={ideaDescriptionFeedback.handleDismiss}
-                        onRetry={() => handleRetryFeedback('ideaDescription')}
-                      />
-                    )}
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="productStage"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>What stage is your product/service currently at? *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+          {/* For Idea Stage, show the Tell us about your idea question first */}
+          {!isEarlyRevenue && (
+            <Card>
+              <CardHeader>
+                <CardTitle>General Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="ideaDescription"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tell us about your idea *</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your current stage" />
-                        </SelectTrigger>
+                        <Textarea 
+                          {...field}
+                          placeholder="Describe your business idea in detail..."
+                          className="h-[120px] resize-none"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Idea Stage / MLP / Working Prototype">
-                          Idea Stage / MLP / Working Prototype
-                        </SelectItem>
-                        <SelectItem value="Early Revenue">
-                          Early Revenue
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
+                      <FormMessage />
+                      
+                      <AIFeedbackButton
+                        questionId="idea_description"
+                        questionText="Tell us about your idea"
+                        userAnswer={field.value || ''}
+                        stage={currentStage}
+                        onFeedbackReceived={ideaDescriptionFeedback.handleFeedbackReceived}
+                        disabled={isSubmitting}
+                      />
+                      
+                      {ideaDescriptionFeedback.shouldShowFeedback && ideaDescriptionFeedback.feedback && (
+                        <AIFeedbackDisplay
+                          feedback={ideaDescriptionFeedback.feedback}
+                          onDismiss={ideaDescriptionFeedback.handleDismiss}
+                          onRetry={() => handleRetryFeedback('ideaDescription')}
+                        />
+                      )}
+                    </FormItem>
+                  )}
+                />
 
-          {/* Conditional Questions with AI Feedback */}
+                <FormField
+                  control={form.control}
+                  name="productStage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>What stage is your product/service currently at? *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select your current stage" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Idea Stage / MLP / Working Prototype">
+                            Idea Stage / MLP / Working Prototype
+                          </SelectItem>
+                          <SelectItem value="Early Revenue">
+                            Early Revenue
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Stage-Specific Questions */}
           {productStage && (
             <Card>
               <CardHeader>
@@ -445,181 +437,206 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="problemSolved"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>What problem does your idea solve? *</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Describe the problem you're solving..." className="h-[120px] resize-none" />
-                      </FormControl>
-                      <FormMessage />
-                      
-                      <AIFeedbackButton
-                        questionId="problemSolved"
-                        questionText="What problem does your idea solve?"
-                        userAnswer={field.value || ''}
-                        stage={currentStage}
-                        onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
-                        disabled={isSubmitting}
-                      />
-                      
-                      {problemSolvedFeedback.shouldShowFeedback && problemSolvedFeedback.feedback && (
-                        <AIFeedbackDisplay
-                          feedback={problemSolvedFeedback.feedback}
-                          onDismiss={problemSolvedFeedback.handleDismiss}
-                          onRetry={() => handleRetryFeedback('problemSolved')}
-                        />
-                      )}
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="targetAudience"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Whose problem does your idea solve for? *</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Describe your target audience..." className="h-[120px] resize-none" />
-                      </FormControl>
-                      <FormMessage />
-                      
-                      <AIFeedbackButton
-                        questionId="targetAudience"
-                        questionText="Whose problem does your idea solve for?"
-                        userAnswer={field.value || ''}
-                        stage={currentStage}
-                        onFeedbackReceived={targetAudienceFeedback.handleFeedbackReceived}
-                        disabled={isSubmitting}
-                      />
-                      
-                      {targetAudienceFeedback.shouldShowFeedback && targetAudienceFeedback.feedback && (
-                        <AIFeedbackDisplay
-                          feedback={targetAudienceFeedback.feedback}
-                          onDismiss={targetAudienceFeedback.handleDismiss}
-                          onRetry={() => handleRetryFeedback('targetAudience')}
-                        />
-                      )}
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="solutionApproach"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>How does your idea solve this problem? *</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Describe your solution approach..." className="h-[120px] resize-none" />
-                      </FormControl>
-                      <FormMessage />
-                      
-                      <AIFeedbackButton
-                        questionId="solutionApproach"
-                        questionText="How does your idea solve this problem?"
-                        userAnswer={field.value || ''}
-                        stage={currentStage}
-                        onFeedbackReceived={solutionApproachFeedback.handleFeedbackReceived}
-                        disabled={isSubmitting}
-                      />
-                      
-                      {solutionApproachFeedback.shouldShowFeedback && solutionApproachFeedback.feedback && (
-                        <AIFeedbackDisplay
-                          feedback={solutionApproachFeedback.feedback}
-                          onDismiss={solutionApproachFeedback.handleDismiss}
-                          onRetry={() => handleRetryFeedback('solutionApproach')}
-                        />
-                      )}
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="monetizationStrategy"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {isEarlyRevenue 
-                          ? 'How is your idea making money by solving the problem? *' 
-                          : 'How does your idea plan to make money by solving this problem? *'
-                        }
-                      </FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Describe your monetization strategy..." className="h-[120px] resize-none" />
-                      </FormControl>
-                      <FormMessage />
-                      
-                      {/* CRITICAL: AI Feedback for monetizationStrategy - EARLY REVENUE MISSING */}
-                      <AIFeedbackButton
-                        questionId="monetizationStrategy"
-                        questionText={isEarlyRevenue 
-                          ? "How is your idea making money by solving the problem?" 
-                          : "How does your idea plan to make money by solving this problem?"
-                        }
-                        userAnswer={field.value || ''}
-                        stage={currentStage}
-                        onFeedbackReceived={monetizationStrategyFeedback.handleFeedbackReceived}
-                        disabled={isSubmitting}
-                      />
-                      
-                      {monetizationStrategyFeedback.shouldShowFeedback && monetizationStrategyFeedback.feedback && (
-                        <AIFeedbackDisplay
-                          feedback={monetizationStrategyFeedback.feedback}
-                          onDismiss={monetizationStrategyFeedback.handleDismiss}
-                          onRetry={() => handleRetryFeedback('monetizationStrategy')}
-                        />
-                      )}
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="customerAcquisition"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {isEarlyRevenue 
-                          ? 'How are you acquiring first paying customers? *' 
-                          : 'How do you plan to acquire first paying customers? *'
-                        }
-                      </FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Describe your customer acquisition strategy..." className="h-[120px] resize-none" />
-                      </FormControl>
-                      <FormMessage />
-                      
-                      {/* CRITICAL: AI Feedback for customerAcquisition - EARLY REVENUE MISSING */}
-                      <AIFeedbackButton
-                        questionId="customerAcquisition"
-                        questionText={isEarlyRevenue 
-                          ? "How are you acquiring first paying customers?" 
-                          : "How do you plan to acquire first paying customers?"
-                        }
-                        userAnswer={field.value || ''}
-                        stage={currentStage}
-                        onFeedbackReceived={customerAcquisitionFeedback.handleFeedbackReceived}
-                        disabled={isSubmitting}
-                      />
-                      
-                      {customerAcquisitionFeedback.shouldShowFeedback && customerAcquisitionFeedback.feedback && (
-                        <AIFeedbackDisplay
-                          feedback={customerAcquisitionFeedback.feedback}
-                          onDismiss={customerAcquisitionFeedback.handleDismiss}
-                          onRetry={() => handleRetryFeedback('customerAcquisition')}
-                        />
-                      )}
-                    </FormItem>
-                  )}
-                />
-
-                {isEarlyRevenue && (
+                {isEarlyRevenue ? (
+                  // EARLY REVENUE: Show only the 10 specified questions
                   <>
+                    {/* 1. Tell us about your idea - moved here for Early Revenue */}
+                    <FormField
+                      control={form.control}
+                      name="ideaDescription"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tell us about your idea *</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              {...field}
+                              placeholder="Describe your business idea in detail..."
+                              className="h-[120px] resize-none"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="early_revenue_idea"
+                            questionText="Tell us about your idea"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={ideaDescriptionFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {ideaDescriptionFeedback.shouldShowFeedback && ideaDescriptionFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={ideaDescriptionFeedback.feedback}
+                              onDismiss={ideaDescriptionFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('ideaDescription')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* 2. What problem does your idea solve? */}
+                    <FormField
+                      control={form.control}
+                      name="problemSolved"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>What problem does your idea solve? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe the problem you're solving..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="early_revenue_problem"
+                            questionText="What problem does your idea solve?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {problemSolvedFeedback.shouldShowFeedback && problemSolvedFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={problemSolvedFeedback.feedback}
+                              onDismiss={problemSolvedFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('problemSolved')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* 3. Whose problem does your idea solve for? */}
+                    <FormField
+                      control={form.control}
+                      name="targetAudience"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Whose problem does your idea solve for? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your target audience..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="early_revenue_target"
+                            questionText="Whose problem does your idea solve for?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={targetAudienceFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {targetAudienceFeedback.shouldShowFeedback && targetAudienceFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={targetAudienceFeedback.feedback}
+                              onDismiss={targetAudienceFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('targetAudience')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* 4. How does your idea solve this problem? */}
+                    <FormField
+                      control={form.control}
+                      name="solutionApproach"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>How does your idea solve this problem? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your solution approach..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="early_revenue_how_solve"
+                            questionText="How does your idea solve this problem?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={solutionApproachFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {solutionApproachFeedback.shouldShowFeedback && solutionApproachFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={solutionApproachFeedback.feedback}
+                              onDismiss={solutionApproachFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('solutionApproach')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* 5. How is your idea making money by solving the problem? */}
+                    <FormField
+                      control={form.control}
+                      name="monetizationStrategy"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>How is your idea making money by solving the problem? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your monetization strategy..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="early_revenue_monetization"
+                            questionText="How is your idea making money by solving the problem?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={monetizationStrategyFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {monetizationStrategyFeedback.shouldShowFeedback && monetizationStrategyFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={monetizationStrategyFeedback.feedback}
+                              onDismiss={monetizationStrategyFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('monetizationStrategy')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* 6. How are you acquiring first paying customers? */}
+                    <FormField
+                      control={form.control}
+                      name="customerAcquisition"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>How are you acquiring first paying customers? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your customer acquisition strategy..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="early_revenue_customers"
+                            questionText="How are you acquiring first paying customers?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={customerAcquisitionFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {customerAcquisitionFeedback.shouldShowFeedback && customerAcquisitionFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={customerAcquisitionFeedback.feedback}
+                              onDismiss={customerAcquisitionFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('customerAcquisition')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* 7. How many paying customers does your idea already have? */}
                     <FormField
                       control={form.control}
                       name="payingCustomers"
@@ -631,9 +648,8 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                           </FormControl>
                           <FormMessage />
                           
-                          {/* CRITICAL: AI Feedback for payingCustomers - EARLY REVENUE MISSING */}
                           <AIFeedbackButton
-                            questionId="payingCustomers"
+                            questionId="early_revenue_existing_customers"
                             questionText="How many paying customers does your idea already have?"
                             userAnswer={field.value || ''}
                             stage={currentStage}
@@ -652,32 +668,410 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                       )}
                     />
 
+                    {/* 8. List 3 potential competitors... */}
                     <FormField
                       control={form.control}
-                      name="workingDuration"
+                      name="competitors"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>How long have you been working on this idea? *</FormLabel>
+                          <FormLabel>List 3 potential competitors in the similar space or attempting to solve a similar problem? *</FormLabel>
                           <FormControl>
-                            <Textarea {...field} placeholder="Describe how long you've been working on this idea..." className="h-[120px] resize-none" />
+                            <Textarea {...field} placeholder="List your competitors..." className="h-[120px] resize-none" />
                           </FormControl>
                           <FormMessage />
                           
-                          {/* CRITICAL: AI Feedback for workingDuration - EARLY REVENUE MISSING */}
                           <AIFeedbackButton
-                            questionId="workingDuration"
-                            questionText="How long have you been working on this idea?"
+                            questionId="early_revenue_competitors"
+                            questionText="List 3 potential competitors in the similar space or attempting to solve a similar problem?"
                             userAnswer={field.value || ''}
                             stage={currentStage}
-                            onFeedbackReceived={workingDurationFeedback.handleFeedbackReceived}
+                            onFeedbackReceived={competitorsFeedback.handleFeedbackReceived}
                             disabled={isSubmitting}
                           />
                           
-                          {workingDurationFeedback.shouldShowFeedback && workingDurationFeedback.feedback && (
+                          {competitorsFeedback.shouldShowFeedback && competitorsFeedback.feedback && (
                             <AIFeedbackDisplay
-                              feedback={workingDurationFeedback.feedback}
-                              onDismiss={workingDurationFeedback.handleDismiss}
-                              onRetry={() => handleRetryFeedback('workingDuration')}
+                              feedback={competitorsFeedback.feedback}
+                              onDismiss={competitorsFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('competitors')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* 9. How are you developing the product... */}
+                    <FormField
+                      control={form.control}
+                      name="developmentApproach"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your development approach..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="early_revenue_development"
+                            questionText="How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={developmentApproachFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {developmentApproachFeedback.shouldShowFeedback && developmentApproachFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={developmentApproachFeedback.feedback}
+                              onDismiss={developmentApproachFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('developmentApproach')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* 10. Who is on your team, and what are their roles? */}
+                    <FormField
+                      control={form.control}
+                      name="teamInfo"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Who is on your team, and what are their roles? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your team members and their roles..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="early_revenue_team"
+                            questionText="Who is on your team, and what are their roles?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={teamInfoFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {teamInfoFeedback.shouldShowFeedback && teamInfoFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={teamInfoFeedback.feedback}
+                              onDismiss={teamInfoFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('teamInfo')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* 11. Since when have you been working on the idea? */}
+                    <FormField
+                      control={form.control}
+                      name="timeline"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Since when have you been working on the idea? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="e.g., January 2024" className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="early_revenue_timeline"
+                            questionText="Since when have you been working on the idea?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={timelineFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {timelineFeedback.shouldShowFeedback && timelineFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={timelineFeedback.feedback}
+                              onDismiss={timelineFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('timeline')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                ) : (
+                  // IDEA STAGE: Show the original idea stage questions
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="problemSolved"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>What problem does your idea solve? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe the problem you're solving..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="idea_problem"
+                            questionText="What problem does your idea solve?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={problemSolvedFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {problemSolvedFeedback.shouldShowFeedback && problemSolvedFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={problemSolvedFeedback.feedback}
+                              onDismiss={problemSolvedFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('problemSolved')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="targetAudience"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Whose problem does your idea solve for? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your target audience..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="idea_target"
+                            questionText="Whose problem does your idea solve for?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={targetAudienceFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {targetAudienceFeedback.shouldShowFeedback && targetAudienceFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={targetAudienceFeedback.feedback}
+                              onDismiss={targetAudienceFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('targetAudience')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="solutionApproach"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>How does your idea solve this problem? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your solution approach..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="idea_how_solve"
+                            questionText="How does your idea solve this problem?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={solutionApproachFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {solutionApproachFeedback.shouldShowFeedback && solutionApproachFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={solutionApproachFeedback.feedback}
+                              onDismiss={solutionApproachFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('solutionApproach')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="monetizationStrategy"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>How does your idea plan to make money by solving this problem? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your monetization strategy..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="idea_monetization"
+                            questionText="How does your idea plan to make money by solving this problem?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={monetizationStrategyFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {monetizationStrategyFeedback.shouldShowFeedback && monetizationStrategyFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={monetizationStrategyFeedback.feedback}
+                              onDismiss={monetizationStrategyFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('monetizationStrategy')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="customerAcquisition"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>How do you plan to acquire first paying customers? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your customer acquisition strategy..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="idea_customers"
+                            questionText="How do you plan to acquire first paying customers?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={customerAcquisitionFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {customerAcquisitionFeedback.shouldShowFeedback && customerAcquisitionFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={customerAcquisitionFeedback.feedback}
+                              onDismiss={customerAcquisitionFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('customerAcquisition')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="competitors"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>List 3 potential competitors in the similar space or attempting to solve a similar problem? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="List your competitors..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="idea_competitors"
+                            questionText="List 3 potential competitors in the similar space or attempting to solve a similar problem?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={competitorsFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {competitorsFeedback.shouldShowFeedback && competitorsFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={competitorsFeedback.feedback}
+                              onDismiss={competitorsFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('competitors')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="developmentApproach"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your development approach..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="idea_development"
+                            questionText="How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={developmentApproachFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {developmentApproachFeedback.shouldShowFeedback && developmentApproachFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={developmentApproachFeedback.feedback}
+                              onDismiss={developmentApproachFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('developmentApproach')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="teamInfo"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Who is on your team, and what are their roles? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="Describe your team members and their roles..." className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="idea_team"
+                            questionText="Who is on your team, and what are their roles?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={teamInfoFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {teamInfoFeedback.shouldShowFeedback && teamInfoFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={teamInfoFeedback.feedback}
+                              onDismiss={teamInfoFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('teamInfo')}
+                            />
+                          )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="timeline"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>When do you plan to proceed with the idea? *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} placeholder="e.g., Next month" className="h-[120px] resize-none" />
+                          </FormControl>
+                          <FormMessage />
+                          
+                          <AIFeedbackButton
+                            questionId="idea_timeline"
+                            questionText="When do you plan to proceed with the idea?"
+                            userAnswer={field.value || ''}
+                            stage={currentStage}
+                            onFeedbackReceived={timelineFeedback.handleFeedbackReceived}
+                            disabled={isSubmitting}
+                          />
+                          
+                          {timelineFeedback.shouldShowFeedback && timelineFeedback.feedback && (
+                            <AIFeedbackDisplay
+                              feedback={timelineFeedback.feedback}
+                              onDismiss={timelineFeedback.handleDismiss}
+                              onRetry={() => handleRetryFeedback('timeline')}
                             />
                           )}
                         </FormItem>
@@ -685,135 +1079,39 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
                     />
                   </>
                 )}
+              </CardContent>
+            </Card>
+          )}
 
+          {/* Stage Selector - Show when Early Revenue is selected to allow switching back */}
+          {isEarlyRevenue && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Change Stage</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <FormField
                   control={form.control}
-                  name="competitors"
+                  name="productStage"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>List 3 potential competitors in the similar space or attempting to solve a similar problem? *</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="List your competitors..." className="h-[120px] resize-none" />
-                      </FormControl>
+                      <FormLabel>Switch to different stage *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select your current stage" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Idea Stage / MLP / Working Prototype">
+                            Idea Stage / MLP / Working Prototype
+                          </SelectItem>
+                          <SelectItem value="Early Revenue">
+                            Early Revenue
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
-                      
-                      <AIFeedbackButton
-                        questionId="competitors"
-                        questionText="List 3 potential competitors in the similar space or attempting to solve a similar problem?"
-                        userAnswer={field.value || ''}
-                        stage={currentStage}
-                        onFeedbackReceived={competitorsFeedback.handleFeedbackReceived}
-                        disabled={isSubmitting}
-                      />
-                      
-                      {competitorsFeedback.shouldShowFeedback && competitorsFeedback.feedback && (
-                        <AIFeedbackDisplay
-                          feedback={competitorsFeedback.feedback}
-                          onDismiss={competitorsFeedback.handleDismiss}
-                          onRetry={() => handleRetryFeedback('competitors')}
-                        />
-                      )}
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="developmentApproach"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner? *</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Describe your development approach..." className="h-[120px] resize-none" />
-                      </FormControl>
-                      <FormMessage />
-                      
-                      <AIFeedbackButton
-                        questionId="developmentApproach"
-                        questionText="How are you developing the product: in-house, with a technical co-founder, or outsourcing to an agency/partner?"
-                        userAnswer={field.value || ''}
-                        stage={currentStage}
-                        onFeedbackReceived={developmentApproachFeedback.handleFeedbackReceived}
-                        disabled={isSubmitting}
-                      />
-                      
-                      {developmentApproachFeedback.shouldShowFeedback && developmentApproachFeedback.feedback && (
-                        <AIFeedbackDisplay
-                          feedback={developmentApproachFeedback.feedback}
-                          onDismiss={developmentApproachFeedback.handleDismiss}
-                          onRetry={() => handleRetryFeedback('developmentApproach')}
-                        />
-                      )}
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="teamInfo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Who is on your team, and what are their roles? *</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Describe your team members and their roles..." className="h-[120px] resize-none" />
-                      </FormControl>
-                      <FormMessage />
-                      
-                      <AIFeedbackButton
-                        questionId="teamInfo"
-                        questionText="Who is on your team, and what are their roles?"
-                        userAnswer={field.value || ''}
-                        stage={currentStage}
-                        onFeedbackReceived={teamInfoFeedback.handleFeedbackReceived}
-                        disabled={isSubmitting}
-                      />
-                      
-                      {teamInfoFeedback.shouldShowFeedback && teamInfoFeedback.feedback && (
-                        <AIFeedbackDisplay
-                          feedback={teamInfoFeedback.feedback}
-                          onDismiss={teamInfoFeedback.handleDismiss}
-                          onRetry={() => handleRetryFeedback('teamInfo')}
-                        />
-                      )}
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="timeline"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {isEarlyRevenue 
-                          ? 'Since when have you been working on the idea? *' 
-                          : 'When do you plan to proceed with the idea? *'
-                        }
-                      </FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder={isEarlyRevenue ? "e.g., January 2024" : "e.g., Next month"} className="h-[120px] resize-none" />
-                      </FormControl>
-                      <FormMessage />
-                      
-                      <AIFeedbackButton
-                        questionId="timeline"
-                        questionText={isEarlyRevenue 
-                          ? "Since when have you been working on the idea?" 
-                          : "When do you plan to proceed with the idea?"
-                        }
-                        userAnswer={field.value || ''}
-                        stage={currentStage}
-                        onFeedbackReceived={timelineFeedback.handleFeedbackReceived}
-                        disabled={isSubmitting}
-                      />
-                      
-                      {timelineFeedback.shouldShowFeedback && timelineFeedback.feedback && (
-                        <AIFeedbackDisplay
-                          feedback={timelineFeedback.feedback}
-                          onDismiss={timelineFeedback.handleDismiss}
-                          onRetry={() => handleRetryFeedback('timeline')}
-                        />
-                      )}
                     </FormItem>
                   )}
                 />
@@ -821,17 +1119,12 @@ export const YffQuestionnaireForm: React.FC<YffQuestionnaireFormProps> = ({
             </Card>
           )}
 
-          <div className="flex justify-end pt-6">
-            <Button 
-              type="submit" 
-              disabled={isSubmitting || !productStage}
-              className="min-w-32"
-              onClick={() => {
-                console.log('Submit button clicked');
-                console.log('Current form values:', form.getValues());
-                console.log('Current form errors:', form.formState.errors);
-                form.trigger(); // Trigger validation
-              }}
+          {/* Submit Button */}
+          <div className="flex justify-center pt-6">
+            <Button
+              type="submit"
+              disabled={isSubmitting || !form.formState.isValid}
+              className="w-full max-w-md"
             >
               {isSubmitting ? 'Submitting...' : 'Submit Application'}
             </Button>
